@@ -13,7 +13,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Studio } from './content';
+
 import { ConnectionsPage, SettingsPage } from './system-pages';
 import { type WorkspaceData } from './use-workspace';
 import { BRAND_NAME, type Post } from '@/lib/analytics';
@@ -37,7 +37,7 @@ type SourceState = {
 };
 const sections = [
   { name: 'Dashboard', theme: 'Admin Panel', icon: ShieldCheck },
-  { name: 'Content', theme: 'Content Studio', icon: Images },
+
   { name: 'Connections', theme: 'Connections', icon: Plug },
   { name: 'Preferences', theme: 'Settings', icon: Settings },
 ];
@@ -70,16 +70,6 @@ export function AdminPanel({
             onNavigate={onNavigate}
             onManage={setTab}
           />
-        </TabsContent>
-        <TabsContent value="Content">
-          <div className="admin-section-intro">
-            <h2>Manage content</h2>
-            <p>
-              Upload media or open an item to edit, schedule, duplicate or
-              remove it.
-            </p>
-          </div>
-          <Studio data={data} unit={BRAND_NAME} onSelect={onSelect} library />
         </TabsContent>
         <TabsContent value="Connections">
           <ConnectionsPage notify={data.notify} />
@@ -138,30 +128,15 @@ function AdminDashboard({
       });
     return () => controller.abort();
   }, [revision]);
-  const pending = data.posts.filter((post) =>
-    ['Draft', 'Approved', 'Scheduled'].includes(post.status),
-  );
   const stats = [
     {
-      label: 'Content items',
-      value: data.posts.length,
-      icon: Images,
-      theme: 'Content Library',
-      action: () => onManage('Content'),
-    },
-    {
-      label: 'Drafts',
-      value: data.posts.filter((p) => p.status === 'Draft').length,
-      icon: PenLine,
-      theme: 'Content Studio',
-      action: () => onManage('Content'),
-    },
-    {
-      label: 'Scheduled',
-      value: data.posts.filter((p) => p.status === 'Scheduled').length,
-      icon: CalendarDays,
-      theme: 'Calendar',
-      action: () => onNavigate('Calendar'),
+      label: 'Platform connections',
+      value:
+        sources?.connections.filter((c) => c.status === 'Connected').length ??
+        '—',
+      icon: Plug,
+      theme: 'Connections',
+      action: () => onManage('Connections'),
     },
     {
       label: 'Saved reports',
@@ -209,59 +184,26 @@ function AdminDashboard({
       </div>
       <div className="admin-columns">
         <section className="surface admin-section">
-          <div className="section-head">
-            <h2>Content in progress</h2>
-            <button className="text-link" onClick={() => onManage('Content')}>
-              Manage content <ArrowUpRight size={14} />
-            </button>
-          </div>
-          {!data.ready ? (
-            <p className="admin-empty">Loading content…</p>
-          ) : pending.length ? (
-            pending.slice(0, 6).map((post) => (
-              <button
-                className="admin-content-row"
-                key={post.id}
-                onClick={() => onSelect(post)}
-              >
-                <span
-                  className="admin-content-symbol"
-                  data-platform={post.platform}
-                >
-                  <Images size={18} />
-                </span>
-                <span>
-                  <strong>{post.title}</strong>
-                  <small>
-                    {post.platform}
-                    {post.scheduled
-                      ? ' · ' +
-                        new Date(post.scheduled).toLocaleDateString('en', {
-                          day: 'numeric',
-                          month: 'short',
-                        })
-                      : ''}
-                  </small>
-                </span>
-                <span className="status-chip">{post.status}</span>
-                <ArrowUpRight size={14} />
-              </button>
-            ))
-          ) : (
-            <p className="admin-empty">
-              No content is waiting. Add new media in Content.
-            </p>
-          )}
+          <h2>Community monitoring</h2>
+          <p>
+            Follow unanswered conversations, priority enquiries and captured
+            mentions.
+          </p>
           <div className="admin-section-foot">
-            <button className="secondary" onClick={() => onManage('Content')}>
-              <Images size={15} />
-              Open media library
+            <button className="secondary" onClick={() => onNavigate('Inbox')}>
+              Open inbox <ArrowUpRight size={15} />
             </button>
             <button
-              className="text-link"
-              onClick={() => onNavigate('Calendar')}
+              className="secondary"
+              onClick={() => onNavigate('Mentions')}
             >
-              Open calendar <ArrowUpRight size={14} />
+              Mentions <ArrowUpRight size={15} />
+            </button>
+            <button
+              className="secondary"
+              onClick={() => onNavigate('Google Business')}
+            >
+              Guest reviews <ArrowUpRight size={15} />
             </button>
           </div>
         </section>
@@ -271,7 +213,7 @@ function AdminDashboard({
             <button
               className="icon-button"
               disabled={loading}
-                onClick={refresh}
+              onClick={refresh}
               aria-label="Refresh connection status"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
@@ -328,7 +270,7 @@ function AdminDashboard({
           <Settings size={23} />
           <span>
             <strong>Workspace preferences</strong>
-            <small>Review your workspace and planning time zone.</small>
+            <small>Review your workspace and reporting time zone.</small>
           </span>
           <ArrowUpRight size={18} />
         </button>

@@ -15,7 +15,7 @@ export const CONNECTOR_GROUPS = [
       'Create a Google Cloud project. Enable Google Analytics Data API and Admin API, Business Profile Performance API, My Business Account Management API and Business Information API.',
       'Configure the Google Auth consent screen and create a Web application OAuth client. Add your account as a test user while the app is in testing.',
       'Add the callback URL below to Authorized redirect URIs. Copy the client ID and client secret into the secure form.',
-      'Google Business Profile API access may require separate approval and quota. Authorize your Google account, then select the Analytics property and business location.',
+      'Google Business Profile API access may require separate approval and quota. Enable the My Business API for reviews of your verified location. Authorize your Google account, then select the Analytics property and business location.',
     ],
     capability:
       'Daily website users, sessions and page views; Search, Maps and customer actions. Availability depends on enabled APIs and account permissions.',
@@ -44,6 +44,7 @@ export const CONNECTOR_GROUPS = [
       'Link the Ysabel Society professional Instagram account to its Facebook Page. Use a Facebook user with access to both accounts.',
       'Add the callback URL below to Valid OAuth Redirect URIs. Save the App ID, App Secret, Login configuration ID and the supported Graph API version shown in your Meta app.',
       'Request pages_show_list, pages_read_engagement, pages_read_user_content, instagram_basic, instagram_manage_insights and read_insights in the login configuration; include business_management for business-managed Pages. Reactions and comments require pages_read_user_content. Add your Facebook account to the app and grant access to the Page. Business verification or App Review may be required for other accounts. Advertising requires ads_read and separate ad-account access.',
+      'For the Inbox, add the Messenger use case and pages_messaging, instagram_manage_messages and pages_manage_metadata to the login configuration, then authorize again. Customer conversations may require Advanced Access and App Review. Use Inbox → Access & import to check coverage. These permissions are additional to analytics access.',
     ],
     capability:
       'Imports supported daily account insights, published content and its lifetime performance, current follower counts and permitted audience breakdowns. Every report is checked separately. Unavailable metrics are identified after import; access and history limits still apply.',

@@ -27,6 +27,8 @@ import {
   X,
   RefreshCw,
   ShieldCheck,
+  MessageCircle,
+  AtSign,
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -76,12 +78,7 @@ import { Picker } from './controls';
 import Overview from './overview';
 import { useWorkspace } from './use-workspace';
 import { useSourceAnalytics } from './use-analytics';
-import {
-  PostDetail,
-  ContentIntelligence,
-  Studio,
-  ContentCalendar,
-} from './content';
+import { PostDetail, ContentIntelligence } from './content';
 import {
   PerformancePage,
   AudiencePage,
@@ -95,6 +92,7 @@ import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
 import { AdminPanel } from './admin-panel';
 import { useAutoRefresh } from './use-auto-refresh';
 import { SourceReports } from './source-reports';
+import { CommunityPage, GoogleReviews } from './community';
 const groups = [
   {
     label: 'WORKSPACE',
@@ -108,12 +106,10 @@ const groups = [
     ],
   },
   {
-    label: 'CREATE & CURATE',
+    label: 'COMMUNITY',
     items: [
-      ['Content Studio', Grid2X2],
-      ['Media Preview', Smartphone],
-      ['Content Library', Images],
-      ['Calendar', CalendarDays],
+      ['Inbox', MessageCircle],
+      ['Mentions', AtSign],
     ],
   },
   {
@@ -150,7 +146,7 @@ const dateOptions = [
 const headings: Record<string, [string, string]> = {
   'Admin Panel': [
     'Admin panel',
-    'Manage content, connections and preferences for Ysabel Society.',
+    'Manage conversations, connections and preferences for Ysabel Society.',
   ],
   Overview: [
     'A clearer view of Ysabel Society.',
@@ -176,21 +172,13 @@ const headings: Record<string, [string, string]> = {
     'Discovery starts here.',
     'A view of Search, Maps and customer actions.',
   ],
-  'Content Studio': [
-    'Curate the next chapter.',
-    'A shared canvas for ideas, images and evenings to come.',
+  Inbox: [
+    'Every conversation matters.',
+    'Track enquiries, outstanding replies and the people waiting to hear from you.',
   ],
-  'Media Preview': [
-    'See the whole story.',
-    'Preview the rhythm of your profile before publication.',
-  ],
-  'Content Library': [
-    'An archive of possibility.',
-    'Your images, films and creative building blocks.',
-  ],
-  Calendar: [
-    'Give every story its moment.',
-    'Plan the next chapter, one considered post at a time.',
+  Mentions: [
+    'The stories around Ysabel Society.',
+    'Follow captured mentions and story reposts across your community.',
   ],
   Insights: [
     'The story behind the numbers.',
@@ -285,7 +273,7 @@ export default function Workspace({
       try {
         name = decodeURIComponent(location.hash.slice(1)) || name;
       } catch {}
-      if (names.includes(name)) setPage(name);
+      setPage(names.includes(name) ? name : 'Overview');
     };
     read();
     window.addEventListener('popstate', read);
@@ -616,10 +604,10 @@ export default function Workspace({
             {source.mode === 'live' && (
               <div className="source-live-note">
                 Live analytics from{' '}
-                {source.coverage.join(', ') || 'connected sources'}. Content
-                planning is separate. Reports use imported observations;
-                unavailable values remain blank.
-                {source.comparisonLimited && ' Comparison percentages need complete history for both selected periods.'}
+                {source.coverage.join(', ') || 'connected sources'}. Reports use
+                imported observations; unavailable values remain blank.
+                {source.comparisonLimited &&
+                  ' Comparison percentages need complete history for both selected periods.'}
               </div>
             )}
             <div className="view-content" key={page}>
@@ -687,7 +675,13 @@ export default function Workspace({
                 />
               )}
               {page === 'Google Business' && (
-                <GooglePage rows={rows} live={source.mode === 'live'} />
+                <>
+                  <GoogleReviews
+                    range={range}
+                    timezone={data.settings.timezone}
+                  />
+                  <GooglePage rows={rows} live={source.mode === 'live'} />
+                </>
               )}
               {page === 'Google Business' && source.mode === 'live' && (
                 <SourceReports
@@ -703,20 +697,12 @@ export default function Workspace({
                   title="Advertising performance"
                 />
               )}
-              {['Content Studio', 'Media Preview', 'Content Library'].includes(
-                page,
-              ) && (
-                <Studio
-                  key={page}
-                  data={data}
-                  unit={unit}
-                  onSelect={setPost}
-                  previewOnly={page === 'Media Preview'}
-                  library={page === 'Content Library'}
+              {(page === 'Inbox' || page === 'Mentions') && (
+                <CommunityPage
+                  mode={page === 'Inbox' ? 'inbox' : 'mentions'}
+                  range={range}
+                  timezone={data.settings.timezone}
                 />
-              )}
-              {page === 'Calendar' && (
-                <ContentCalendar data={data} unit={unit} onSelect={setPost} />
               )}
               {page === 'Insights' && (
                 <InsightsPage

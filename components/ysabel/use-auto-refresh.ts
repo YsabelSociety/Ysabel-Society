@@ -31,6 +31,20 @@ export function useAutoRefresh(ready: boolean) {
             window.dispatchEvent(new Event('ysabel:sources-updated'));
           if (!result.more) break;
         }
+        for (const source of ['facebook', 'instagram', 'gbp']) {
+          if (
+            controller.signal.aborted ||
+            document.visibilityState !== 'visible'
+          )
+            break;
+          await fetch('/api/community', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'auto', source }),
+            signal: controller.signal,
+          });
+        }
+        window.dispatchEvent(new Event('ysabel:community-updated'));
       } catch {
       } finally {
         running = false;

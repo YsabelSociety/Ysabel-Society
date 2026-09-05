@@ -1,0 +1,1288 @@
+'use client';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  MessageCircle,
+  AtSign,
+  ArrowUpRight,
+  RefreshCw,
+  Users,
+  Star,
+  Upload,
+  Settings2,
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Picker } from './controls';
+import { useMinimalMotion } from './use-motion';
+import {
+  bucketActivity,
+  COMMUNITY_NAMES,
+  inboxModel,
+  inWindow,
+  reviewTopics,
+  type CommunityRecord,
+  type CommunitySource,
+  type CommunityStatus,
+} from '@/lib/community';
+import { number, type Range } from '@/lib/analytics';
+
+async function communityAction(body: unknown) {
+  const r = await fetch('/api/community', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data: any = await r.json();
+  if (!r.ok) throw new Error(data.error || 'Unable to complete this action.');
+  return data;
+}
+function useCommunity(kind: string) {
+  const [data, setData] = useState<{
+    records: CommunityRecord[];
+    statuses: (CommunityStatus & { more?: boolean })[];
+    truncated?: boolean;
+  }>({ records: [], statuses: [] });
+  const [error, setError] = useState(''),
+    [loading, setLoading] = useState(true),
+    [revision, setRevision] = useState(0);
+  const refresh = () => setRevision((v) => v + 1);
+  useEffect(() => {
+    const controller = new AbortController();
+    setLoading(true);
+    void fetch('/api/community?kind=' + kind, { signal: controller.signal })
+      .then(async (r) => {
+        const d: any = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        setData(d);
+      })
+      .catch((e) => {
+        if (!controller.signal.aborted) setError(e.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, [kind, revision]);
+  useEffect(() => {
+    const update = () => refresh();
+    window.addEventListener('ysabel:community-updated', update);
+    return () => window.removeEventListener('ysabel:community-updated', update);
+  }, []);
+  return { ...data, error, setError, loading, refresh };
+}
+function Portrait({ person }: { person: CommunityRecord }) {
+  return person.avatar ? (
+    <img
+      className="community-avatar"
+      src={person.avatar}
+      alt=""
+      referrerPolicy="no-referrer"
+      onError={(e) => {
+        e.currentTarget.style.display = 'none';
+      }}
+    />
+  ) : (
+    <span className="community-avatar community-initial">
+      {(person.name || person.username || '?').slice(0, 1)}
+    </span>
+  );
+}
+function Activity({
+  records,
+  timezone,
+}: {
+  records: CommunityRecord[];
+  timezone: string;
+}) {
+  const [grain, setGrain] = useState('Day'),
+    animate = useMinimalMotion();
+  const data = bucketActivity(records, grain, timezone);
+  return (
+    <section className="surface community-panel">
+      <div className="section-head">
+        <div>
+          <h2>Activity over time</h2>
+          <p>Captured events · {timezone}</p>
+        </div>
+        <Picker
+          label="Activity grouping"
+          value={grain}
+          onChange={setGrain}
+          options={['Day', 'Week', 'Month']}
+        />
+      </div>
+      {data.length ? (
+        <>
+          <div
+            className="community-chart"
+            role="img"
+            aria-label={data.map((d) => d.date + ': ' + d.count).join('; ')}
+          >
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data}>
+                <XAxis
+                  dataKey="date"
+                  tickFormatter={(v) => v.slice(5)}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  allowDecimals={false}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip />
+                <Bar
+                  dataKey="count"
+                  name="Captured events"
+                  fill="#9eafcc"
+                  radius={[6, 6, 0, 0]}
+                  isAnimationActive={animate}
+                  animationDuration={400}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </>
+      ) : (
+        <p className="community-empty">
+          No captured activity for these dates. Missing access is shown below.
+        </p>
+      )}
+    </section>
+  );
+}
+function CountCards({
+  items,
+}: {
+  items: { label: string; value: number | null; detail: string }[];
+}) {
+  return (
+    <div className="community-counts">
+      {items.map((m, i) => (
+        <div className={'metric-card metric-' + i} key={m.label}>
+          <span className="metric-label">{m.label}</span>
+          <strong>{m.value === null ? '—' : number(m.value)}</strong>
+          <p>{m.detail}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+function AccessStatus({
+  statuses,
+  kind,
+  source,
+}: {
+  statuses: (CommunityStatus & { more?: boolean })[];
+  kind: string;
+  source: string;
+}) {
+  const platforms =
+    source === 'all' ? ['facebook', 'instagram', 'tiktok'] : [source];
+  const relevant = platforms.map(
+    (platform) =>
+      statuses.find((s) => s.kind === kind && s.source === platform) || {
+        source: platform,
+        kind,
+        state: 'missing',
+        detail:
+          kind === 'review'
+            ? 'Connect Google Business and import reviews.'
+            : kind === 'mention'
+              ? 'No mention history imported. Automatic story-event collection is not active.'
+              : platform === 'tiktok'
+                ? 'TikTok Display API does not supply messages. Use a reviewed message export.'
+                : 'Messaging access has not been verified. Use Access & import to check the requirements.',
+        syncedAt: undefined,
+      },
+  );
+  return (
+    <div className="community-coverage">
+      {relevant.length ? (
+        relevant.map((s) => (
+          <div key={s.source + ':' + s.kind}>
+            <strong>
+              {COMMUNITY_NAMES[s.source as CommunitySource]} ·{' '}
+              {s.state === 'synced'
+                ? 'Imported'
+                : s.state === 'partial'
+                  ? 'Limited history'
+                  : s.state === 'file'
+                    ? 'File import'
+                    : s.state === 'syncing'
+                      ? 'Importing'
+                      : 'Needs access'}
+            </strong>
+            <p>{s.detail}</p>
+            {s.syncedAt && (
+              <small>
+                Last checked {new Date(s.syncedAt).toLocaleString()}
+              </small>
+            )}
+          </div>
+        ))
+      ) : (
+        <div>
+          <strong>
+            {kind === 'review'
+              ? 'Reviews have not been imported'
+              : kind === 'mention'
+                ? 'Mention history has not been imported'
+                : 'Messaging access has not been checked'}
+          </strong>
+          <p>
+            {kind === 'mention'
+              ? 'Only explicit story mentions or repost records count. Private, expired and untagged stories cannot be reconstructed. Import an available export to add verified history.'
+              : kind === 'review'
+                ? 'Connect the Google account that manages your location, then import its reviews.'
+                : 'Analytics sign-in does not automatically grant inbox access. Use Access & import to see the additional requirements.'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+function ImportAccess({
+  open,
+  onOpenChange,
+  kind,
+  source,
+  onSaved,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  kind: 'message' | 'mention' | 'review';
+  source: CommunitySource;
+  onSaved: () => void;
+}) {
+  const [selected, setSelected] = useState<CommunitySource>(source),
+    [csv, setCsv] = useState(''),
+    [preview, setPreview] = useState<any>(null),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  useEffect(() => {
+    setSelected(source);
+    setPreview(null);
+    setError('');
+  }, [source, open]);
+  const headers =
+    kind === 'message'
+      ? 'id,time,conversation_id,participant_id,direction,name,username,followers,avatar,profile_url,text'
+      : kind === 'mention'
+        ? 'id,time,participant_id,name,username,mention_type,profile_url,text'
+        : 'id,time,name,rating,text,reply,avatar';
+  function template() {
+    const a = document.createElement('a'),
+      url = URL.createObjectURL(
+        new Blob([headers + '\n'], { type: 'text/csv' }),
+      );
+    a.href = url;
+    a.download = 'ysabel-' + kind + '-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+  async function act(op: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await communityAction({ op, source: selected, kind, csv });
+      if (op === 'preview') setPreview(result);
+      else {
+        onSaved();
+        onOpenChange(false);
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="community-dialog">
+        <DialogHeader>
+          <DialogTitle>Access & import</DialogTitle>
+          <DialogDescription>
+            Connect supported data or import records you have reviewed. No
+            messages are sent from this workspace.
+          </DialogDescription>
+        </DialogHeader>
+        <Tabs defaultValue="access">
+          <TabsList className="page-tabs">
+            <TabsTrigger value="access">Platform access</TabsTrigger>
+            <TabsTrigger value="file">Import CSV</TabsTrigger>
+          </TabsList>
+          <TabsContent value="access">
+            <div className="community-help">
+              {kind === 'review' ? (
+                <>
+                  <h3>Google reviews</h3>
+                  <p>
+                    Connect a Google account with access to the verified
+                    Business Profile. The Business Profile reviews API and
+                    business.manage authorization are required. “Import reviews”
+                    collects pages of reviews; continue if more history is
+                    available.
+                  </p>
+                  <a className="secondary" href="/connections?connect=google">
+                    Connect Google Business <ArrowUpRight size={15} />
+                  </a>
+                  <a
+                    href="https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Google review requirements
+                  </a>
+                </>
+              ) : (
+                <>
+                  <h3>Facebook & Instagram messages</h3>
+                  <p>
+                    In the existing Meta app, add <code>pages_messaging</code>{' '}
+                    for Facebook, <code>instagram_manage_messages</code> for
+                    Instagram and <code>pages_manage_metadata</code>. Include
+                    them in Facebook Login for Business, then authorize again.
+                    Your Page role must allow messaging. Advanced Access, App
+                    Review and business verification may be required for
+                    customer conversations.
+                  </p>
+                  <p>
+                    The import checks recent accessible messages. Message
+                    history and request folders have platform limits. Follower
+                    counts and profile photos appear only when Meta supplies
+                    them; you can record a manually verified count from a
+                    conversation.
+                  </p>
+                  <a className="secondary" href="/connections?connect=meta">
+                    Update Meta access <ArrowUpRight size={15} />
+                  </a>
+                  <a
+                    href="https://www.postman.com/meta/messenger-platform-api/folder/22794852-255610cd-47f5-4f4d-b3fa-71aec360be9a"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Meta messaging requirements
+                  </a>
+                  <h3>TikTok</h3>
+                  <p>
+                    The current TikTok Display API connection does not include
+                    direct messages. TikTok Business Messaging is separately
+                    approved. This workspace supports reviewed TikTok message
+                    exports; an automatic TikTok messaging adapter is not
+                    connected.
+                  </p>
+                  <a
+                    href="https://business-api.tiktok.com/portal/docs"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    TikTok Business Messaging access
+                  </a>
+                  <h3>Story mentions & reposts</h3>
+                  <p>
+                    These are separate events. A tagged story mention is not
+                    counted as a repost. Only explicit records supplied by the
+                    platform or your import are counted. A general shared post
+                    does not prove a story repost. Complete story monitoring
+                    requires an approved event receiver; it is not active on
+                    this private site. Untagged, expired and private stories may
+                    remain unavailable.
+                  </p>
+                </>
+              )}
+            </div>
+          </TabsContent>
+          <TabsContent value="file">
+            <div className="community-help">
+              <p>
+                Use the template columns below. A message is one row, including
+                outgoing replies. Re-importing an identical ID updates the
+                record. File records remain separate from API records, so avoid
+                importing overlapping history from both methods.
+              </p>
+              {kind !== 'review' && (
+                <Picker
+                  label="Import platform"
+                  value={COMMUNITY_NAMES[selected]}
+                  options={['Facebook', 'Instagram', 'TikTok']}
+                  onChange={(v) => {
+                    setSelected(
+                      Object.keys(COMMUNITY_NAMES).find(
+                        (k) => COMMUNITY_NAMES[k as CommunitySource] === v,
+                      ) as CommunitySource,
+                    );
+                    setPreview(null);
+                  }}
+                />
+              )}
+              <button className="secondary" onClick={template}>
+                Download CSV template
+              </button>
+              <code className="community-csv-columns">{headers}</code>
+              <p>
+                Use ISO timestamps with a timezone, e.g.
+                2026-09-06T14:00:00+02:00.{' '}
+                {kind === 'message'
+                  ? 'Direction is in or out. Leave followers blank when unknown.'
+                  : kind === 'mention'
+                    ? 'mention_type is story_mention, story_repost or post_mention.'
+                    : 'Rating is 1–5; blank reply means no reply was supplied.'}
+              </p>
+              <label className="secondary file-picker">
+                <Upload size={15} />
+                Choose CSV
+                <input
+                  aria-label="Choose community CSV"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (!f) return;
+                    if (f.size > 1400000) {
+                      setError('Use a CSV under 1.4 MB.');
+                      return;
+                    }
+                    setCsv(await f.text());
+                    setPreview(null);
+                    setError('');
+                  }}
+                />
+              </label>
+              <button
+                className="secondary"
+                disabled={!csv || busy}
+                onClick={() => void act('preview')}
+              >
+                Preview import
+              </button>
+              {preview && (
+                <div className="community-import-preview">
+                  <strong>{preview.count} records ready</strong>
+                  {preview.preview.map((r: CommunityRecord) => (
+                    <p key={r.id}>
+                      {r.time} · {r.name || r.username || r.id} ·{' '}
+                      {r.text.slice(0, 150)}
+                    </p>
+                  ))}
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={() => void act('import')}
+                  >
+                    Import {preview.count} records
+                  </button>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        </Tabs>
+        {error && (
+          <p className="save-error" role="alert">
+            {error}
+          </p>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+function ConversationDetail({
+  conversation,
+  onClose,
+  onSaved,
+}: {
+  conversation: any;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const p = conversation.person,
+    [followers, setFollowers] = useState(
+      p.followers === null || p.followers === undefined
+        ? ''
+        : String(p.followers),
+    ),
+    [username, setUsername] = useState(p.username || ''),
+    [profileUrl, setProfileUrl] = useState(p.profileUrl || ''),
+    [lead, setLead] = useState(!!p.potentialClient),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState('');
+  async function save() {
+    setBusy(true);
+    try {
+      await communityAction({
+        op: 'profile',
+        source: p.source,
+        participantId: p.participantId,
+        followers,
+        username,
+        profileUrl,
+        potentialClient: lead,
+      });
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent className="community-dialog">
+        <DialogHeader>
+          <DialogTitle>{p.name || p.username || 'Conversation'}</DialogTitle>
+          <DialogDescription>
+            {COMMUNITY_NAMES[p.source as CommunitySource]} ·{' '}
+            {conversation.ambiguous
+              ? 'Messages share a timestamp; verify reply order in the platform inbox'
+              : conversation.waiting
+                ? 'Awaiting your reply'
+                : 'Latest captured message was your reply'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="community-thread">
+          {conversation.messages.map((m: CommunityRecord) => (
+            <div
+              className="community-bubble"
+              data-direction={m.direction}
+              key={m.id}
+            >
+              <small>
+                {m.direction === 'out'
+                  ? 'Ysabel Society'
+                  : m.name || m.username || 'Customer'}{' '}
+                · {new Date(m.time).toLocaleString()}
+              </small>
+              <p>{m.text || 'Attachment or unsupported message'}</p>
+            </div>
+          ))}
+        </div>
+        <a
+          className="secondary"
+          href={
+            p.source === 'tiktok'
+              ? 'https://www.tiktok.com/messages'
+              : 'https://business.facebook.com/latest/inbox/all'
+          }
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open platform inbox <ArrowUpRight size={15} />
+        </a>
+        <div className="community-profile-form">
+          <h3>Verified profile details</h3>
+          <p>
+            Enter a follower count only after checking the profile.
+            Potential-client labels are your own notes.
+          </p>
+          <label>
+            Username
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+          </label>
+          <label>
+            Profile link
+            <input
+              type="url"
+              value={profileUrl}
+              onChange={(e) => setProfileUrl(e.target.value)}
+            />
+          </label>
+          <label>
+            Verified follower count
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={followers}
+              onChange={(e) => setFollowers(e.target.value)}
+              placeholder="Unknown"
+            />
+          </label>
+          <label className="community-check">
+            <Checkbox
+              checked={lead}
+              onCheckedChange={(v) => setLead(v === true)}
+            />
+            Potential client
+          </label>
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => void save()}
+          >
+            Save verified details
+          </button>
+          {error && <p role="alert">{error}</p>}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+export function CommunityPage({
+  mode,
+  range,
+  timezone,
+}: {
+  mode: 'inbox' | 'mentions';
+  range: Range;
+  timezone: string;
+}) {
+  const kind = mode === 'inbox' ? 'message' : 'mention',
+    data = useCommunity(kind),
+    [source, setSource] = useState('all'),
+    [tab, setTab] = useState('all'),
+    [search, setSearch] = useState(''),
+    [setup, setSetup] = useState(false),
+    [busy, setBusy] = useState(false),
+    [selected, setSelected] = useState<any>(null);
+  const model = useMemo(
+    () => inboxModel(data.records, range, timezone, source),
+    [data.records, range, timezone, source],
+  );
+  const records = data.records.filter(
+    (r) =>
+      r.kind === 'mention' &&
+      (source === 'all' || r.source === source) &&
+      inWindow(r, range, timezone),
+  );
+  const ready =
+    data.records.some(
+      (r) => r.kind === kind && (source === 'all' || r.source === source),
+    ) ||
+    data.statuses.some(
+      (s) =>
+        s.kind === kind &&
+        ['partial', 'synced', 'file'].includes(s.state) &&
+        (source === 'all' || s.source === source),
+    );
+  async function sync() {
+    setBusy(true);
+    data.setError('');
+    const errors = [];
+    for (const s of source === 'all' ? ['facebook', 'instagram'] : [source]) {
+      try {
+        await communityAction({ op: 'sync', source: s });
+      } catch (e) {
+        errors.push((e as Error).message);
+      }
+    }
+    data.refresh();
+    if (errors.length) data.setError(errors.join(' '));
+    setBusy(false);
+  }
+  const conversations = (
+    tab === 'waiting'
+      ? model.waiting
+      : tab === 'influencers'
+        ? model.waiting.filter((c) => (c.person.followers ?? 0) > 5000)
+        : tab === 'leads'
+          ? model.waiting.filter((c) => c.possibleClient)
+          : model.conversations.filter((c) =>
+              c.messages.some((r) => inWindow(r, range, timezone)),
+            )
+  ).filter((c) =>
+    [c.person.name, c.person.username, c.last.text]
+      .join(' ')
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+  return (
+    <div className="community-view">
+      <div className="community-toolbar">
+        <Picker
+          label="Community platform"
+          value={
+            source === 'all'
+              ? 'All platforms'
+              : COMMUNITY_NAMES[source as CommunitySource]
+          }
+          onChange={(v) =>
+            setSource(
+              v === 'All platforms'
+                ? 'all'
+                : Object.keys(COMMUNITY_NAMES).find(
+                    (k) => COMMUNITY_NAMES[k as CommunitySource] === v,
+                  )!,
+            )
+          }
+          options={['All platforms', 'Facebook', 'Instagram', 'TikTok']}
+        />
+        <button className="secondary" onClick={() => setSetup(true)}>
+          <Settings2 size={16} />
+          Access & import
+        </button>
+        {mode === 'inbox' && (
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => void sync()}
+          >
+            <RefreshCw size={16} className={busy ? 'animate-spin' : ''} />
+            {busy ? 'Checking inboxes…' : 'Sync inboxes'}
+          </button>
+        )}
+      </div>
+      {data.error && (
+        <div className="save-error" role="alert">
+          {data.error}
+        </div>
+      )}
+      {data.truncated && (
+        <p className="source-live-note">
+          The newest 10,000 stored records are shown. Totals cover these records
+          only.
+        </p>
+      )}
+      {mode === 'inbox' ? (
+        <>
+          <CountCards
+            items={[
+              {
+                label: 'Messages received',
+                value: ready ? model.received.length : null,
+                detail: 'Captured incoming messages · selected dates',
+              },
+              {
+                label: 'Unanswered messages',
+                value: ready ? model.unanswered.length : null,
+                detail:
+                  'Incoming messages in these dates with no later captured reply',
+              },
+              {
+                label: 'Conversations awaiting reply',
+                value: ready ? model.waiting.length : null,
+                detail: 'Current backlog · all captured dates',
+              },
+              {
+                label: 'Influencers awaiting reply',
+                value: ready ? model.influencerCount : null,
+                detail: 'Verified or supplied followers strictly above 5,000',
+              },
+            ]}
+          />
+          <Activity records={model.received} timezone={timezone} />
+          <section className="surface community-panel">
+            <div className="section-head">
+              <h2>Conversations</h2>
+              <input
+                className="community-search"
+                aria-label="Search conversations"
+                placeholder="Search name, username or message"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
+              <TabsList className="page-tabs community-tabs">
+                <TabsTrigger value="all">Selected dates</TabsTrigger>
+                <TabsTrigger value="waiting">
+                  Unanswered · all dates
+                </TabsTrigger>
+                <TabsTrigger value="influencers">
+                  Influencers &gt;5K
+                </TabsTrigger>
+                <TabsTrigger value="leads">Potential clients</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <p className="source-asof">
+              “Unanswered” means the latest captured message is incoming.
+              Messages sharing an incoming/outgoing timestamp have uncertain
+              reply order and are excluded from the unanswered count.
+              Read/unread status is different. Potential clients are suggested
+              from enquiry words or your manual flag; they are not confirmed
+              leads.
+            </p>
+            {data.loading ? (
+              <p className="community-empty">Loading captured conversations…</p>
+            ) : conversations.length ? (
+              conversations.slice(0, 200).map((c) => (
+                <article
+                  className="conversation-card"
+                  data-platform={COMMUNITY_NAMES[c.source]}
+                  key={c.id}
+                >
+                  <Portrait person={c.person} />
+                  <div className="conversation-main">
+                    <button
+                      className="conversation-title"
+                      onClick={() => setSelected(c)}
+                    >
+                      {c.person.name ||
+                        c.person.username ||
+                        'Profile unavailable'}
+                    </button>
+                    <span className="muted">
+                      {c.person.username ? '@' + c.person.username + ' · ' : ''}
+                      {COMMUNITY_NAMES[c.source]}
+                      {c.person.followers !== null &&
+                      c.person.followers !== undefined
+                        ? ' · ' + number(c.person.followers) + ' followers'
+                        : ' · Followers unavailable'}
+                    </span>
+                    <p>{c.last.text || 'Attachment or unsupported message'}</p>
+                    <small>
+                      {new Date(c.last.time).toLocaleString()} ·{' '}
+                      {c.ambiguous
+                        ? 'Reply order uncertain'
+                        : c.waiting
+                          ? 'Awaiting reply'
+                          : 'Replied'}
+                      {c.person.origin === 'manual'
+                        ? ' · Manually verified profile'
+                        : ''}
+                    </small>
+                  </div>
+                  <div className="conversation-actions">
+                    {(c.person.followers ?? 0) > 5000 && (
+                      <span className="pill">Influencer &gt;5K</span>
+                    )}
+                    {c.possibleClient && (
+                      <span className="pill">Possible enquiry</span>
+                    )}
+                    {c.person.profileUrl && (
+                      <a
+                        href={c.person.profileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        View profile <ArrowUpRight size={14} />
+                      </a>
+                    )}
+                    <button
+                      className="secondary"
+                      onClick={() => setSelected(c)}
+                    >
+                      View conversation
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <p className="community-empty">
+                No matching conversations have been captured. Check access or
+                import an export to populate this view.
+              </p>
+            )}
+            {conversations.length > 200 && (
+              <p>
+                Showing 200 matching conversations. Narrow your search to see
+                others.
+              </p>
+            )}
+          </section>
+        </>
+      ) : (
+        <>
+          <CountCards
+            items={[
+              {
+                label: 'Story mentions',
+                value: ready
+                  ? records.filter((r) => r.mentionType === 'story_mention')
+                      .length
+                  : null,
+                detail: 'Explicit tags in a user’s story · selected dates',
+              },
+              {
+                label: 'Story reposts',
+                value: ready
+                  ? records.filter((r) => r.mentionType === 'story_repost')
+                      .length
+                  : null,
+                detail: 'Explicit repost records · not inferred from a share',
+              },
+              {
+                label: 'Post mentions',
+                value: ready
+                  ? records.filter((r) => r.mentionType === 'post_mention')
+                      .length
+                  : null,
+                detail: 'Tracked separately from stories',
+              },
+            ]}
+          />
+          <Activity records={records} timezone={timezone} />
+          <section className="surface community-panel">
+            <h2>Mention history</h2>
+            <p className="source-asof">
+              These are captured records, not every story posted about the
+              business. Automatic story-event collection is not active; use
+              Access & import for coverage and reviewed exports.
+            </p>
+            {records.length ? (
+              records.slice(0, 300).map((r) => (
+                <article
+                  className="conversation-card"
+                  key={r.source + ':' + r.accountId + ':' + r.id}
+                >
+                  <Portrait person={r} />
+                  <div className="conversation-main">
+                    <strong>
+                      {r.username
+                        ? '@' + r.username
+                        : r.name || 'Profile unavailable'}
+                    </strong>
+                    <small>
+                      {COMMUNITY_NAMES[r.source]} ·{' '}
+                      {new Date(r.time).toLocaleString()} ·{' '}
+                      {r.mentionType?.replaceAll('_', ' ')}
+                    </small>
+                    <p>{r.text}</p>
+                  </div>
+                  {r.profileUrl && (
+                    <a href={r.profileUrl} target="_blank" rel="noreferrer">
+                      Open source <ArrowUpRight size={14} />
+                    </a>
+                  )}
+                </article>
+              ))
+            ) : (
+              <p className="community-empty">
+                No mention records imported for these dates.
+              </p>
+            )}
+            {records.length > 300 && (
+              <p>
+                Showing the newest 300 matching mentions. Select a shorter date
+                range to see others.
+              </p>
+            )}
+          </section>
+        </>
+      )}
+      <AccessStatus statuses={data.statuses} kind={kind} source={source} />
+      <ImportAccess
+        open={setup}
+        onOpenChange={setSetup}
+        kind={kind}
+        source={source === 'all' ? 'instagram' : (source as CommunitySource)}
+        onSaved={data.refresh}
+      />
+      {selected && (
+        <ConversationDetail
+          key={selected.id}
+          conversation={selected}
+          onClose={() => setSelected(null)}
+          onSaved={data.refresh}
+        />
+      )}
+    </div>
+  );
+}
+export function GoogleReviews({
+  range,
+  timezone,
+}: {
+  range: Range;
+  timezone: string;
+}) {
+  const data = useCommunity('review'),
+    [period, setPeriod] = useState('All reviews'),
+    [category, setCategory] = useState('All topics'),
+    [stars, setStars] = useState('All ratings'),
+    [search, setSearch] = useState(''),
+    [setup, setSetup] = useState(false),
+    [busy, setBusy] = useState(false),
+    [page, setPage] = useState(1);
+  const all = data.records.filter((r) => r.kind === 'review'),
+    status = data.statuses.find(
+      (s) => s.source === 'gbp' && s.kind === 'review',
+    );
+  const dated = all.filter(
+    (r) => period === 'All reviews' || inWindow(r, range, timezone),
+  );
+  const reviews = dated
+    .map((r) => ({ ...r, ...reviewTopics(r) }))
+    .filter(
+      (r) =>
+        (category === 'All topics' || r.categories.includes(category)) &&
+        (stars === 'All ratings' ||
+          (stars === 'Unanswered reviews'
+            ? !r.reply
+            : r.rating === Number(stars[0]))) &&
+        [r.name, r.text].join(' ').toLowerCase().includes(search.toLowerCase()),
+    );
+  const issues = new Map<string, { count: number; examples: string[] }>();
+  for (const r of dated)
+    for (const c of reviewTopics(r).criticisms) {
+      const item = issues.get(c.topic) || { count: 0, examples: [] };
+      item.count++;
+      if (item.examples.length < 3) item.examples.push(c.excerpt);
+      issues.set(c.topic, item);
+    }
+  const ranked = [...issues].sort((a, b) => b[1].count - a[1].count),
+    ready = all.length > 0 || status?.state === 'synced';
+  async function sync() {
+    setBusy(true);
+    data.setError('');
+    try {
+      await communityAction({
+        op: 'sync',
+        source: 'gbp',
+        continue: status?.more === true,
+      });
+      data.refresh();
+    } catch (e) {
+      data.setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  useEffect(() => setPage(1), [period, category, stars, search]);
+  return (
+    <section className="community-view google-reviews">
+      <div className="section-head">
+        <div>
+          <h2>Guest reviews</h2>
+          <p>
+            All captured Google reviews and their original feedback. Removed
+            reviews may remain in captured history.
+          </p>
+        </div>
+        <div className="community-toolbar">
+          <button className="secondary" onClick={() => setSetup(true)}>
+            Access & import
+          </button>
+          <button
+            className="primary"
+            disabled={busy}
+            onClick={() => void sync()}
+          >
+            <RefreshCw size={16} />
+            {busy
+              ? 'Importing reviews…'
+              : status?.more
+                ? 'Continue review import'
+                : 'Import reviews'}
+          </button>
+        </div>
+      </div>
+      {data.error && (
+        <div className="save-error" role="alert">
+          {data.error}
+        </div>
+      )}
+      <CountCards
+        items={[
+          {
+            label: 'Imported reviews',
+            value: ready ? dated.length : null,
+            detail:
+              period === 'All reviews'
+                ? 'All imported dates'
+                : 'Selected date range',
+          },
+          {
+            label: 'Food-related reviews',
+            value: ready
+              ? dated.filter((r) => reviewTopics(r).categories.includes('Food'))
+                  .length
+              : null,
+            detail: 'Positive and critical feedback about food',
+          },
+          {
+            label: 'Reviews without a reply',
+            value: ready ? dated.filter((r) => !r.reply).length : null,
+            detail: 'No owner reply supplied by Google or the import',
+          },
+        ]}
+      />
+      <div className="surface community-panel">
+        <h3>What guests criticize most</h3>
+        <p className="source-asof">
+          Suggested from explicit negative wording in review sentences. Reviews
+          may mention several topics. This is a keyword-based aid, not a
+          complete sentiment assessment; open the original text to verify. A low
+          rating alone does not prove a food complaint.
+        </p>
+        {ranked.length ? (
+          <div className="review-issues">
+            {ranked.map(([topic, v]) => (
+              <button key={topic} onClick={() => setCategory(topic)}>
+                <span>
+                  {topic}
+                  <b>{v.count} reviews</b>
+                </span>
+                <div className="review-issue-bar">
+                  <i
+                    style={{
+                      width: (v.count / ranked[0][1].count) * 100 + '%',
+                    }}
+                  />
+                </div>
+                <p>“{v.examples[0]}”</p>
+              </button>
+            ))}
+          </div>
+        ) : (
+          <p className="community-empty">
+            {ready
+              ? 'No explicit criticism matched the supported wording. Read the review text for other feedback.'
+              : 'Import reviews to identify recurring criticism.'}
+          </p>
+        )}
+      </div>
+      <div className="community-toolbar">
+        <Picker
+          label="Review date scope"
+          value={period}
+          onChange={setPeriod}
+          options={['All reviews', 'Selected dates']}
+        />
+        <Picker
+          label="Review topic"
+          value={category}
+          onChange={setCategory}
+          options={[
+            'All topics',
+            'Food',
+            'Service',
+            'Waiting time',
+            'Price & value',
+            'Atmosphere',
+            'Cleanliness',
+            'Other',
+          ]}
+        />
+        <Picker
+          label="Review rating"
+          value={stars}
+          onChange={setStars}
+          options={[
+            'All ratings',
+            '1 star',
+            '2 stars',
+            '3 stars',
+            '4 stars',
+            '5 stars',
+            'Unanswered reviews',
+          ]}
+        />
+        <input
+          className="community-search"
+          aria-label="Search reviews"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search review text or reviewer"
+        />
+      </div>
+      <div className="review-list">
+        {data.loading ? (
+          <p className="community-empty">Loading reviews…</p>
+        ) : reviews.length ? (
+          reviews.slice((page - 1) * 30, page * 30).map((r) => (
+            <article
+              className="surface review-card"
+              key={r.accountId + ':' + r.id}
+            >
+              <div className="review-author">
+                <Portrait person={r} />
+                <div>
+                  <strong>{r.name || 'Anonymous reviewer'}</strong>
+                  <small>
+                    {new Date(r.time).toLocaleDateString()} ·{' '}
+                    {r.origin === 'api' ? 'Google' : 'Imported file'}
+                  </small>
+                </div>
+                <span
+                  className="review-stars"
+                  aria-label={r.rating + ' out of 5 stars'}
+                >
+                  {'★'.repeat(r.rating || 0)}
+                  {'☆'.repeat(5 - (r.rating || 0))}
+                </span>
+              </div>
+              <p className="review-text">
+                {r.text || 'Rating without written feedback.'}
+              </p>
+              <div className="review-tags">
+                {r.categories.map((c) => (
+                  <button
+                    className="pill"
+                    key={c}
+                    onClick={() => setCategory(c)}
+                  >
+                    {c}
+                  </button>
+                ))}
+              </div>
+              {r.criticisms.map((c) => (
+                <div className="review-criticism" key={c.topic}>
+                  <strong>{c.topic} · possible criticism</strong>
+                  <p>“{c.excerpt}”</p>
+                </div>
+              ))}
+              {r.reply ? (
+                <div className="review-reply">
+                  <strong>Ysabel Society’s reply</strong>
+                  <p>{r.reply}</p>
+                </div>
+              ) : (
+                <span className="pill">No reply supplied</span>
+              )}
+            </article>
+          ))
+        ) : (
+          <p className="community-empty">
+            No reviews match these filters. Connect Google Business or import a
+            reviewed export.
+          </p>
+        )}
+      </div>
+      {reviews.length > 30 && (
+        <div className="community-toolbar">
+          <button
+            className="secondary"
+            disabled={page === 1}
+            onClick={() => setPage((v) => v - 1)}
+          >
+            Previous
+          </button>
+          <span>
+            Page {page} of {Math.ceil(reviews.length / 30)}
+          </span>
+          <button
+            className="secondary"
+            disabled={page * 30 >= reviews.length}
+            onClick={() => setPage((v) => v + 1)}
+          >
+            Next
+          </button>
+        </div>
+      )}
+      {data.truncated && <p>The newest 10,000 stored reviews are shown.</p>}
+      <AccessStatus statuses={data.statuses} kind="review" source="gbp" />
+      <ImportAccess
+        open={setup}
+        onOpenChange={setSetup}
+        kind="review"
+        source="gbp"
+        onSaved={data.refresh}
+      />
+    </section>
+  );
+}

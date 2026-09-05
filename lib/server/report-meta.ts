@@ -36,7 +36,7 @@ export async function graphGet(context: ReportingContext, path: string) {
     { headers: { Authorization: 'Bearer ' + context.accessToken } },
   );
 }
-async function graphBatch(context: ReportingContext, paths: string[]) {
+export async function graphBatch(context: ReportingContext, paths: string[]) {
   const results: { body?: any; error?: string }[] = [];
   for (let i = 0; i < paths.length; i += 40) {
     const chunk = paths.slice(i, i + 40);

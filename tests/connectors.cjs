@@ -9,6 +9,7 @@ const sql = new DatabaseSync(':memory:');
 for (const name of [
   '0000_organic_tiger_shark.sql',
   '0001_connection_assistant.sql',
+  '0002_reporting_sources.sql',
 ])
   sql.exec(fs.readFileSync(path.join(root, 'drizzle', name), 'utf8'));
 const db = {
@@ -57,7 +58,20 @@ function load(file) {
       ? path.join(root, id.slice(2))
       : path.resolve(path.dirname(file), id);
     if (resolved === path.join(root, 'lib/server/db'))
-      return { database: () => db, secrets: () => env };
+      return {
+        database: () => db,
+        secrets: () => env,
+        requireText: (v) => {
+          if (typeof v !== 'string' || !v.trim())
+            throw new Error('INPUT:Text required');
+          return v.trim();
+        },
+        requireDate: (v) => {
+          if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v))
+            throw new Error('INPUT:Date required');
+          return v;
+        },
+      };
     if (id.startsWith('.') || id.startsWith('@/'))
       return load(resolved + '.ts');
     return require(id);
@@ -195,7 +209,7 @@ async function main() {
     sync.linkResource(second, 'meta', 'facebook', 'page-one'),
   );
 
-  // Social snapshots never fabricate daily history.
+  // Current follower observations never fabricate daily view history.
   await vault.writeVault(owner, 'app', 'tiktok', app);
   await vault.writeVault(
     owner,
@@ -215,11 +229,11 @@ async function main() {
     error: { code: 'ok' },
   });
   const social = await sync.linkResource(owner, 'tiktok', 'tiktok', 'tt-one');
-  assert.equal(social.records, 0);
+  assert.equal(social.records, 1);
   assert.equal(social.snapshot.followers, 234);
   assert.equal(
     sql.prepare('SELECT COUNT(*) AS n FROM account_metrics_daily').get().n,
-    0,
+    1,
   );
   responder = () => ({
     data: { user: { open_id: 'different-account' } },
@@ -256,7 +270,9 @@ async function main() {
   await sync.linkResource(owner, 'google', 'ga4', '1234');
   await sync.syncLinkedSource(owner, 'ga4');
   const daily = sql
-    .prepare('SELECT normalized FROM account_metrics_daily')
+    .prepare(
+      "SELECT normalized FROM account_metrics_daily WHERE account_id LIKE '%:ga4:%'",
+    )
     .all()
     .map((r) => JSON.parse(r.normalized));
   assert.equal(daily.length, 1);
@@ -285,7 +301,10 @@ async function main() {
   // An in-flight refresh cannot undo disconnect, and concurrent runs are skipped.
   let release, entered;
   const started = new Promise((r) => (entered = r));
+  let blockedOnce = false;
   responder = async () => {
+    if (blockedOnce) return { rows: [] };
+    blockedOnce = true;
     entered();
     await new Promise((r) => (release = r));
     return { rows: [] };
@@ -317,7 +336,7 @@ async function main() {
   );
   assert.equal(
     sql.prepare('SELECT COUNT(*) AS n FROM account_metrics_daily').get().n,
-    1,
+    2,
   );
 
   // Expiring grants refresh without losing the discovered account selection.

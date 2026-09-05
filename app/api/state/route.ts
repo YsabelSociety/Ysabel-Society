@@ -207,6 +207,12 @@ export async function POST(req: Request) {
       return json({ annotation: note });
     }
     if (op === 'saveReport') {
+      const hasSource = await db
+        .prepare(
+          'SELECT id FROM platform_accounts WHERE owner=? AND enabled=1 LIMIT 1',
+        )
+        .bind(owner)
+        .first();
       const r = {
         id: crypto.randomUUID(),
         title: requireText(body.title, 160),
@@ -214,7 +220,7 @@ export async function POST(req: Request) {
         end: requireDate(body.end),
         unit: BRAND_NAME,
         createdAt: now,
-        mode: 'Demo Data',
+        mode: hasSource ? 'live' : 'Demo Data',
       };
       if (r.start > r.end)
         throw new Error('INPUT:Start date must be before end date.');

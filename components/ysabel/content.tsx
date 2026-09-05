@@ -66,9 +66,11 @@ import {
   number,
   engagement,
   scorePost,
+  postAvailable,
   iso,
 } from '@/lib/analytics';
 import { type WorkspaceData } from './use-workspace';
+import { ImportedPostDetail } from './imported-post-detail';
 export function Media({
   post,
   controls = false,
@@ -76,6 +78,13 @@ export function Media({
   post: Post;
   controls?: boolean;
 }) {
+  if (!post.image)
+    return (
+      <div className="media-unavailable">
+        <Play size={24} />
+        <span>Media preview unavailable</span>
+      </div>
+    );
   return post.mediaType === 'video' ? (
     <video
       src={post.image}
@@ -125,13 +134,20 @@ export function MediaCards({
               {p.platform} <span>· {p.format}</span>
             </span>
             <span className="media-score">
-              {scorePost(p).score} <ArrowUpRight size={12} />
+              {postAvailable(p, 'performanceScore') ? scorePost(p).score : '—'}{' '}
+              <ArrowUpRight size={12} />
             </span>
             <div className="media-hover">
-              <span>{compact(p.saves)} saves</span>
-              <span>{compact(p.shares)} shares</span>
               <span>
-                {p.reach ? ((engagement(p) / p.reach) * 100).toFixed(1) : '0'}%
+                {postAvailable(p, 'saves') ? compact(p.saves) : '—'} saves
+              </span>
+              <span>
+                {postAvailable(p, 'shares') ? compact(p.shares) : '—'} shares
+              </span>
+              <span>
+                {postAvailable(p, 'engagementRate') && p.reach
+                  ? ((engagement(p) / p.reach) * 100).toFixed(1) + '%'
+                  : '—'}
                 engagement
               </span>
             </div>
@@ -142,9 +158,13 @@ export function MediaCards({
           </p>
           <div className="media-metrics">
             <strong>
-              {compact(p.views)} <small>views</small>
+              {postAvailable(p, 'views') ? compact(p.views) : '—'}{' '}
+              <small>views</small>
             </strong>
-            <span>{compact(engagement(p))} engagements</span>
+            <span>
+              {postAvailable(p, 'engagements') ? compact(engagement(p)) : '—'}{' '}
+              {p.origin ? 'reported interactions' : 'engagements'}
+            </span>
           </div>
         </button>
       ))}
@@ -171,6 +191,22 @@ const tableFields: {
   { key: 'performanceScore', label: 'Score' },
 ];
 function field(p: Post, key: string) {
+  if (
+    [
+      'views',
+      'reach',
+      'likes',
+      'comments',
+      'saves',
+      'shares',
+      'followers',
+      'visits',
+      'engagementRate',
+      'performanceScore',
+    ].includes(key) &&
+    !postAvailable(p, key)
+  )
+    return '—';
   if (key === 'engagementRate')
     return p.reach ? (engagement(p) / p.reach) * 100 : 0;
   if (key === 'performanceScore') return scorePost(p).score;
@@ -237,6 +273,13 @@ export function ContentIntelligence({
   );
   return (
     <div className="view-enter">
+      {data.posts.some((p) => p.origin) && (
+        <p className="source-live-note">
+          Imported content · dates filter publication dates. Post metrics are
+          lifetime totals observed at refresh, not activity restricted to the
+          selected period. Missing fields remain unavailable.
+        </p>
+      )}
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
         <TabsList className="page-tabs">
           {['Content', 'Formats & timing', 'Creative patterns'].map((t) => (
@@ -374,7 +417,22 @@ export function ContentIntelligence({
                               <small>{p.unit}</small>
                             </span>
                           </button>
-                        ) : f.key === 'visits' ? (
+                        ) : p.origin &&
+                          [
+                            'views',
+                            'reach',
+                            'likes',
+                            'comments',
+                            'saves',
+                            'shares',
+                            'followers',
+                            'visits',
+                            'engagementRate',
+                            'performanceScore',
+                          ].includes(f.key) &&
+                          !postAvailable(p, f.key) ? (
+                          <span className="muted">—</span>
+                        ) : f.key === 'visits' && !p.origin ? (
                           <span className="muted">Unavailable</span>
                         ) : f.key === 'engagementRate' ? (
                           Number(field(p, f.key)).toFixed(1) + '%'
@@ -459,16 +517,20 @@ function Heatmap({ posts }: { posts: Post[] }) {
   const cells = Array.from({ length: 7 }, (_, day) =>
     Array.from({ length: 24 }, (_, hour) => {
       const ps = posts.filter((p) => {
+        if (p.origin && (!p.publishedAt || !p.publishedAt.includes('T')))
+          return false;
         const d = new Date(
-          p.date +
-            'T' +
-            (p.scheduled
-              ? p.scheduled.slice(11, 16)
-              : String(17 + (Number(p.id.replace(/\D/g, '')) % 5)).padStart(
-                  2,
-                  '0',
-                ) + ':00') +
-            ':00Z',
+          p.origin
+            ? p.publishedAt!
+            : p.date +
+                'T' +
+                (p.scheduled
+                  ? p.scheduled.slice(11, 16)
+                  : String(17 + (Number(p.id.replace(/\D/g, '')) % 5)).padStart(
+                      2,
+                      '0',
+                    ) + ':00') +
+                ':00Z',
         );
         return (d.getUTCDay() + 6) % 7 === day && d.getUTCHours() === hour;
       });
@@ -542,8 +604,9 @@ function Heatmap({ posts }: { posts: Post[] }) {
         </div>
       </div>
       <p className="footnote">
-        Demo publishing hours · observed historical performance, not a causal
-        recommendation. Empty cells have no observations.
+        Publishing hours in UTC · source timestamps when imported; demo hours in
+        preview. Observed performance, not a causal recommendation. Empty cells
+        have no observations.
       </p>
     </section>
   );
@@ -563,6 +626,7 @@ export function PostDetail({
   const file = useRef<HTMLInputElement>(null);
   const shown = draft?.id === post?.id ? draft : post;
   const score = shown ? scorePost(shown) : null;
+  if (post?.origin) return <ImportedPostDetail post={post} close={onClose} />;
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f || !shown) return;

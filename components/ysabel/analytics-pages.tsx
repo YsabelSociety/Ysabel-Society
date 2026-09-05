@@ -183,7 +183,7 @@ export function getInsights(rows: Daily[], previous: Daily[], posts: Post[]) {
         : 'Content generated ' + compact(views) + ' views',
       text:
         compact(views) +
-        ' views across three social platforms' +
+        ' views across the reporting social platforms' +
         (prior
           ? ', compared with ' + compact(prior) + ' in the comparison period.'
           : '.'),
@@ -224,7 +224,7 @@ export function getInsights(rows: Daily[], previous: Daily[], posts: Post[]) {
           number(Math.round(average)) +
           '.'
         : 'Tag published content to compare creative patterns.',
-      source: 'Published demo content · manually assigned tags',
+      source: 'Published content in view · manually assigned tags',
       recommendation:
         'Test another preparation-led story. This association does not prove the subject caused the performance.',
     },
@@ -546,8 +546,8 @@ export function AudiencePage({
       />
       {live ? (
         <Panel
-          title="Audience detail unavailable"
-          description="Demographic snapshots require authorized social analytics. No sample demographic values are mixed into this live view."
+          title="Observed community"
+          description="Imported demographic reports appear below with their own time scope and privacy limits."
         >
           <p className="footnote">
             Follower history appears when the connected source supplies it.
@@ -698,15 +698,24 @@ export function WebsitePage({
             value: number(users),
             note: 'Daily sum · not period-unique',
           },
-          { label: 'Sessions', value: number(sessions) },
-          { label: 'Engaged sessions', value: number(engaged) },
+          {
+            label: 'Sessions',
+            value: metricAvailable(r, 'sessions') ? number(sessions) : '—',
+          },
+          {
+            label: 'Engaged sessions',
+            value: metricAvailable(r, 'engaged') ? number(engaged) : '—',
+          },
           {
             label: 'Engagement rate',
             value: sessions
               ? ((engaged / sessions) * 100).toFixed(1) + '%'
               : '—',
           },
-          { label: 'Page views', value: number(pages) },
+          {
+            label: 'Page views',
+            value: metricAvailable(r, 'pageViews') ? number(pages) : '—',
+          },
           {
             label: 'Conversions',
             value: 'Unavailable',
@@ -722,12 +731,43 @@ export function WebsitePage({
       />
       {live ? (
         <Panel
-          title="Deeper website reporting"
-          description="Traffic-source, page and event breakdowns require additional GA4 queries. No estimated allocations are applied to live data."
+          title="From discovery to intent"
+          description="Configured website tracking. These counts do not establish a same-person funnel."
         >
+          <StatRow
+            items={[
+              {
+                label: 'Menu page views',
+                value: metricAvailable(r, 'menu')
+                  ? number(total(r, 'menu'))
+                  : '—',
+              },
+              {
+                label: 'Reservation clicks',
+                value: metricAvailable(r, 'reservation')
+                  ? number(total(r, 'reservation'))
+                  : '—',
+              },
+              {
+                label: 'Confirmed reservation events',
+                value: metricAvailable(r, 'bookings')
+                  ? number(total(r, 'bookings'))
+                  : '—',
+              },
+              {
+                label: 'Engagement time',
+                value: metricAvailable(r, 'engagementSeconds')
+                  ? Math.round(
+                      total(r, 'engagementSeconds') / 60,
+                    ).toLocaleString() + ' min'
+                  : '—',
+              },
+            ]}
+          />
           <p className="footnote">
-            The connected adapter supplies daily active users, sessions, engaged
-            sessions and page views.
+            Set tracking names in Connections. The source tables below contain
+            traffic, page, device and event breakdowns where access permits
+            them.
           </p>
         </Panel>
       ) : (
@@ -853,7 +893,7 @@ export function GooglePage({
   live?: boolean;
 }) {
   const r = rows.filter((r) => r.channel === 'Google Business');
-  if (live && !metricAvailable(r, 'actions'))
+  if (live && !r.length)
     return (
       <Panel
         title="Business Profile metrics are not available for this period"
@@ -875,15 +915,50 @@ export function GooglePage({
     <div className="view-enter">
       <StatRow
         items={[
-          { label: 'Google Search views', value: number(total(r, 'search')) },
-          { label: 'Google Maps views', value: number(total(r, 'maps')) },
-          { label: 'Website clicks', value: number(total(r, 'clicks')) },
-          { label: 'Phone call clicks', value: number(total(r, 'calls')) },
+          {
+            label: 'Google Search views',
+            value: metricAvailable(r, 'search')
+              ? number(total(r, 'search'))
+              : '—',
+          },
+          {
+            label: 'Google Maps views',
+            value: metricAvailable(r, 'maps') ? number(total(r, 'maps')) : '—',
+          },
+          {
+            label: 'Website clicks',
+            value: metricAvailable(r, 'clicks')
+              ? number(total(r, 'clicks'))
+              : '—',
+          },
+          {
+            label: 'Phone call clicks',
+            value: metricAvailable(r, 'calls')
+              ? number(total(r, 'calls'))
+              : '—',
+          },
           {
             label: 'Direction requests',
-            value: number(total(r, 'directions')),
+            value: metricAvailable(r, 'directions')
+              ? number(total(r, 'directions'))
+              : '—',
           },
-          { label: 'Bookings', value: 'Unavailable' },
+          {
+            label: 'Reserve with Google bookings',
+            value: metricAvailable(r, 'bookings')
+              ? number(total(r, 'bookings'))
+              : '—',
+          },
+          {
+            label: 'Menu interactions',
+            value: metricAvailable(r, 'menu') ? number(total(r, 'menu')) : '—',
+          },
+          {
+            label: 'Food orders',
+            value: metricAvailable(r, 'foodOrders')
+              ? number(total(r, 'foodOrders'))
+              : '—',
+          },
         ]}
       />
       <Trend
@@ -905,7 +980,8 @@ export function GooglePage({
           />
           <p className="footnote">
             These actions do not measure completed visits, answered calls or
-            reservations. Menu interactions and food orders are not supplied.
+            reservations. Bookings, menu interactions and food orders depend on
+            the services enabled for your location.
           </p>
         </Panel>
         <Panel

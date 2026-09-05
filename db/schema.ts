@@ -125,3 +125,30 @@ export const connectorLinks = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.owner, t.source] })],
 );
+
+export const sourceReports = sqliteTable(
+  'source_reports',
+  {
+    account: text('account_id').notNull(),
+    key: text('report_key').notNull(),
+    start: text('period_start').notNull(),
+    end: text('period_end').notNull(),
+    payload: text('payload').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.account, t.key, t.start, t.end] })],
+);
+export const sourcePosts = sqliteTable(
+  'source_posts',
+  {
+    account: text('account_id').notNull(),
+    id: text('post_id').notNull(),
+    published: text('published_date').notNull(),
+    payload: text('payload').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.account, t.id] }),
+    index('idx_source_posts_date').on(t.account, t.published),
+  ],
+);

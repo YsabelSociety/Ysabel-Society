@@ -5,7 +5,9 @@ import {
   previousRange,
   type Range,
   type Daily,
+  type Post,
 } from '@/lib/analytics';
+import { type ReportTable } from '@/lib/reporting';
 export function useSourceAnalytics(
   unit: string,
   range: Range,
@@ -18,6 +20,8 @@ export function useSourceAnalytics(
     rows: Daily[];
     previous: Daily[];
     coverage: string[];
+    posts: Post[];
+    tables: ReportTable[];
   } | null>(null);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
@@ -26,7 +30,7 @@ export function useSourceAnalytics(
     return () => window.removeEventListener('ysabel:sources-updated', refresh);
   }, []);
   const [error, setError] = useState(''),
-    [loading, setLoading] = useState(false);
+    [loading, setLoading] = useState(true);
   const key = unit + '|' + range.start + '|' + range.end + '|' + comparison;
   useEffect(() => {
     const abort = new AbortController();
@@ -56,6 +60,8 @@ export function useSourceAnalytics(
             rows: current.rows,
             previous: previous.rows,
             coverage: current.coverage,
+            posts: current.posts || [],
+            tables: current.tables || [],
           });
           setError('');
         }
@@ -75,13 +81,15 @@ export function useSourceAnalytics(
   const live = result?.mode === 'live';
   return {
     mode: current?.mode ?? (live ? 'live' : 'demo'),
-    rows: current?.rows ?? (live ? [] : filterDaily(unit, range)),
+    rows: current?.rows ?? (live || !result ? [] : filterDaily(unit, range)),
     previous:
       current?.previous ??
       (live || comparison === 'No Comparison'
         ? []
         : filterDaily(unit, previousRange(range, comparison))),
     coverage: current?.coverage ?? [],
+    posts: current?.posts ?? [],
+    tables: current?.tables ?? [],
     loading,
     error,
   };

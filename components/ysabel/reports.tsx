@@ -18,7 +18,11 @@ import {
   type Range,
   type Daily,
   type Post,
+  metricAvailable,
+  iso,
 } from '@/lib/analytics';
+import { useSourceAnalytics } from './use-analytics';
+import { SourceReports } from './source-reports';
 import { exportCSV, exportPDF, exportPNG } from '@/lib/exports';
 import { StatRow } from './analytics-pages';
 export function ExportDialog({
@@ -96,11 +100,16 @@ export function ReportsPage({
   unit: string;
 }) {
   const [type, setType] = useState('Monthly'),
-    [title, setTitle] = useState('August intelligence report'),
+    [title, setTitle] = useState('Ysabel Society intelligence report'),
     [start, setStart] = useState(range.start),
     [end, setEnd] = useState(range.end),
     [selected, setSelected] = useState<SavedReport | null>(null);
-  const rows = filterDaily(unit, { start, end });
+  const source = useSourceAnalytics(unit, { start, end }, 'No Comparison');
+  const rows = source.rows,
+    posts =
+      source.mode === 'live'
+        ? source.posts
+        : data.posts.filter((p) => p.date >= start && p.date <= end);
   return (
     <div className="view-enter">
       <div className="reports-layout">
@@ -120,7 +129,10 @@ export function ReportsPage({
             </p>
           </div>
           <span className="report-cover-foot">
-            PRIVATE & CONFIDENTIAL <span>DEMO DATA</span>
+            PRIVATE & CONFIDENTIAL{' '}
+            <span>
+              {source.mode === 'live' ? 'IMPORTED SOURCE DATA' : 'DEMO DATA'}
+            </span>
           </span>
         </section>
         <section className="surface padded">
@@ -134,7 +146,9 @@ export function ReportsPage({
             className="edit-form"
             onSubmit={(e) => {
               e.preventDefault();
-              void data.saveReport({ title, start, end, unit }).catch(() => {});
+              void data
+                .saveReport({ title, start, end, unit, mode: source.mode })
+                .catch(() => {});
             }}
           >
             <label>
@@ -151,6 +165,8 @@ export function ReportsPage({
                       : v === 'Quarterly'
                         ? 'Quarter'
                         : 'Previous Month',
+                    undefined,
+                    source.mode === 'live' ? iso(new Date()) : undefined,
                   );
                   if (v !== 'Custom') {
                     setStart(r.start);
@@ -191,14 +207,27 @@ export function ReportsPage({
               </label>
             </div>
             <div className="inline-controls">
-              <button className="primary" disabled={data.busy || !data.ready}>
+              <button
+                className="primary"
+                disabled={
+                  data.busy || !data.ready || source.loading || !!source.error
+                }
+              >
                 <Plus size={15} /> Save report
               </button>
               <button
                 className="secondary"
                 type="button"
+                disabled={source.loading || !!source.error}
                 onClick={() =>
-                  exportPDF(rows, data.posts, { start, end }, unit, title)
+                  exportPDF(
+                    rows,
+                    posts,
+                    { start, end },
+                    unit,
+                    title,
+                    source.mode,
+                  )
                 }
               >
                 <ArrowDownToLine size={15} /> Download PDF
@@ -216,10 +245,22 @@ export function ReportsPage({
         items={[
           {
             label: 'Content views in this report',
-            value: compact(total(rows, 'views')),
+            value: metricAvailable(rows, 'views')
+              ? compact(total(rows, 'views'))
+              : '—',
           },
-          { label: 'Engagements', value: compact(total(rows, 'engagements')) },
-          { label: 'Google actions', value: compact(total(rows, 'actions')) },
+          {
+            label: 'Engagements',
+            value: metricAvailable(rows, 'engagements')
+              ? compact(total(rows, 'engagements'))
+              : '—',
+          },
+          {
+            label: 'Google actions',
+            value: metricAvailable(rows, 'actions')
+              ? compact(total(rows, 'actions'))
+              : '—',
+          },
         ]}
       />
       <section className="surface padded">
@@ -235,7 +276,8 @@ export function ReportsPage({
               <span>
                 <strong>{r.title}</strong>
                 <small>
-                  {r.unit} · {r.start} – {r.end} · Demo Data
+                  {r.unit} · {r.start} – {r.end} ·{' '}
+                  {r.mode === 'live' ? 'Source report' : r.mode}
                 </small>
               </span>
               <ArrowDownToLine size={17} />
@@ -247,19 +289,64 @@ export function ReportsPage({
           </p>
         )}
       </section>
+      {source.error && (
+        <p className="save-error" role="alert">
+          {source.error}
+        </p>
+      )}
+      {source.mode === 'live' && <SourceReports tables={source.tables} />}
       {selected && (
-        <ExportDialog
-          open
-          onClose={() => setSelected(null)}
-          rows={filterDaily(selected.unit, {
-            start: selected.start,
-            end: selected.end,
-          })}
-          posts={data.posts}
-          range={{ start: selected.start, end: selected.end }}
-          unit={selected.unit}
+        <SavedSourceExport
+          report={selected}
+          data={data}
+          close={() => setSelected(null)}
         />
       )}
     </div>
+  );
+}
+function SavedSourceExport({
+  report,
+  data,
+  close,
+}: {
+  report: SavedReport;
+  data: WorkspaceData;
+  close: () => void;
+}) {
+  const source = useSourceAnalytics(
+    report.unit,
+    { start: report.start, end: report.end },
+    'No Comparison',
+  );
+  if (source.loading || source.error)
+    return (
+      <Dialog open onOpenChange={(v) => !v && close()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{report.title}</DialogTitle>
+            <DialogDescription>
+              {source.error || 'Loading imported observations for this report…'}
+            </DialogDescription>
+          </DialogHeader>
+        </DialogContent>
+      </Dialog>
+    );
+  return (
+    <ExportDialog
+      open
+      onClose={close}
+      rows={source.rows}
+      posts={
+        source.mode === 'live'
+          ? source.posts
+          : data.posts.filter(
+              (p) => p.date >= report.start && p.date <= report.end,
+            )
+      }
+      range={{ start: report.start, end: report.end }}
+      unit={report.unit}
+      mode={source.mode}
+    />
   );
 }

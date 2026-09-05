@@ -1,10 +1,4 @@
-import {
-  database,
-  identity,
-  apiError,
-  json,
-  secrets,
-} from '@/lib/server/db';
+import { database, identity, apiError, json, secrets } from '@/lib/server/db';
 import { PROVIDER_CONFIG, adapters } from '@/lib/server/providers';
 import { iso } from '@/lib/analytics';
 import {
@@ -42,7 +36,7 @@ export async function GET() {
           ...p,
           missing,
           configured: !!linked || (p.required.length > 0 && !missing.length),
-          supported: !!linked || ['ga4', 'gbp'].includes(p.id),
+          supported: true,
           linked: !!linked,
           accountLabel: linked?.label,
           autoSync: !!linked?.auto_sync,
@@ -82,6 +76,11 @@ export async function POST(req: Request) {
         db
           .prepare(
             "DELETE FROM connector_vault WHERE owner=? AND kind='target' AND provider=?",
+          )
+          .bind(user.userId, config.id),
+        db
+          .prepare(
+            "DELETE FROM connector_vault WHERE owner=? AND kind='direct' AND provider=?",
           )
           .bind(user.userId, config.id),
       ]);

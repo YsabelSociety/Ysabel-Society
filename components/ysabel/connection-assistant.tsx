@@ -108,6 +108,14 @@ export function ConnectionAssistant({
         provider: id,
       });
       setResources(d.resources);
+      setChoices(
+        Object.fromEntries(
+          [...new Set(d.resources.map((r) => r.source))].flatMap((source) => {
+            const options = d.resources.filter((r) => r.source === source);
+            return options.length === 1 ? [[source, options[0].id]] : [];
+          }),
+        ),
+      );
       setWarnings(d.warnings);
       setStep('accounts');
     } catch (e) {
@@ -126,6 +134,12 @@ export function ConnectionAssistant({
         returned.current = true;
         const q = new URLSearchParams(window.location.search),
           provider = q.get('provider');
+        const startProvider = q.get('connect');
+        if (
+          startProvider &&
+          CONNECTOR_GROUPS.some((g) => g.id === startProvider)
+        )
+          open(startProvider, d);
         if (q.has('status')) {
           setReturnNotice(
             q.get('status') === 'authorized'
@@ -237,6 +251,19 @@ export function ConnectionAssistant({
       setBusy('');
     }
   }
+  async function connectChosen() {
+    setBusy('all');setError('');
+    const outcomes:string[]=[];
+    try {
+      for(const source of group?.sources||[]) {
+        if(!choices[source])continue;
+        const result=await request<{needsAttention?:boolean;records?:number}>({op:'select',provider:selected,source,resourceId:choices[source]});
+        outcomes.push(SOURCE_CHANNELS[source]+(result.needsAttention?' needs attention':' imported'));
+      }
+      await load();onChanged();window.dispatchEvent(new Event('ysabel:sources-updated'));notify(outcomes.join(' · '));
+    } catch(e){setError(e instanceof Error?e.message:'Account import needs attention.');}
+    finally{setBusy('');}
+  }
   return (
     <>
       <section className="connection-assistant surface">
@@ -317,9 +344,9 @@ export function ConnectionAssistant({
           app is closed.
         </p>
         <p className="assistant-refresh-note">
-          Advertising accounts need separate API approval and reporting
-          adapters. The setup below covers the five organic, website and
-          business-profile sources.
+          Use the connection & import centre below for advertising accounts,
+          existing tokens, Google service accounts, tracking setup and provider
+          exports.
         </p>
       </section>
       <Dialog
@@ -512,6 +539,7 @@ export function ConnectionAssistant({
             </TabsContent>
             <TabsContent value="accounts">
               <p className="wizard-capability">{group?.capability}</p>
+              {group&&group.sources.length>1&&<button className="primary" disabled={!!busy||!Object.values(choices).some(Boolean)} onClick={()=>void connectChosen()}>{busy==='all'?'Connecting selected accounts…':'Connect selected accounts together'}</button>}
               <button
                 className="secondary"
                 onClick={() => void discover(selected!)}

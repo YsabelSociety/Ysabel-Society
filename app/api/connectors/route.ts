@@ -72,16 +72,33 @@ export async function POST(req: Request) {
     if (body.op === 'autoRefresh') {
       const due = await db
         .prepare(
-          "SELECT l.source FROM connector_links l JOIN platform_accounts a ON a.id=l.owner||':'||l.source||':'||l.external_id WHERE l.owner=? AND l.auto_sync=1 AND a.enabled=1 AND a.status='Connected' AND a.last_sync<? ORDER BY a.last_sync LIMIT 1",
+          "SELECT l.source FROM connector_links l JOIN platform_accounts a ON a.id=l.owner||':'||l.source||':'||l.external_id WHERE l.owner=? AND l.auto_sync=1 AND l.provider<>'file' AND a.enabled=1 AND (a.last_sync IS NULL OR a.last_sync<?) AND NOT EXISTS(SELECT 1 FROM sync_runs r WHERE r.owner=l.owner AND r.channel=a.channel AND r.started_at>?) ORDER BY a.last_sync LIMIT 1",
         )
-        .bind(owner, new Date(Date.now() - 3600000).toISOString())
+        .bind(
+          owner,
+          new Date(Date.now() - 3600000).toISOString(),
+          new Date(Date.now() - 900000).toISOString(),
+        )
         .first<{ source: string }>();
       if (!due) return json({ refreshed: false });
-      await syncLinkedSource(owner, due.source);
-      return json({ refreshed: true, source: due.source });
+      const end = new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+        start = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+      try {
+        await syncLinkedSource(owner, due.source, { start, end });
+        return json({ refreshed: true, source: due.source, more: true });
+      } catch {
+        return json({
+          refreshed: false,
+          source: due.source,
+          more: true,
+          needsAttention: true,
+        });
+      }
     }
     if (body.op === 'refresh') {
-      return json(await syncLinkedSource(owner, requireText(body.source, 30)));
+      return json(
+        await syncLinkedSource(owner, requireText(body.source, 30), body.range),
+      );
     }
     if (body.op === 'autoSync') {
       if (typeof body.enabled !== 'boolean')

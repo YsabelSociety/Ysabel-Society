@@ -1,3 +1,4 @@
+import { postAvailable } from './analytics';
 import {
   METRICS,
   metricAvailable,
@@ -39,6 +40,17 @@ export function exportCSV(rows: Daily[], range: Range, mode = 'demo') {
     'sessions',
     'engaged',
     'pageViews',
+    'newUsers',
+    'engagementSeconds',
+    'menu',
+    'reservation',
+    'bookings',
+    'foodOrders',
+    'profileViews',
+    'follows',
+    'unfollows',
+    'mediaViewers',
+    'sourceMetrics',
   ];
   const escape = (v: unknown) =>
     '"' +
@@ -56,7 +68,7 @@ export function exportCSV(rows: Daily[], range: Range, mode = 'demo') {
             typeof (r as any)[h] === 'number' &&
             !r.available.includes(h)
               ? null
-              : (r as any)[h],
+              : h==='sourceMetrics'?JSON.stringify(r.sourceMetrics||{}):(r as any)[h],
           ),
         ),
       ]
@@ -312,9 +324,9 @@ export function exportPDF(
     text(
       p.platform +
         ' / ' +
-        compact(p.views) +
+        (postAvailable(p, 'views') ? compact(p.views) : 'Unavailable') +
         ' views / ' +
-        compact(p.shares) +
+        (postAvailable(p, 'shares') ? compact(p.shares) : 'Unavailable') +
         ' shares',
       78,
       523 + i * 40,

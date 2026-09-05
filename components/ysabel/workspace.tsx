@@ -94,6 +94,7 @@ import { ReportsPage, ExportDialog } from './reports';
 import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
 import { AdminPanel } from './admin-panel';
 import { useAutoRefresh } from './use-auto-refresh';
+import { SourceReports } from './source-reports';
 const groups = [
   {
     label: 'WORKSPACE',
@@ -253,7 +254,9 @@ export default function Workspace({
   const source = useSourceAnalytics(unit, range, comparison, onLive),
     rows = source.rows,
     previous = source.previous;
-  const visiblePosts = data.posts.filter(
+  const analyticsData =
+    source.mode === 'live' ? { ...data, posts: source.posts } : data;
+  const visiblePosts = analyticsData.posts.filter(
     (p) => p.date >= range.start && p.date <= range.end,
   );
   function navigate(name: string) {
@@ -614,7 +617,8 @@ export default function Workspace({
               <div className="source-live-note">
                 Live analytics from{' '}
                 {source.coverage.join(', ') || 'connected sources'}. Content
-                planning and reports remain a labeled demo workspace.
+                planning is separate. Reports use imported observations;
+                unavailable values remain blank.
               </div>
             )}
             <div className="view-content" key={page}>
@@ -631,7 +635,7 @@ export default function Workspace({
                   rows={rows}
                   previous={previous}
                   setPage={navigate}
-                  posts={source.mode === 'live' ? [] : visiblePosts}
+                  posts={visiblePosts}
                   onSelect={setPost}
                   onMetric={setMetric}
                 />
@@ -647,7 +651,7 @@ export default function Workspace({
               )}
               {page === 'Content Intelligence' && (
                 <ContentIntelligence
-                  data={data}
+                  data={analyticsData}
                   unit={unit}
                   range={range}
                   onSelect={setPost}
@@ -660,6 +664,13 @@ export default function Workspace({
                   live={source.mode === 'live'}
                 />
               )}
+              {page === 'Audience' && source.mode === 'live' && (
+                <SourceReports
+                  tables={source.tables}
+                  group="audience"
+                  title="Audience detail"
+                />
+              )}
               {page === 'Website' && (
                 <WebsitePage
                   rows={rows}
@@ -667,8 +678,29 @@ export default function Workspace({
                   live={source.mode === 'live'}
                 />
               )}
+              {page === 'Website' && source.mode === 'live' && (
+                <SourceReports
+                  tables={source.tables}
+                  group="website"
+                  title="Website source reports"
+                />
+              )}
               {page === 'Google Business' && (
                 <GooglePage rows={rows} live={source.mode === 'live'} />
+              )}
+              {page === 'Google Business' && source.mode === 'live' && (
+                <SourceReports
+                  tables={source.tables}
+                  group="google"
+                  title="Google Business reports"
+                />
+              )}
+              {page === 'Performance' && source.mode === 'live' && (
+                <SourceReports
+                  tables={source.tables}
+                  group="advertising"
+                  title="Advertising performance"
+                />
               )}
               {['Content Studio', 'Media Preview', 'Content Library'].includes(
                 page,
@@ -690,7 +722,7 @@ export default function Workspace({
                   live={source.mode === 'live'}
                   rows={rows}
                   previous={previous}
-                  posts={source.mode === 'live' ? [] : visiblePosts}
+                  posts={visiblePosts}
                   onNavigate={navigate}
                 />
               )}
@@ -835,7 +867,7 @@ export default function Workspace({
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           rows={rows}
-          posts={source.mode === 'live' ? [] : data.posts}
+          posts={visiblePosts}
           range={range}
           unit={unit}
           mode={source.mode}

@@ -30,6 +30,7 @@ import { METRICS, CHANNELS } from '@/lib/analytics';
 import { type WorkspaceData } from './use-workspace';
 import { PROVIDER_CONFIG } from '@/lib/provider-metadata';
 import { ConnectionAssistant } from './connection-assistant';
+import { ConnectionOptions } from './connection-options';
 import { Switch } from '@/components/ui/switch';
 export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   const requestProvider = (id: string) =>
@@ -65,6 +66,9 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   }
   useEffect(() => {
     void load();
+    const refresh = () => void load();
+    window.addEventListener('ysabel:sources-updated', refresh);
+    return () => window.removeEventListener('ysabel:sources-updated', refresh);
   }, []);
   async function action(id: string, action: string) {
     setBusy(id);
@@ -97,6 +101,7 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   return (
     <div className="view-enter">
       <ConnectionAssistant onChanged={() => void load()} notify={notify} />
+      <ConnectionOptions notify={notify} />
       <div className="connection-banner">
         <ShieldCheck size={21} />
         <div>
@@ -150,16 +155,14 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
               </strong>
               <span>Availability</span>
               <strong>
-                {['instagram', 'facebook', 'tiktok'].includes(c.id)
-                  ? 'Current profile statistics'
-                  : c.supported
-                    ? 'Daily source metrics'
-                    : c.kind === 'Future advertising'
-                      ? 'Architecture reserved'
-                      : 'Approval & adapter validation required'}
+                {c.snapshot?.partial
+                  ? 'Partial import · inspect coverage'
+                  : c.lastSync
+                    ? 'Source data imported'
+                    : 'Access and first import required'}
               </strong>
             </div>
-            {c.snapshot?.kind === 'profile' && (
+            {typeof c.snapshot?.followers === 'number' && (
               <div className="profile-snapshot">
                 <span>Latest account snapshot</span>
                 <strong>
@@ -182,11 +185,11 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
                 </p>
                 <small>
                   Observed {new Date(c.snapshot.observedAt).toLocaleString()}.
-                  Daily views and engagement history are unavailable.
+                  Historical values are recorded only when observed or supplied.
                 </small>
               </div>
             )}
-            {c.linked && (
+            {c.linked && c.snapshot?.method !== 'file' && (
               <label className="auto-sync-control">
                 <span>Automatic refresh</span>
                 <Switch
@@ -218,8 +221,12 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
               <button
                 className="secondary"
                 onClick={() =>
-                  c.kind === 'Future advertising'
-                    ? setSelected(c)
+                  c.id.endsWith('-ads')
+                    ? window.dispatchEvent(
+                        new CustomEvent('ysabel:configure-source', {
+                          detail: c.id,
+                        }),
+                      )
                     : requestProvider(
                         ['ga4', 'gbp'].includes(c.id)
                           ? 'google'
@@ -285,7 +292,8 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
           </DialogHeader>
           <p className="muted">
             Your account administrator must configure the following securely on
-            the server. Do not paste access tokens into this workspace.
+            the server. Use the encrypted credentials form in the connection &
+            import centre.
           </p>
           <div className="setup-keys">
             {selected?.required.map((k: string) => (
@@ -347,9 +355,9 @@ export function DataSourcesPage() {
         <div>
           <h2>Every metric has a definition.</h2>
           <p>
-            This workspace opens in Demo Data. The sample series is
-            deterministic, anchored to 5 September 2026. It never represents
-            actual Ysabel Society business results.
+            Before sources are connected, this workspace uses Demo Data. The
+            sample series is deterministic, anchored to 5 September 2026. It
+            never represents actual Ysabel Society business results.
           </p>
         </div>
       </section>
@@ -359,7 +367,7 @@ export function DataSourcesPage() {
             <span className="eyebrow">{m.source}</span>
             <h2>{m.label}</h2>
             <p>{m.definition}</p>
-            <span className="status-chip">Demo available</span>
+            <span className="status-chip">Source definition</span>
           </section>
         ))}
       </div>
@@ -389,7 +397,7 @@ export function DataSourcesPage() {
           ],
           [
             'Performance score',
-            '35% views, 30% engagement rate, 15% saves, 20% shares. Weighted against the published sample baseline.',
+            '35% views, 30% engagement rate, 15% saves, 20% shares. Demo scores use the sample baseline. Imported content is never scored against demo data.',
           ],
           [
             'Sample photography',

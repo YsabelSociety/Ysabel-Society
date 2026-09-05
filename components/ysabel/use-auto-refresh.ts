@@ -9,17 +9,28 @@ export function useAutoRefresh(ready: boolean) {
       if (running || document.visibilityState !== 'visible') return;
       running = true;
       try {
-        const response = await fetch('/api/connectors', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ op: 'autoRefresh' }),
-          signal: controller.signal,
-        });
-        if (
-          response.ok &&
-          ((await response.json()) as { refreshed?: boolean }).refreshed
-        )
-          window.dispatchEvent(new Event('ysabel:sources-updated'));
+        for (let account = 0; account < 8; account++) {
+          if (
+            controller.signal.aborted ||
+            document.visibilityState !== 'visible'
+          )
+            break;
+          const response = await fetch('/api/connectors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ op: 'autoRefresh' }),
+            signal: controller.signal,
+          });
+          if (!response.ok) break;
+          const result = (await response.json()) as {
+            refreshed?: boolean;
+            more?: boolean;
+            needsAttention?: boolean;
+          };
+          if (result.refreshed || result.needsAttention)
+            window.dispatchEvent(new Event('ysabel:sources-updated'));
+          if (!result.more) break;
+        }
       } catch {
       } finally {
         running = false;

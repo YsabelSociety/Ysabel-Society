@@ -34,16 +34,18 @@ export const CONNECTOR_GROUPS = [
       'pages_show_list',
       'pages_read_engagement',
       'instagram_basic',
+      'instagram_manage_insights',
+      'read_insights',
       'business_management',
     ],
     steps: [
       'Create a Meta developer app for your business. Configure Facebook Login for Business and Instagram API with Facebook Login. Create a login configuration with a User access token.',
       'Link the Ysabel Society professional Instagram account to its Facebook Page. Use a Facebook user with access to both accounts.',
       'Add the callback URL below to Valid OAuth Redirect URIs. Save the App ID, App Secret, Login configuration ID and the supported Graph API version shown in your Meta app.',
-      'In the login configuration request pages_show_list, pages_read_engagement and instagram_basic; include business_management for business-managed Pages. Add test users. Meta may require business verification and App Review before non-test accounts can authorize.',
+      'Request pages_show_list, pages_read_engagement, instagram_basic, instagram_manage_insights and read_insights in the login configuration; include business_management for business-managed Pages. Add your Facebook account to the app and grant access to the Page. Business verification or App Review may be required for other accounts. Advertising requires ads_read and separate ad-account access.',
     ],
     capability:
-      'Current Page and Instagram follower snapshots. Daily social views and engagement history are not imported by this connection yet.',
+      'Imports supported daily account insights, published content and its lifetime performance, current follower counts and permitted audience breakdowns. Every report is checked separately. Unavailable metrics are identified after import; access and history limits still apply.',
   },
   {
     id: 'tiktok',
@@ -53,15 +55,15 @@ export const CONNECTOR_GROUPS = [
     summary: 'Connect your TikTok profile and account statistics',
     console: 'https://developers.tiktok.com/',
     guide: 'https://developers.tiktok.com/docs/en/login-kit-web',
-    scopes: ['user.info.basic', 'user.info.stats'],
+    scopes: ['user.info.basic', 'user.info.stats', 'video.list'],
     steps: [
       'Create a TikTok developer app and add Login Kit and Display API.',
-      'Set the platform to Web and register the callback URL below. Add user.info.basic and user.info.stats to the requested scopes.',
+      'Set the platform to Web and register the callback URL below. Add user.info.basic, user.info.stats and video.list to the requested scopes.',
       'Save the Client key and Client secret from your TikTok app. Configure a sandbox target account to test, or submit the app for review.',
       'Authorize the Ysabel Society TikTok account. Current followers, likes and video count become available after authorization.',
     ],
     capability:
-      'Current profile statistics. These are snapshots, not daily video views or a reconstructed history.',
+      'Current profile statistics and each accessible published video’s lifetime views, likes, comments and shares. Daily traffic, retention and demographic analytics require a TikTok Studio export or separately approved Business API access.',
   },
 ] as const;
 export type ConnectorProvider = (typeof CONNECTOR_GROUPS)[number]['id'];
@@ -76,4 +78,7 @@ export const SOURCE_CHANNELS: Record<string, string> = {
   instagram: 'Instagram',
   facebook: 'Facebook',
   tiktok: 'TikTok',
+  'meta-ads': 'Meta Ads',
+  'google-ads': 'Google Ads',
+  'tiktok-ads': 'TikTok Ads',
 };

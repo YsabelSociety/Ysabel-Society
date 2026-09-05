@@ -67,6 +67,15 @@ export const METRICS: {
   },
 ];
 export type Daily = {
+  sourceMetrics?: Record<string, unknown>;
+  newUsers?: number;
+  engagementSeconds?: number;
+  bookings?: number;
+  foodOrders?: number;
+  profileViews?: number;
+  follows?: number;
+  unfollows?: number;
+  mediaViewers?: number;
   available?: string[];
   date: string;
   unit: string;
@@ -243,15 +252,18 @@ export function filterDaily(
   );
 }
 export function total(rows: Daily[], metric: keyof Daily): number {
+  rows = rows.filter((r) => !r.available || r.available.includes(metric));
   if (metric === 'followers') {
-    const latest = rows.reduce((v, r) => (r.date > v ? r.date : v), '');
-    return rows
-      .filter((r) => r.date === latest)
-      .reduce((n, r) => n + r.followers, 0);
+    const latest = new Map<string, Daily>();
+    for (const row of rows)
+      if (!latest.has(row.channel) || row.date > latest.get(row.channel)!.date)
+        latest.set(row.channel, row);
+    return [...latest.values()].reduce((n, r) => n + r.followers, 0);
   }
   return rows.reduce((n, r) => n + Number(r[metric] ?? 0), 0);
 }
 export function series(rows: Daily[], metric: Metric, granularity = 'Daily') {
+  rows = rows.filter((r) => !r.available || r.available.includes(metric));
   const buckets = new Map<string, Record<string, string | number>>();
   rows.forEach((r) => {
     let date = r.date;
@@ -299,6 +311,13 @@ export const compact = (v: number) =>
 export const number = (v: number) => Intl.NumberFormat('en').format(v);
 export const change = (a: number, b: number) => (b ? ((a - b) / b) * 100 : 0);
 export type Post = {
+  available?: string[];
+  origin?: 'api' | 'file';
+  observedAt?: string;
+  publishedAt?: string;
+  permalink?: string;
+  metricScope?: 'lifetime' | 'period';
+  sourceMetrics?: Record<string, unknown>;
   id: string;
   title: string;
   caption: string;
@@ -396,10 +415,32 @@ export const POSTS: Post[] = titles.map((title, i) => {
 export function engagement(p: Post) {
   return p.likes + p.comments + p.saves + p.shares;
 }
+export function postAvailable(p: Post, key: string): boolean {
+  if (!p.available) return true;
+  if (key === 'engagementRate')
+    return (
+      p.available.includes('reach') &&
+      ['likes', 'comments', 'saves', 'shares'].every((k) =>
+        p.available!.includes(k),
+      )
+    );
+  if (key === 'engagements')
+    return ['likes', 'comments', 'saves', 'shares'].some((k) =>
+      p.available!.includes(k),
+    );
+  if (key === 'performanceScore') return p.score > 0;
+  return p.available.includes(key);
+}
 export function scorePost(
   p: Post,
   baseline: Post[] = POSTS.filter((p) => p.status === 'Published'),
 ) {
+  if (p.origin)
+    return {
+      score: p.score,
+      parts: [],
+      label: p.score ? 'Observed baseline' : 'More comparable history needed',
+    };
   const avg = (fn: (p: Post) => number) =>
     baseline.reduce((n, p) => n + fn(p), 0) / (baseline.length || 1);
   const parts = [

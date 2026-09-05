@@ -15,6 +15,13 @@
       "when": 1788632520551,
       "tag": "0001_connection_assistant",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788644109094,
+      "tag": "0002_reporting_sources",
+      "breakpoints": true
     }
   ]
 }

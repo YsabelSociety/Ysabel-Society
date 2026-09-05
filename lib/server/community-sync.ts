@@ -16,6 +16,7 @@ export async function readConversationList(
   pageId: string,
   source: 'facebook' | 'instagram',
   after = '',
+  attempt = 0,
 ) {
   if (!/^v\d{1,2}\.\d{1,2}$/.test(context.apiVersion || ''))
     throw new Error('INPUT:Check the configured Meta API version.');
@@ -27,8 +28,18 @@ export async function readConversationList(
       '/conversations?' +
       new URLSearchParams({
         platform: source === 'instagram' ? 'instagram' : 'messenger',
-        fields: 'id,updated_time,participants',
-        limit: '50',
+        fields:
+          source === 'instagram' || attempt > 0
+            ? 'id'
+            : 'id,updated_time,participants',
+        limit:
+          attempt === 2
+            ? '1'
+            : attempt === 1
+              ? '2'
+              : source === 'instagram'
+                ? '10'
+                : '50',
         ...(after ? { after } : {}),
       }),
     {
@@ -39,6 +50,8 @@ export async function readConversationList(
   const body: any = await response.json();
   if (!response.ok || body.error) {
     const error = body.error || {};
+    if (error.code === 1 && attempt < 2)
+      return readConversationList(context, pageId, source, after, attempt + 1);
     const detail = String(
       error.error_user_msg ||
         error.message ||
@@ -49,14 +62,16 @@ export async function readConversationList(
       .replace(/EA[A-Za-z0-9]{30,}/g, '[redacted]')
       .slice(0, 500);
     throw new Error(
-      'INPUT:Meta messaging access: ' +
+      'INPUT:Meta conversation import: ' +
         detail +
         (Number.isInteger(error.code) ? ' (Meta ' + error.code + ')' : '') +
-        ' Check ' +
-        (source === 'instagram'
-          ? 'instagram_manage_messages, connected-tool message access in Instagram,'
-          : 'pages_messaging,') +
-        ' pages_manage_metadata and the app access level. Only reconnect when permissions have changed.',
+        ([10, 190, 200, 294].includes(error.code)
+          ? ' Check ' +
+            (source === 'instagram'
+              ? 'instagram_manage_messages, connected-tool message access in Instagram,'
+              : 'pages_messaging,') +
+            ' pages_manage_metadata and the app access level. Only reconnect when permissions have changed.'
+          : ' The provider could not complete this request. Try the import again later.'),
     );
   }
   return body;
@@ -114,13 +129,23 @@ async function ensureStillLinked(
 export async function syncMessages(
   owner: string,
   source: 'facebook' | 'instagram',
+  continueImport = false,
 ) {
   const context = await linkedContext(owner, source);
   // A Page token identifies the Page used by the Facebook Login conversations API.
   const page = await graphGet(context, 'me?fields=id');
   const own = new Set([String(page.id), context.externalId]);
   const imported: CommunityRecord[] = [];
-  let after = '',
+  const previous = await database()
+    .prepare(
+      "SELECT cursor,account_id FROM community_sync WHERE owner=? AND source=? AND kind='message'",
+    )
+    .bind(owner, source)
+    .first<{ cursor: string; account_id: string }>();
+  let after =
+      continueImport && previous?.account_id === context.accountId
+        ? previous.cursor || ''
+        : '',
     partial = false,
     inaccessible = 0,
     conversationCount = 0;
@@ -152,7 +177,9 @@ export async function syncMessages(
       conversations.map(
         (c: any) =>
           encodeURIComponent(c.id) +
-          '/messages?fields=id,created_time,from,to,message,attachments&limit=20',
+          '/messages?fields=id,created_time,from,to,message' +
+          (source === 'facebook' ? ',attachments' : '') +
+          '&limit=20',
       ),
     );
     for (let i = 0; i < conversations.length; i++) {
@@ -213,16 +240,15 @@ export async function syncMessages(
       }
     }
     after = list.paging?.cursors?.after || '';
-    if (!list.paging?.next || !after) break;
+    if (!list.paging?.next || !after) {
+      after = '';
+      break;
+    }
     if (batch === 9) partial = true;
     if (imported.length >= 1800) {
       partial = true;
       break;
     }
-  }
-  if (imported.length > 1900) {
-    imported.length = 1900;
-    partial = true;
   }
   const people = [
     ...new Map(
@@ -273,7 +299,8 @@ export async function syncMessages(
     });
   }
   await ensureStillLinked(owner, source, context.accountId);
-  await saveCommunity(owner, imported);
+  for (let start = 0; start < imported.length; start += 2000)
+    await saveCommunity(owner, imported.slice(start, start + 2000));
   const detail =
     conversationCount +
     ' accessible conversations checked. Up to 20 recent messages per conversation; older captured records are retained. Counts describe captured messages, not a complete inbox history.' +
@@ -281,6 +308,9 @@ export async function syncMessages(
       ? ' ' + inaccessible + ' conversations or messages were inaccessible.'
       : '') +
     (partial ? ' Some history remains outside this import.' : '') +
+    (after
+      ? ' More conversations are available. Use Load older conversations to continue.'
+      : '') +
     ' Story mentions/reposts count only when explicitly supplied; expired, private or untagged stories cannot be reconstructed.';
   await saveCommunityStatus(owner, {
     source,
@@ -288,6 +318,7 @@ export async function syncMessages(
     state: 'partial',
     detail,
     accountId: context.accountId,
+    cursor: after,
   });
   return {
     imported: imported.filter((r) => r.kind === 'message').length,
@@ -435,7 +466,7 @@ export async function runCommunitySync(
   try {
     return source === 'gbp'
       ? await syncReviews(owner, continueImport || automatic)
-      : await syncMessages(owner, source);
+      : await syncMessages(owner, source, continueImport);
   } catch (e) {
     const detail =
       e instanceof Error && e.message.startsWith('INPUT:')

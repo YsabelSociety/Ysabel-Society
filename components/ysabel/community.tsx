@@ -687,13 +687,21 @@ export function CommunityPage({
         ['partial', 'synced', 'file'].includes(s.state) &&
         (source === 'all' || s.source === source),
     );
-  async function sync() {
+  async function sync(older = false) {
     setBusy(true);
     data.setError('');
     const errors = [];
     for (const s of source === 'all' ? ['facebook', 'instagram'] : [source]) {
+      if (
+        older &&
+        !data.statuses.some(
+          (status) =>
+            status.source === s && status.kind === 'message' && status.more,
+        )
+      )
+        continue;
       try {
-        await communityAction({ op: 'sync', source: s });
+        await communityAction({ op: 'sync', source: s, continue: older });
       } catch (e) {
         errors.push((e as Error).message);
       }
@@ -754,6 +762,21 @@ export function CommunityPage({
             {busy ? 'Checking inboxes…' : 'Sync inboxes'}
           </button>
         )}
+        {mode === 'inbox' &&
+          data.statuses.some(
+            (s) =>
+              s.kind === 'message' &&
+              s.more &&
+              (source === 'all' || s.source === source),
+          ) && (
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => void sync(true)}
+            >
+              Load older conversations
+            </button>
+          )}
       </div>
       {data.error && (
         <div className="save-error" role="alert">

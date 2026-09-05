@@ -67,6 +67,7 @@ export const METRICS: {
   },
 ];
 export type Daily = {
+  available?: string[];
   date: string;
   unit: string;
   channel: Channel;
@@ -92,8 +93,12 @@ export const ANCHOR = '2026-09-05';
 const ms = 86400000;
 export const iso = (d: Date) => d.toISOString().slice(0, 10);
 export type Range = { start: string; end: string };
-export function dateRange(preset: string, custom?: Range): Range {
-  const end = new Date(ANCHOR + 'T12:00:00Z'),
+export function dateRange(
+  preset: string,
+  custom?: Range,
+  anchor = ANCHOR,
+): Range {
+  const end = new Date(anchor + 'T12:00:00Z'),
     start = new Date(end);
   switch (preset) {
     case 'Today':
@@ -119,8 +124,8 @@ export function dateRange(preset: string, custom?: Range): Range {
       start.setUTCMonth(0, 1);
       break;
     case 'Last Year':
-      start.setUTCFullYear(2025, 0, 1);
-      end.setUTCFullYear(2025, 11, 31);
+      start.setUTCFullYear(end.getUTCFullYear() - 1, 0, 1);
+      end.setUTCFullYear(start.getUTCFullYear(), 11, 31);
       break;
     case 'Custom Range':
       return custom ?? { start: '2026-08-01', end: '2026-08-31' };
@@ -222,6 +227,9 @@ export function consolidateDaily(rows: Daily[]): Daily[] {
   return [...grouped.values()];
 }
 export const DAILY = demoDaily();
+export function metricAvailable(rows: Daily[], metric: string) {
+  return rows.some((row) => !row.available || row.available.includes(metric));
+}
 export function filterDaily(
   _unit: string,
   range: Range,

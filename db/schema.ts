@@ -91,3 +91,37 @@ export const syncRuns = sqliteTable(
   },
   (t) => [index('idx_sync_owner').on(t.owner)],
 );
+
+export const connectorVault = sqliteTable(
+  'connector_vault',
+  {
+    owner: text('owner').notNull(),
+    kind: text('kind').notNull(),
+    provider: text('provider').notNull(),
+    encrypted: text('encrypted').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.owner, t.kind, t.provider] })],
+);
+export const oauthStates = sqliteTable('oauth_states', {
+  state: text('state_hash').primaryKey(),
+  owner: text('owner').notNull(),
+  provider: text('provider').notNull(),
+  nonce: text('nonce_hash').notNull(),
+  verifier: text('verifier').notNull(),
+  redirectUri: text('redirect_uri').notNull(),
+  expires: integer('expires_at').notNull(),
+});
+export const connectorLinks = sqliteTable(
+  'connector_links',
+  {
+    owner: text('owner').notNull(),
+    source: text('source').notNull(),
+    provider: text('provider').notNull(),
+    externalId: text('external_id').notNull(),
+    label: text('label').notNull(),
+    snapshot: text('snapshot'),
+    autoSync: integer('auto_sync').notNull().default(1),
+  },
+  (t) => [primaryKey({ columns: [t.owner, t.source] })],
+);

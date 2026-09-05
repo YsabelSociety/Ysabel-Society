@@ -10,6 +10,7 @@ export function useSourceAnalytics(
   unit: string,
   range: Range,
   comparison: string,
+  onLive?: () => void,
 ) {
   const [result, setResult] = useState<{
     key: string;
@@ -18,6 +19,12 @@ export function useSourceAnalytics(
     previous: Daily[];
     coverage: string[];
   } | null>(null);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRevision((v) => v + 1);
+    window.addEventListener('ysabel:sources-updated', refresh);
+    return () => window.removeEventListener('ysabel:sources-updated', refresh);
+  }, []);
   const [error, setError] = useState(''),
     [loading, setLoading] = useState(false);
   const key = unit + '|' + range.start + '|' + range.end + '|' + comparison;
@@ -42,6 +49,7 @@ export function useSourceAnalytics(
             : read(previousRange(range, comparison)),
         ]);
         if (!abort.signal.aborted) {
+          if (current.mode === 'live') onLive?.();
           setResult({
             key,
             mode: current.mode,
@@ -62,7 +70,7 @@ export function useSourceAnalytics(
     }
     void run();
     return () => abort.abort();
-  }, [key]);
+  }, [key, revision, onLive]);
   const current = result?.key === key ? result : null;
   const live = result?.mode === 'live';
   return {

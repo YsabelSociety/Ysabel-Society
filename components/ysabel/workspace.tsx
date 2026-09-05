@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   LayoutDashboard,
@@ -60,6 +60,9 @@ import {
 } from '@/components/ui/dialog';
 import {
   METRICS,
+  ANCHOR,
+  iso,
+  metricAvailable,
   CHANNELS,
   compact,
   total,
@@ -90,6 +93,7 @@ import {
 import { ReportsPage, ExportDialog } from './reports';
 import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
 import { AdminPanel } from './admin-panel';
+import { useAutoRefresh } from './use-auto-refresh';
 const groups = [
   {
     label: 'WORKSPACE',
@@ -218,7 +222,10 @@ export default function Workspace({
   initialPage?: string;
 }) {
   const data = useWorkspace();
+  useAutoRefresh(data.ready);
   const unit = 'Ysabel Society';
+  const [liveClock, setLiveClock] = useState(false);
+  const liveInitialized = useRef(false);
   const [page, setPage] = useState(
       names.includes(initialPage) ? initialPage : 'Overview',
     ),
@@ -232,8 +239,18 @@ export default function Workspace({
     [exportOpen, setExportOpen] = useState(false),
     [post, setPost] = useState<Post | null>(null),
     [metric, setMetric] = useState<string | null>(null);
-  const range = useMemo(() => dateRange(date, custom), [date, custom]);
-  const source = useSourceAnalytics(unit, range, comparison),
+  const range = useMemo(
+    () => dateRange(date, custom, liveClock ? iso(new Date()) : ANCHOR),
+    [date, custom, liveClock],
+  );
+  const onLive = useCallback(() => {
+    setLiveClock(true);
+    if (!liveInitialized.current) {
+      liveInitialized.current = true;
+      setDate('Last 30 Days');
+    }
+  }, []);
+  const source = useSourceAnalytics(unit, range, comparison, onLive),
     rows = source.rows,
     previous = source.previous;
   const visiblePosts = data.posts.filter(
@@ -246,7 +263,11 @@ export default function Workspace({
     window.history.pushState(
       {},
       '',
-      name === 'Admin Panel' ? '/admin' : '/#' + encodeURIComponent(name),
+      name === 'Admin Panel'
+        ? '/admin'
+        : name === 'Connections'
+          ? '/connections'
+          : '/#' + encodeURIComponent(name),
     );
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
@@ -255,7 +276,9 @@ export default function Workspace({
       let name =
         location.pathname.replace(/\/$/, '') === '/admin'
           ? 'Admin Panel'
-          : 'Overview';
+          : location.pathname.replace(/\/$/, '') === '/connections'
+            ? 'Connections'
+            : 'Overview';
       try {
         name = decodeURIComponent(location.hash.slice(1)) || name;
       } catch {}
@@ -311,7 +334,7 @@ export default function Workspace({
       name: 'read_ysabel_metrics',
       title: 'Read visible metrics',
       description:
-        'Read the current date-filtered demonstration metrics and definitions.',
+        'Read the current date-filtered metrics, data mode and definitions.',
       inputSchema: {
         type: 'object',
         properties: {},
@@ -324,7 +347,7 @@ export default function Workspace({
         range,
         metrics: METRICS.map((m) => ({
           name: m.label,
-          value: total(rows, m.key),
+          value: metricAvailable(rows, m.key) ? total(rows, m.key) : null,
           definition: m.definition,
         })),
       }),
@@ -392,7 +415,14 @@ export default function Workspace({
               onClick={() => navigate('Connections')}
             >
               <i />
-              Demo workspace<span>Sample data · 5 Sep 2026</span>
+              {source.mode === 'live'
+                ? 'Connected workspace'
+                : 'Demo workspace'}
+              <span>
+                {source.mode === 'live'
+                  ? 'Real sources · view connections'
+                  : 'Sample data · 5 Sep 2026'}
+              </span>
             </button>
             <button className="profile" onClick={() => navigate('Admin Panel')}>
               <span className="avatar">YS</span>
@@ -589,10 +619,11 @@ export default function Workspace({
               )}
               {page === 'Overview' && (
                 <Overview
+                  live={source.mode === 'live'}
                   rows={rows}
                   previous={previous}
                   setPage={navigate}
-                  posts={visiblePosts}
+                  posts={source.mode === 'live' ? [] : visiblePosts}
                   onSelect={setPost}
                   onMetric={setMetric}
                 />
@@ -628,7 +659,9 @@ export default function Workspace({
                   live={source.mode === 'live'}
                 />
               )}
-              {page === 'Google Business' && <GooglePage rows={rows} />}
+              {page === 'Google Business' && (
+                <GooglePage rows={rows} live={source.mode === 'live'} />
+              )}
               {['Content Studio', 'Media Preview', 'Content Library'].includes(
                 page,
               ) && (
@@ -646,6 +679,7 @@ export default function Workspace({
               )}
               {page === 'Insights' && (
                 <InsightsPage
+                  live={source.mode === 'live'}
                   rows={rows}
                   previous={previous}
                   posts={source.mode === 'live' ? [] : visiblePosts}
@@ -752,7 +786,11 @@ export default function Workspace({
               </DialogDescription>
             </DialogHeader>
             <strong className="metric-detail-value">
-              {metric ? compact(total(rows, metric as any)) : ''}
+              {metric
+                ? metricAvailable(rows, metric)
+                  ? compact(total(rows, metric as any))
+                  : 'Not supplied'
+                : ''}
             </strong>
             <p className="muted">
               {METRICS.find((m) => m.key === metric)?.definition}
@@ -766,14 +804,15 @@ export default function Workspace({
             <div className="availability-row">
               <span>Comparison value</span>
               <span>
-                {previous.length && metric
+                {metric && metricAvailable(previous, metric)
                   ? compact(total(previous, metric as any))
                   : 'No comparison selected'}
               </span>
             </div>
             <p className="footnote">
-              Deterministic demo observations. All source counts remain
-              accessible in CSV exports.
+              {source.mode === 'live'
+                ? 'Connected observations only. Unavailable measures stay blank in CSV exports.'
+                : 'Deterministic demo observations. All source counts remain accessible in CSV exports.'}
             </p>
           </DialogContent>
         </Dialog>

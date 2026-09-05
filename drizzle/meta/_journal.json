@@ -8,6 +8,13 @@
       "when": 1788626301480,
       "tag": "0000_organic_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1788632520551,
+      "tag": "0001_connection_assistant",
+      "breakpoints": true
     }
   ]
 }

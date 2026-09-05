@@ -12,6 +12,7 @@ import {
   CHANNELS,
   COLORS,
   METRICS,
+  metricAvailable,
   compact,
   total,
   change,
@@ -29,6 +30,7 @@ export default function Overview({
   posts,
   onSelect,
   onMetric,
+  live = false,
 }: {
   rows: Daily[];
   previous: Daily[];
@@ -36,6 +38,7 @@ export default function Overview({
   posts: Post[];
   onSelect: (p: Post) => void;
   onMetric: (key: string) => void;
+  live?: boolean;
 }) {
   return (
     <>
@@ -43,7 +46,8 @@ export default function Overview({
         {METRICS.map((m, i) => {
           const value = total(rows, m.key),
             prior = total(previous, m.key),
-            delta = change(value, prior);
+            delta = change(value, prior),
+            available = metricAvailable(rows, m.key);
           return (
             <div className={'metric-card metric-' + i} key={m.key}>
               <div className="metric-label">
@@ -54,19 +58,32 @@ export default function Overview({
                 className="metric-value"
                 onClick={() => onMetric(m.key)}
                 aria-label={
-                  m.label + ': ' + compact(value) + '. Open metric details.'
+                  m.label +
+                  ': ' +
+                  (available ? compact(value) : 'Unavailable') +
+                  '. Open metric details.'
                 }
               >
-                {compact(value)}
+                {available ? compact(value) : '—'}
               </button>
               <div className="metric-bottom">
                 <span className={delta >= 0 ? 'positive' : 'negative'}>
-                  {delta >= 0 ? '↗' : '↘'}{' '}
+                  {available ? (delta >= 0 ? '↗' : '↘') : ''}{' '}
                   {prior ? Math.abs(delta).toFixed(1) + '%' : '—'}
                 </span>
-                <span>{prior ? 'vs. previous' : 'no comparison'}</span>
+                <span>
+                  {!available
+                    ? 'Not supplied'
+                    : prior
+                      ? 'vs. previous'
+                      : 'no comparison'}
+                </span>
               </div>
-              <Spark values={series(rows, m.key).map((d) => Number(d.total))} />
+              {available && (
+                <Spark
+                  values={series(rows, m.key).map((d) => Number(d.total))}
+                />
+              )}
             </div>
           );
         })}
@@ -78,7 +95,7 @@ export default function Overview({
             <h2>
               <Sparkles size={16} /> Digital Intelligence
             </h2>
-            <span className="pill">PREVIEW</span>
+            <span className="pill">{live ? 'LIVE' : 'PREVIEW'}</span>
           </div>
           <p className="intelligence-intro">The story behind the numbers.</p>
           {[0, 2, 4].map((idx, i) => {
@@ -97,7 +114,15 @@ export default function Overview({
                   {['MOMENTUM', 'CHANNEL SPOTLIGHT', 'BEYOND SOCIAL'][i]}
                 </span>
                 <p>
-                  {c} generated <strong>{compact(v)}</strong>{' '}
+                  {c}{' '}
+                  <strong>
+                    {metricAvailable(
+                      rows.filter((r) => r.channel === c),
+                      idx === 4 ? 'users' : 'views',
+                    )
+                      ? compact(v)
+                      : '—'}
+                  </strong>{' '}
                   {idx === 4 ? 'daily active users' : 'content views'} this
                   period.
                 </p>
@@ -124,7 +149,11 @@ export default function Overview({
       <div className="channel-grid">
         {CHANNELS.map((c, i) => {
           const Icon = [Instagram, Facebook, Music2, MapPin, Globe][i],
-            cr = rows.filter((r) => r.channel === c);
+            cr = rows.filter((r) => r.channel === c),
+            available = metricAvailable(
+              cr,
+              i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+            );
           return (
             <button
               className="channel-card surface"
@@ -148,9 +177,14 @@ export default function Overview({
                 <ArrowUpRight size={14} />
               </div>
               <strong>
-                {compact(
-                  total(cr, i < 3 ? 'views' : i === 3 ? 'actions' : 'users'),
-                )}
+                {available
+                  ? compact(
+                      total(
+                        cr,
+                        i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                      ),
+                    )
+                  : '—'}
               </strong>
               <span>
                 {i < 3
@@ -160,51 +194,64 @@ export default function Overview({
                     : 'Daily active users'}
               </span>
               <div className="channel-footer">
-                <span className="positive">
-                  ↗{' '}
-                  {change(
-                    total(cr, i < 3 ? 'views' : i === 3 ? 'actions' : 'users'),
-                    total(
-                      previous.filter((r) => r.channel === c),
-                      i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
-                    ),
-                  ).toFixed(1)}
-                  %
-                </span>
-                <Spark
-                  values={series(
-                    cr,
-                    i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
-                  ).map((d) => Number(d.total))}
-                />
+                {available ? (
+                  <>
+                    <span className="positive">
+                      ↗{' '}
+                      {change(
+                        total(
+                          cr,
+                          i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                        ),
+                        total(
+                          previous.filter((r) => r.channel === c),
+                          i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                        ),
+                      ).toFixed(1)}
+                      %
+                    </span>
+                    <Spark
+                      values={series(
+                        cr,
+                        i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                      ).map((d) => Number(d.total))}
+                    />
+                  </>
+                ) : (
+                  <span className="muted">Daily metrics not supplied</span>
+                )}
               </div>
             </button>
           );
         })}
       </div>
-      <div className="section-head standalone">
-        <div>
-          <h2>Content worth a closer look</h2>
-          <p>The stories that resonated most.</p>
-        </div>
-        <button
-          className="text-link"
-          onClick={() => setPage('Content Intelligence')}
-        >
-          All content <ArrowUpRight size={14} />
-        </button>
-      </div>
-      <MediaCards
-        posts={posts
-          .filter((p) => p.status === 'Published')
-          .sort((a, b) => b.views - a.views)
-          .slice(0, 4)}
-        onSelect={onSelect}
-      />
-      <p className="footnote">
-        Demo media · licensed hospitality photographs. These images do not
-        depict Ysabel Society or its team.
-      </p>
+      {!live && (
+        <>
+          <div className="section-head standalone">
+            <div>
+              <h2>Content worth a closer look</h2>
+              <p>The stories that resonated most.</p>
+            </div>
+            <button
+              className="text-link"
+              onClick={() => setPage('Content Intelligence')}
+            >
+              All content <ArrowUpRight size={14} />
+            </button>
+          </div>
+          <MediaCards
+            posts={posts
+              .filter((p) => p.status === 'Published')
+              .sort((a, b) => b.views - a.views)
+              .slice(0, 4)}
+            onSelect={onSelect}
+          />
+          <p className="footnote">
+            Demo media · licensed hospitality photographs. These images do not
+            depict Ysabel Society or its team.
+          </p>
+        </>
+      )}
     </>
   );
 }

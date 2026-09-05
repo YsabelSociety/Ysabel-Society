@@ -29,7 +29,13 @@ import {
 import { METRICS, CHANNELS } from '@/lib/analytics';
 import { type WorkspaceData } from './use-workspace';
 import { PROVIDER_CONFIG } from '@/lib/provider-metadata';
+import { ConnectionAssistant } from './connection-assistant';
+import { Switch } from '@/components/ui/switch';
 export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
+  const requestProvider = (id: string) =>
+    window.dispatchEvent(
+      new CustomEvent('ysabel:connect-provider', { detail: id }),
+    );
   const [connections, setConnections] = useState<any[]>(
       PROVIDER_CONFIG.map((p) => ({
         ...p,
@@ -73,8 +79,13 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
       notify(
         action === 'disconnect'
           ? 'Connection disabled.'
-          : d.records + ' daily records synchronized.',
+          : d.skipped
+            ? 'A refresh is already in progress.'
+            : d.records
+              ? d.records + ' daily records synchronized.'
+              : 'Current account statistics refreshed.',
       );
+      window.dispatchEvent(new Event('ysabel:sources-updated'));
       await load();
     } catch (e) {
       notify(e instanceof Error ? e.message : 'The sync could not complete.');
@@ -85,6 +96,7 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   }
   return (
     <div className="view-enter">
+      <ConnectionAssistant onChanged={() => void load()} notify={notify} />
       <div className="connection-banner">
         <ShieldCheck size={21} />
         <div>
@@ -125,7 +137,10 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
             <div className="connection-detail">
               <span>Account</span>
               <strong>
-                {c.configured ? 'Configured securely' : 'No account authorized'}
+                {c.accountLabel ||
+                  (c.configured
+                    ? 'Configured securely'
+                    : 'No account authorized')}
               </strong>
               <span>Last sync</span>
               <strong>
@@ -135,15 +150,85 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
               </strong>
               <span>Availability</span>
               <strong>
-                {c.supported
-                  ? 'Server adapter ready'
-                  : c.kind === 'Future advertising'
-                    ? 'Architecture reserved'
-                    : 'Approval & adapter validation required'}
+                {['instagram', 'facebook', 'tiktok'].includes(c.id)
+                  ? 'Current profile statistics'
+                  : c.supported
+                    ? 'Daily source metrics'
+                    : c.kind === 'Future advertising'
+                      ? 'Architecture reserved'
+                      : 'Approval & adapter validation required'}
               </strong>
             </div>
+            {c.snapshot?.kind === 'profile' && (
+              <div className="profile-snapshot">
+                <span>Latest account snapshot</span>
+                <strong>
+                  {typeof c.snapshot.followers === 'number'
+                    ? c.snapshot.followers.toLocaleString()
+                    : '—'}
+                  <small>followers</small>
+                </strong>
+                <p>
+                  {c.snapshot.posts != null
+                    ? c.snapshot.posts + ' posts · '
+                    : c.snapshot.videos != null
+                      ? c.snapshot.videos + ' videos · '
+                      : ''}
+                  {c.snapshot.likes != null
+                    ? c.snapshot.likes.toLocaleString() + ' total likes'
+                    : c.snapshot.pageLikes != null
+                      ? c.snapshot.pageLikes.toLocaleString() + ' Page likes'
+                      : ''}
+                </p>
+                <small>
+                  Observed {new Date(c.snapshot.observedAt).toLocaleString()}.
+                  Daily views and engagement history are unavailable.
+                </small>
+              </div>
+            )}
+            {c.linked && (
+              <label className="auto-sync-control">
+                <span>Automatic refresh</span>
+                <Switch
+                  checked={c.autoSync}
+                  onCheckedChange={async (enabled) => {
+                    try {
+                      const r = await fetch('/api/connectors', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          op: 'autoSync',
+                          source: c.id,
+                          enabled,
+                        }),
+                      });
+                      if (!r.ok)
+                        throw new Error('Could not save refresh preference.');
+                      await load();
+                    } catch (e) {
+                      notify(
+                        e instanceof Error ? e.message : 'Could not save.',
+                      );
+                    }
+                  }}
+                />
+              </label>
+            )}
             <div className="connection-actions">
-              <button className="secondary" onClick={() => setSelected(c)}>
+              <button
+                className="secondary"
+                onClick={() =>
+                  c.kind === 'Future advertising'
+                    ? setSelected(c)
+                    : requestProvider(
+                        ['ga4', 'gbp'].includes(c.id)
+                          ? 'google'
+                          : c.id === 'tiktok'
+                            ? 'tiktok'
+                            : 'meta',
+                      )
+                }
+              >
                 {c.configured ? 'Connection details' : 'Set up connection'}
                 <ArrowUpRight size={13} />
               </button>
@@ -157,11 +242,11 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
                   <RefreshCw size={15} />
                 </button>
               )}
-              {c.status === 'Connected' && (
+              {c.linked || c.status === 'Connected' ? (
                 <button className="text-link" onClick={() => setDisconnect(c)}>
                   Disconnect
                 </button>
-              )}
+              ) : null}
             </div>
           </section>
         ))}

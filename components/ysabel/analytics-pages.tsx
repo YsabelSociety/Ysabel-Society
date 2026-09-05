@@ -1,4 +1,5 @@
 'use client';
+import { useMinimalMotion } from './use-motion';
 import { useState } from 'react';
 import {
   AreaChart,
@@ -29,6 +30,7 @@ import {
   CHANNELS,
   COLORS,
   METRICS,
+  metricAvailable,
   compact,
   number,
   total,
@@ -88,6 +90,7 @@ export function Trend({
   keys: string[];
   title: string;
 }) {
+  const animate = useMinimalMotion();
   return (
     <Panel title={title}>
       <div className="chart-legend">
@@ -129,6 +132,9 @@ export function Trend({
             />
             {keys.map((k, i) => (
               <Area
+                isAnimationActive={animate}
+                animationDuration={420}
+                animationEasing="ease-out"
                 key={k}
                 type="monotone"
                 dataKey={k}
@@ -163,7 +169,7 @@ export function getInsights(rows: Daily[], previous: Daily[], posts: Post[]) {
   const actions = total(rows, 'actions'),
     directions = total(rows, 'directions');
   const delta = change(views, prior);
-  return [
+  const insights = [
     {
       type: 'PERFORMANCE',
       title: prior
@@ -232,20 +238,29 @@ export function getInsights(rows: Daily[], previous: Daily[], posts: Post[]) {
         'Keep Google opening hours, location details and menu links current. Direction requests are not confirmed visits.',
     },
   ];
+  return insights.filter((_, i) =>
+    i < 2
+      ? metricAvailable(rows, 'views')
+      : i === 2
+        ? posts.length > 0
+        : metricAvailable(rows, 'actions'),
+  );
 }
 export function InsightsPage({
   rows,
   previous,
   posts,
   onNavigate,
+  live = false,
 }: {
+  live?: boolean;
   rows: Daily[];
   previous: Daily[];
   posts: Post[];
   onNavigate: (p: string) => void;
 }) {
   const insights = getInsights(rows, previous, posts);
-  const days = series(rows, 'views');
+  const days = metricAvailable(rows, 'views') ? series(rows, 'views') : [];
   const avg =
       days.reduce((n, d) => n + Number(d.total), 0) / (days.length || 1),
     high = [...days].sort((a, b) => Number(b.total) - Number(a.total))[0];
@@ -254,7 +269,11 @@ export function InsightsPage({
       <div className="intelligence-hero">
         <Sparkles size={27} />
         <div>
-          <div className="eyebrow">YSABEL INTELLIGENCE · DEMO OBSERVATIONS</div>
+          <div className="eyebrow">
+            {live
+              ? 'YSABEL SOCIETY · CONNECTED OBSERVATIONS'
+              : 'YSABEL SOCIETY · DEMO OBSERVATIONS'}
+          </div>
           <h2>What changed?</h2>
           <p>
             A measured perspective on performance, content and customer intent.
@@ -262,6 +281,16 @@ export function InsightsPage({
         </div>
       </div>
       <div className="insights-grid">
+        {!insights.length && (
+          <Panel
+            title="More evidence is needed"
+            description="Daily social observations are not available yet. View current account statistics in Connections, or connect Google for daily website and business metrics."
+          >
+            <a className="secondary" href="/connections">
+              Open Connections
+            </a>
+          </Panel>
+        )}
         {insights.map((s, i) => (
           <section className="surface insight-large" key={s.title}>
             <span className="insight-kicker">{s.type}</span>
@@ -274,9 +303,10 @@ export function InsightsPage({
             <details>
               <summary>Evidence & calculation</summary>
               <p>
-                {s.source}. Deterministic demo data. Period filters apply to
-                daily metrics; creative statistics use the published content
-                records in view.
+                {s.source}.{' '}
+                {live ? 'Connected source data.' : 'Deterministic demo data.'}{' '}
+                Period filters apply to daily metrics; creative statistics use
+                the published content records in view.
               </p>
             </details>
             <button
@@ -288,7 +318,13 @@ export function InsightsPage({
                     'Performance',
                     'Content Intelligence',
                     'Google Business',
-                  ][i],
+                  ][
+                    s.type === 'BEYOND SOCIAL'
+                      ? 3
+                      : s.type === 'CREATIVE OPPORTUNITY'
+                        ? 2
+                        : 0
+                  ],
                 )
               }
             >
@@ -363,7 +399,7 @@ export function PerformancePage({
       <StatRow
         items={METRICS.slice(0, 4).map((m) => ({
           label: m.label,
-          value: compact(total(r, m.key)),
+          value: metricAvailable(r, m.key) ? compact(total(r, m.key)) : '—',
           note: total(p, m.key)
             ? change(total(r, m.key), total(p, m.key)).toFixed(1) +
               '% vs comparison'
@@ -450,6 +486,18 @@ export function AudiencePage({
   previous: Daily[];
   live?: boolean;
 }) {
+  const animate = useMinimalMotion();
+  if (live && !metricAvailable(rows, 'followers'))
+    return (
+      <Panel
+        title="Follower history is not available"
+        description="Current social account statistics are shown in Connections. Daily historical follower series are not supplied by the connected sources."
+      >
+        <a className="secondary" href="/connections">
+          View account snapshots
+        </a>
+      </Panel>
+    );
   const followers = total(rows, 'followers'),
     prior = total(previous, 'followers'),
     dayCount = new Set(rows.map((r) => r.date)).size;
@@ -510,6 +558,9 @@ export function AudiencePage({
                 <ResponsiveContainer width="100%" height={210}>
                   <PieChart>
                     <Pie
+                      isAnimationActive={animate}
+                      animationDuration={420}
+                      animationEasing="ease-out"
                       data={distribution}
                       dataKey="value"
                       nameKey="label"
@@ -620,6 +671,17 @@ export function WebsitePage({
 }) {
   const r = rows.filter((r) => r.channel === 'Website'),
     p = previous.filter((r) => r.channel === 'Website');
+  if (live && !metricAvailable(r, 'users'))
+    return (
+      <Panel
+        title="Website metrics are not available for this period"
+        description="Connect a Google Analytics property or choose a date range with imported observations."
+      >
+        <a className="secondary" href="/connections">
+          Open Connections
+        </a>
+      </Panel>
+    );
   const users = total(r, 'users'),
     sessions = total(r, 'sessions'),
     engaged = total(r, 'engaged'),
@@ -780,8 +842,25 @@ export function WebsitePage({
     </div>
   );
 }
-export function GooglePage({ rows }: { rows: Daily[] }) {
+export function GooglePage({
+  rows,
+  live = false,
+}: {
+  rows: Daily[];
+  live?: boolean;
+}) {
   const r = rows.filter((r) => r.channel === 'Google Business');
+  if (live && !metricAvailable(r, 'actions'))
+    return (
+      <Panel
+        title="Business Profile metrics are not available for this period"
+        description="Connect a Google Business Profile location or choose a date range with imported observations."
+      >
+        <a className="secondary" href="/connections">
+          Open Connections
+        </a>
+      </Panel>
+    );
   const grouped = new Map<string, any>();
   r.forEach((d) => {
     const v = grouped.get(d.date) ?? { date: d.date, Search: 0, Maps: 0 };
@@ -910,7 +989,7 @@ export function ComparisonsPage({
             w = total(b, m.key);
           return (
             <div className="comparison-row" key={m.key}>
-              <strong>{compact(v)}</strong>
+              <strong>{metricAvailable(a, m.key) ? compact(v) : '—'}</strong>
               <div>
                 <span>
                   {m.label} <Help text={m.definition} />
@@ -924,7 +1003,7 @@ export function ComparisonsPage({
                   />
                 </div>
               </div>
-              <strong>{compact(w)}</strong>
+              <strong>{metricAvailable(b, m.key) ? compact(w) : '—'}</strong>
             </div>
           );
         })}

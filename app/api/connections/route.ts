@@ -4,17 +4,20 @@ import {
   apiError,
   json,
   secrets,
-  requireText,
 } from '@/lib/server/db';
 import { PROVIDER_CONFIG, adapters } from '@/lib/server/providers';
 import { iso } from '@/lib/analytics';
+import {
+  syncLinkedSource,
+  type ConnectorLink,
+} from '@/lib/server/connector-sync';
 export async function GET() {
   try {
     const user = await identity();
     const db = database();
     const accounts = await db
       .prepare(
-        'SELECT channel,status,last_sync,enabled FROM platform_accounts WHERE owner=?',
+        'SELECT channel,status,last_sync,enabled FROM platform_accounts WHERE owner=? ORDER BY enabled DESC,last_sync DESC',
       )
       .bind(user.userId)
       .all();
@@ -24,8 +27,13 @@ export async function GET() {
       )
       .bind(user.userId)
       .all();
+    const links = await db
+      .prepare('SELECT * FROM connector_links WHERE owner=?')
+      .bind(user.userId)
+      .all<ConnectorLink>();
     return json({
       connections: PROVIDER_CONFIG.map((p) => {
+        const linked = links.results.find((l) => l.source === p.id);
         const record = accounts.results.find(
           (a: any) => a.channel === p.channel,
         ) as any;
@@ -33,8 +41,12 @@ export async function GET() {
         return {
           ...p,
           missing,
-          configured: p.required.length > 0 && !missing.length,
-          supported: ['ga4', 'gbp'].includes(p.id),
+          configured: !!linked || (p.required.length > 0 && !missing.length),
+          supported: !!linked || ['ga4', 'gbp'].includes(p.id),
+          linked: !!linked,
+          accountLabel: linked?.label,
+          autoSync: !!linked?.auto_sync,
+          snapshot: linked?.snapshot ? JSON.parse(linked.snapshot) : null,
           status: record?.status ?? 'Disconnected',
           lastSync: record?.last_sync ?? null,
           enabled: record?.enabled !== 0,
@@ -52,22 +64,38 @@ export async function POST(req: Request) {
       body = (await req.json()) as any;
     const config = PROVIDER_CONFIG.find((p) => p.id === body.id);
     if (!config) throw new Error('INPUT:Choose a known source.');
+    if (!['sync', 'disconnect'].includes(body.action))
+      throw new Error('INPUT:Choose a known connection action.');
     const db = database(),
       accountId = user.userId + ':' + config.id,
       now = new Date().toISOString();
     if (body.action === 'disconnect') {
-      await db
-        .prepare(
-          'UPDATE platform_accounts SET enabled=0,status=? WHERE owner=? AND id=?',
-        )
-        .bind('Disconnected', user.userId, accountId)
-        .run();
+      await db.batch([
+        db
+          .prepare(
+            'UPDATE platform_accounts SET enabled=0,status=? WHERE owner=? AND channel=?',
+          )
+          .bind('Disconnected', user.userId, config.channel),
+        db
+          .prepare('DELETE FROM connector_links WHERE owner=? AND source=?')
+          .bind(user.userId, config.id),
+        db
+          .prepare(
+            "DELETE FROM connector_vault WHERE owner=? AND kind='target' AND provider=?",
+          )
+          .bind(user.userId, config.id),
+      ]);
       return json({
         ok: true,
         message:
           'Automatic use of this connection is disabled. Revoke platform access separately if needed.',
       });
     }
+    const linked = await db
+      .prepare('SELECT source FROM connector_links WHERE owner=? AND source=?')
+      .bind(user.userId, config.id)
+      .first();
+    if (linked) return json(await syncLinkedSource(user.userId, config.id));
     if (!config.required.length || config.required.some((k) => !secrets()[k]))
       throw new Error(
         'INPUT:This source needs secure account configuration before it can synchronize.',

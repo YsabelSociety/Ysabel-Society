@@ -1,6 +1,7 @@
 import { secrets } from './db';
-import { type Channel, type Daily, type Range, iso } from '@/lib/analytics';
+import { type Channel, type Daily, type Range } from '@/lib/analytics';
 export type ProviderResult = { daily: Daily[]; raw: unknown; scope: string };
+export type ProviderContext = { accessToken: string; externalId: string };
 export interface AnalyticsProvider {
   channel: Channel;
   required: string[];
@@ -81,11 +82,12 @@ function empty(date: string, channel: Channel): Daily {
 export class GA4Adapter implements AnalyticsProvider {
   channel = 'Website' as const;
   required = PROVIDER_CONFIG[3].required;
-  async sync(range: Range) {
+  async sync(range: Range, context?: ProviderContext) {
     const e = secrets();
-    if (!/^\d+$/.test(e.GA4_PROPERTY_ID))
+    const propertyId = context?.externalId || e.GA4_PROPERTY_ID;
+    if (!/^\d+$/.test(propertyId))
       throw new Error('INPUT:Check the Analytics property identifier.');
-    const token = await googleToken();
+    const token = context?.accessToken || (await googleToken());
     const names = [
       'activeUsers',
       'sessions',
@@ -94,7 +96,7 @@ export class GA4Adapter implements AnalyticsProvider {
     ];
     const raw = await requestJSON(
       'https://analyticsdata.googleapis.com/v1beta/properties/' +
-        e.GA4_PROPERTY_ID +
+        propertyId +
         ':runReport',
       {
         method: 'POST',
@@ -119,6 +121,7 @@ export class GA4Adapter implements AnalyticsProvider {
       [d.users, d.sessions, d.engaged, d.pageViews] = r.metricValues.map(
         (v: any) => Number(v.value),
       );
+      d.available = ['users', 'sessions', 'engaged', 'pageViews'];
       return d;
     });
     return {
@@ -132,11 +135,12 @@ export class GA4Adapter implements AnalyticsProvider {
 export class GoogleBusinessAdapter implements AnalyticsProvider {
   channel = 'Google Business' as const;
   required = PROVIDER_CONFIG[4].required;
-  async sync(range: Range) {
+  async sync(range: Range, context?: ProviderContext) {
     const e = secrets();
-    if (!/^\d+$/.test(e.GBP_LOCATION_ID))
+    const locationId = context?.externalId || e.GBP_LOCATION_ID;
+    if (!/^\d+$/.test(locationId))
       throw new Error('INPUT:Check the Google location identifier.');
-    const token = await googleToken(),
+    const token = context?.accessToken || (await googleToken()),
       qs = new URLSearchParams();
     const keys = [
       'BUSINESS_IMPRESSIONS_DESKTOP_SEARCH',
@@ -159,7 +163,7 @@ export class GoogleBusinessAdapter implements AnalyticsProvider {
     }
     const raw = await requestJSON(
       'https://businessprofileperformance.googleapis.com/v1/locations/' +
-        e.GBP_LOCATION_ID +
+        locationId +
         ':fetchMultiDailyMetricsTimeSeries?' +
         qs,
       { headers: { Authorization: 'Bearer ' + token } },
@@ -183,6 +187,14 @@ export class GoogleBusinessAdapter implements AnalyticsProvider {
           else if (series.dailyMetric === 'BUSINESS_DIRECTION_REQUESTS')
             d.directions += n;
           d.actions = d.calls + d.clicks + d.directions;
+          d.available = [
+            'search',
+            'maps',
+            'calls',
+            'clicks',
+            'directions',
+            'actions',
+          ];
           map.set(date, d);
         }
       }

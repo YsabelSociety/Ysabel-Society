@@ -1,10 +1,10 @@
 import {
   METRICS,
+  metricAvailable,
   CHANNELS,
   compact,
   number,
   total,
-  filterDaily,
   series,
   type Daily,
   type Post,
@@ -48,7 +48,18 @@ export function exportCSV(rows: Daily[], range: Range, mode = 'demo') {
     '"';
   download(
     '\uFEFF' +
-      [headers, ...rows.map((r) => headers.map((h) => (r as any)[h]))]
+      [
+        headers,
+        ...rows.map((r) =>
+          headers.map((h) =>
+            r.available &&
+            typeof (r as any)[h] === 'number' &&
+            !r.available.includes(h)
+              ? null
+              : (r as any)[h],
+          ),
+        ),
+      ]
         .map((r) => r.map(escape).join(','))
         .join('\r\n'),
     'text/csv;charset=utf-8',
@@ -91,9 +102,15 @@ export function exportPNG(
     g.fillText(m.label, x, y);
     g.fillStyle = '#26354b';
     g.font = '48px Arial';
-    g.fillText(compact(total(rows, m.key)), x, y + 60);
+    g.fillText(
+      metricAvailable(rows, m.key)
+        ? compact(total(rows, m.key))
+        : 'Unavailable',
+      x,
+      y + 60,
+    );
   });
-  const data = series(rows, 'views'),
+  const data = metricAvailable(rows, 'views') ? series(rows, 'views') : [],
     max = Math.max(...data.map((d) => Number(d.total)), 1);
   g.strokeStyle = '#607e9f';
   g.lineWidth = 3;
@@ -211,13 +228,19 @@ export function exportPDF(
   text(title, 48, 138, 30, '0.15 0.20 0.28', 'F2');
   text('A measured view of attention, community and intent.', 48, 164, 11);
   text('EXECUTIVE PERSPECTIVE', 48, 212, 9);
-  let y = paragraph(
+  paragraph(
     'Ysabel Society generated ' +
-      number(total(rows, 'views')) +
+      (metricAvailable(rows, 'views')
+        ? number(total(rows, 'views'))
+        : 'Unavailable') +
       ' social content views and ' +
-      number(total(rows, 'engagements')) +
+      (metricAvailable(rows, 'engagements')
+        ? number(total(rows, 'engagements'))
+        : 'Unavailable') +
       ' engagements during this period. Google recorded ' +
-      number(total(rows, 'actions')) +
+      (metricAvailable(rows, 'actions')
+        ? number(total(rows, 'actions'))
+        : 'Unavailable') +
       ' customer actions. ' +
       (mode === 'live'
         ? 'Only connected sources are included. Missing sources and unavailable measures must not be interpreted as measured zero.'
@@ -228,7 +251,16 @@ export function exportPDF(
     const x = 48 + (i % 2) * 260,
       yy = 350 + Math.floor(i / 2) * 92;
     text(m.label, x, yy, 10);
-    text(compact(total(rows, m.key)), x, yy + 32, 28, '0.17 0.23 0.32', 'F2');
+    text(
+      metricAvailable(rows, m.key)
+        ? compact(total(rows, m.key))
+        : 'Unavailable',
+      x,
+      yy + 32,
+      28,
+      '0.17 0.23 0.32',
+      'F2',
+    );
     line(x, yy + 49, 230);
   });
   text('MEASUREMENT NOTES', 48, 675, 9);
@@ -248,7 +280,12 @@ export function exportPDF(
     const r = rows.filter((d) => d.channel === c);
     const metric = i < 3 ? 'views' : i === 3 ? 'actions' : 'users';
     text(c, 48, 238 + i * 38, 12);
-    text(number(total(r, metric)), 285, 238 + i * 38, 12);
+    text(
+      metricAvailable(r, metric) ? number(total(r, metric)) : 'Unavailable',
+      285,
+      238 + i * 38,
+      12,
+    );
     text(
       i < 3 ? 'Content views' : i === 3 ? 'Customer actions' : 'Daily users',
       402,

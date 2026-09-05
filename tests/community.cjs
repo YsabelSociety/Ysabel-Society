@@ -386,6 +386,30 @@ async function main() {
     () => sync.runCommunitySync(owner, 'tiktok'),
     /separately approved/,
   );
+  responder = async () =>
+    Response.json(
+      {
+        error: {
+          code: 10,
+          message:
+            'Review needed test-sensitive-token https://example.com/?access_token=test-sensitive-token',
+        },
+      },
+      { status: 403 },
+    );
+  await assert.rejects(
+    () =>
+      sync.readConversationList(
+        { accessToken: 'test-sensitive-token', apiVersion: 'v26.0' },
+        'page',
+        'instagram',
+      ),
+    (e) =>
+      e.message.includes('Review needed') &&
+      e.message.includes('Meta 10') &&
+      !e.message.includes('test-sensitive-token') &&
+      !e.message.includes('https://'),
+  );
   await link('gbp', 'google', 'location-1');
   let requestedPages = [];
   responder = async (url) => {

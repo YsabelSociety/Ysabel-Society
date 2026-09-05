@@ -659,6 +659,14 @@ export function CommunityPage({
     [setup, setSetup] = useState(false),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<any>(null);
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setInterval(
+      () => window.dispatchEvent(new Event('ysabel:community-updated')),
+      8000,
+    );
+    return () => clearInterval(timer);
+  }, [busy]);
   const model = useMemo(
     () => inboxModel(data.records, range, timezone, source),
     [data.records, range, timezone, source],
@@ -689,6 +697,7 @@ export function CommunityPage({
       } catch (e) {
         errors.push((e as Error).message);
       }
+      data.refresh();
     }
     data.refresh();
     if (errors.length) data.setError(errors.join(' '));

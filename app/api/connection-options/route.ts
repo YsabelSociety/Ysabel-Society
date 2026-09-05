@@ -52,7 +52,12 @@ export async function POST(req: Request) {
         },
         'me/permissions',
       );
-      const required = CONNECTOR_GROUPS.find((g) => g.id === 'meta')!.scopes;
+      const required = [
+        ...CONNECTOR_GROUPS.find((g) => g.id === 'meta')!.scopes,
+        'pages_messaging',
+        'instagram_manage_messages',
+        'pages_manage_metadata',
+      ];
       return json({
         permissions: required.map((name) => ({
           name,

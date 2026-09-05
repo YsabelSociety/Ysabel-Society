@@ -11,6 +11,57 @@ import {
   type CommunitySource,
 } from '@/lib/community';
 
+export async function readConversationList(
+  context: { accessToken: string; apiVersion?: string },
+  pageId: string,
+  source: 'facebook' | 'instagram',
+  after = '',
+) {
+  if (!/^v\d{1,2}\.\d{1,2}$/.test(context.apiVersion || ''))
+    throw new Error('INPUT:Check the configured Meta API version.');
+  const response = await fetch(
+    'https://graph.facebook.com/' +
+      context.apiVersion +
+      '/' +
+      encodeURIComponent(pageId) +
+      '/conversations?' +
+      new URLSearchParams({
+        platform: source === 'instagram' ? 'instagram' : 'messenger',
+        fields: 'id,updated_time,participants',
+        limit: '50',
+        ...(after ? { after } : {}),
+      }),
+    {
+      headers: { Authorization: 'Bearer ' + context.accessToken },
+      signal: AbortSignal.timeout(20000),
+    },
+  );
+  const body: any = await response.json();
+  if (!response.ok || body.error) {
+    const error = body.error || {};
+    const detail = String(
+      error.error_user_msg ||
+        error.message ||
+        'The conversation request was refused.',
+    )
+      .replaceAll(context.accessToken, '[redacted]')
+      .replace(/https?:\/\/\S+/gi, '[provider link]')
+      .replace(/EA[A-Za-z0-9]{30,}/g, '[redacted]')
+      .slice(0, 500);
+    throw new Error(
+      'INPUT:Meta messaging access: ' +
+        detail +
+        (Number.isInteger(error.code) ? ' (Meta ' + error.code + ')' : '') +
+        ' Check ' +
+        (source === 'instagram'
+          ? 'instagram_manage_messages, connected-tool message access in Instagram,'
+          : 'pages_messaging,') +
+        ' pages_manage_metadata and the app access level. Only reconnect when permissions have changed.',
+    );
+  }
+  return body;
+}
+
 async function linkedContext(owner: string, source: string) {
   const link = await database()
     .prepare(
@@ -74,34 +125,28 @@ export async function syncMessages(
     inaccessible = 0,
     conversationCount = 0;
   for (let batch = 0; batch < 10; batch++) {
-    let list: any;
-    try {
-      list = await graphGet(
-        context,
-        encodeURIComponent(String(page.id)) +
-          '/conversations?' +
-          new URLSearchParams({
-            platform: source === 'instagram' ? 'instagram' : 'messenger',
-            fields: 'id,updated_time,participants',
-            limit: '50',
-            ...(after ? { after } : {}),
-          }),
-      );
-    } catch {
-      throw new Error(
-        'INPUT:Meta messaging access is not available. Add ' +
-          (source === 'instagram'
-            ? 'instagram_manage_messages'
-            : 'pages_messaging') +
-          ' and pages_manage_metadata to the app and login configuration, then authorize again. Real customer conversations may require Advanced Access, App Review and business verification.',
-      );
-    }
+    const list = await readConversationList(
+      context,
+      String(page.id),
+      source,
+      after,
+    );
     if (list.error || !Array.isArray(list.data))
       throw new Error(
         'INPUT:Meta did not return a readable conversation list. Check messaging access and reconnect.',
       );
     const conversations = list.data;
     conversationCount += conversations.length;
+    await saveCommunityStatus(owner, {
+      source,
+      kind: 'message',
+      state: 'syncing',
+      accountId: context.accountId,
+      detail:
+        'Checking messages from ' +
+        conversationCount +
+        ' accessible conversations. The first import can take several minutes.',
+    });
     const replies = await graphBatch(
       context,
       conversations.map(

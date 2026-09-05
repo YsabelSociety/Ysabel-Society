@@ -619,6 +619,7 @@ export default function Workspace({
                 {source.coverage.join(', ') || 'connected sources'}. Content
                 planning is separate. Reports use imported observations;
                 unavailable values remain blank.
+                {source.comparisonLimited && ' Comparison percentages need complete history for both selected periods.'}
               </div>
             )}
             <div className="view-content" key={page}>

@@ -72,7 +72,7 @@ export default function Overview({
               </button>
               <div className="metric-bottom">
                 <span className={delta >= 0 ? 'positive' : 'negative'}>
-                  {available ? (delta >= 0 ? '↗' : '↘') : ''}{' '}
+                  {available && prior ? (delta >= 0 ? '↗' : '↘') : ''}{' '}
                   {prior ? Math.abs(delta).toFixed(1) + '%' : '—'}
                 </span>
                 <span>
@@ -154,6 +154,7 @@ export default function Overview({
         {CHANNELS.map((c, i) => {
           const Icon = [Instagram, Facebook, Music2, MapPin, Globe][i],
             cr = rows.filter((r) => r.channel === c),
+            prior = total(previous.filter(r => r.channel === c), i < 3 ? 'views' : i === 3 ? 'actions' : 'users'),
             available = metricAvailable(
               cr,
               i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
@@ -200,8 +201,8 @@ export default function Overview({
               <div className="channel-footer">
                 {available ? (
                   <>
-                    <span className="positive">
-                      ↗{' '}
+                    {prior ? <span className="positive">
+                      {total(cr, i < 3 ? 'views' : i === 3 ? 'actions' : 'users') >= prior ? '↗' : '↘'}{' '}
                       {change(
                         total(
                           cr,
@@ -213,7 +214,7 @@ export default function Overview({
                         ),
                       ).toFixed(1)}
                       %
-                    </span>
+                    </span> : <span className="muted">No complete comparison</span>}
                     <Spark
                       values={series(
                         cr,

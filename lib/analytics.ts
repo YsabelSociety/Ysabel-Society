@@ -239,6 +239,30 @@ export const DAILY = demoDaily();
 export function metricAvailable(rows: Daily[], metric: string) {
   return rows.some((row) => !row.available || row.available.includes(metric));
 }
+export function comparablePrevious(
+  current: Daily[], previous: Daily[], range: Range, priorRange: Range,
+): Daily[] {
+  const keys = new Set([...current, ...previous].flatMap(r =>
+    r.available ?? Object.keys(r).filter(k => typeof r[k as keyof Daily] === 'number')));
+  const safe = new Set<string>();
+  for (const metric of keys) {
+    const supplied = (rows: Daily[], window: Range) => rows.filter(r =>
+      r.date >= window.start && r.date <= window.end &&
+      (!r.available || r.available.includes(metric)));
+    const a = supplied(current, range), b = supplied(previous, priorRange);
+    const channels = new Set([...a, ...b].map(r => r.channel));
+    const complete = (rows: Daily[], window: Range, channel: Channel) => {
+      const dates = new Set(rows.filter(r => r.channel === channel).map(r => r.date));
+      // Community is a snapshot; compare only observations at both period ends.
+      return metric === 'followers' ? dates.has(window.end)
+        : dates.size === Math.round((Date.parse(window.end) - Date.parse(window.start)) / ms) + 1;
+    };
+    if (channels.size && [...channels].every(c => complete(a, range, c) && complete(b, priorRange, c)))
+      safe.add(metric);
+  }
+  return previous.map(r => ({ ...r, available: [...keys].filter(k =>
+    safe.has(k) && (!r.available || r.available.includes(k))) }));
+}
 export function filterDaily(
   _unit: string,
   range: Range,

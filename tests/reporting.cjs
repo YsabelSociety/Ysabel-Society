@@ -119,6 +119,18 @@ async function main() {
       externalId: 'ig-one',
       apiVersion: 'v25.0',
     };
+  const observed = (date, channel = 'Instagram', views = 0) => ({
+    ...reporting.emptyDaily(date, channel), views, available: ['views'],
+  });
+  const recentWindow = { start: '2026-09-03', end: '2026-09-04' };
+  const priorWindow = { start: '2026-09-01', end: '2026-09-02' };
+  const recentRows = [observed('2026-09-03'), observed('2026-09-04')];
+  const priorRows = [observed('2026-09-01'), observed('2026-09-02')];
+  assert.ok(analytics.metricAvailable(analytics.comparablePrevious(recentRows, priorRows, recentWindow, priorWindow), 'views'), 'complete observed zero totals remain comparable');
+  assert.ok(!analytics.metricAvailable(analytics.comparablePrevious(recentRows, [priorRows[0]], recentWindow, priorWindow), 'views'), 'one day is not a complete comparison period');
+  assert.ok(!analytics.metricAvailable(analytics.comparablePrevious([recentRows[0]], priorRows, recentWindow, priorWindow), 'views'), 'partial current periods cannot show growth percentages');
+  assert.ok(!analytics.metricAvailable(analytics.comparablePrevious(recentRows, [priorRows[0], priorRows[0]], recentWindow, priorWindow), 'views'), 'duplicate dates cannot fill a missing date');
+  assert.ok(!analytics.metricAvailable(analytics.comparablePrevious([...recentRows, observed('2026-09-03', 'Facebook'), observed('2026-09-04', 'Facebook')], priorRows, recentWindow, priorWindow), 'views'), 'aggregate comparison must cover the same channels');
   responder = (url, init) => {
     if (init?.body instanceof URLSearchParams && init.body.has('batch'))
       return JSON.parse(init.body.get('batch')).map((job) => {

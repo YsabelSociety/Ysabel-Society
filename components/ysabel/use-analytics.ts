@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import {
   filterDaily,
+  comparablePrevious,
   previousRange,
   type Range,
   type Daily,
@@ -22,6 +23,7 @@ export function useSourceAnalytics(
     coverage: string[];
     posts: Post[];
     tables: ReportTable[];
+    comparisonLimited: boolean;
   } | null>(null);
   const [revision, setRevision] = useState(0);
   useEffect(() => {
@@ -54,11 +56,16 @@ export function useSourceAnalytics(
         ]);
         if (!abort.signal.aborted) {
           if (current.mode === 'live') onLive?.();
+          const safePrevious = current.mode === 'live'
+            ? comparablePrevious(current.rows, previous.rows, range, previousRange(range, comparison))
+            : previous.rows;
           setResult({
             key,
             mode: current.mode,
             rows: current.rows,
-            previous: previous.rows,
+            previous: safePrevious,
+            comparisonLimited: current.mode === 'live' && comparison !== 'No Comparison' &&
+              !safePrevious.some((r: Daily) => r.available?.length),
             coverage: current.coverage,
             posts: current.posts || [],
             tables: current.tables || [],
@@ -90,6 +97,7 @@ export function useSourceAnalytics(
     coverage: current?.coverage ?? [],
     posts: current?.posts ?? [],
     tables: current?.tables ?? [],
+    comparisonLimited: current?.comparisonLimited ?? false,
     loading,
     error,
   };

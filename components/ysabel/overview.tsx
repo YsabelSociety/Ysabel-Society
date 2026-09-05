@@ -49,7 +49,11 @@ export default function Overview({
             delta = change(value, prior),
             available = metricAvailable(rows, m.key);
           return (
-            <div className={'metric-card metric-' + i} key={m.key}>
+            <div
+              className={'metric-card metric-' + i}
+              data-metric={m.key}
+              key={m.key}
+            >
               <div className="metric-label">
                 {m.label}
                 <Help text={m.definition} />

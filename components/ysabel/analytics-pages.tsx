@@ -55,7 +55,10 @@ export function StatRow({
   return (
     <div className="stat-row">
       {items.map((item) => (
-        <div key={item.label}>
+        <div
+          key={item.label}
+          data-metric={METRICS.find((m) => m.label === item.label)?.key}
+        >
           <span>{item.label}</span>
           <strong>{item.value}</strong>
           {item.note && <small>{item.note}</small>}

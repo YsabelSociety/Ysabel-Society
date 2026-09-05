@@ -5222,6 +5222,370 @@ h1 {
   font-size: 13px;
   line-height: 1.65;
 }
+
+/* Rounded metric highlights and an anchored workspace navigation panel. */
+.workspace-shell {
+  --sidebar-width: 240px !important;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  min-height: 100dvh;
+}
+.workspace-shell > .workspace {
+  flex: 1 1 0%;
+  width: auto;
+  min-width: 0;
+}
+.workspace-location {
+  color: #56616b;
+  font-size: 14px;
+  font-weight: 500;
+}
+.ys-sidebar [data-slot='sidebar-inner'] {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.ys-sidebar [data-slot='sidebar-content'] {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #c8cecf transparent;
+}
+.ys-sidebar [data-slot='sidebar-header'],
+.ys-sidebar [data-slot='sidebar-footer'] {
+  flex-shrink: 0;
+}
+.ys-sidebar [data-slot='sidebar-menu-button'] {
+  border-radius: 13px;
+}
+.ys-sidebar [data-slot='sidebar-group-label'] {
+  font-size: 12px;
+}
+.ys-sidebar [data-slot='sidebar-footer'] {
+  border-top: 1px solid #dde2e180;
+  gap: 16px;
+  padding-top: 16px;
+}
+.ys-sidebar .profile {
+  text-align: left;
+}
+.metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-right: 0;
+  padding: 0;
+  overflow: visible;
+}
+.stat-row {
+  gap: 14px;
+  padding: 0;
+  margin-bottom: 24px;
+  border: 0;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.metric-card,
+.stat-row > div {
+  --metric-rgb: 116, 159, 193;
+  --metric-second: 161, 184, 215;
+  --metric-ink: #456b89;
+  position: relative;
+  min-width: 0;
+  border-radius: 28px;
+  padding: 20px;
+  border: 1px solid #ffffffeb;
+  background:
+    radial-gradient(
+      ellipse at 100% 100%,
+      rgba(var(--metric-rgb), 0.28),
+      transparent 67%
+    ),
+    radial-gradient(
+      ellipse at 80% 3%,
+      rgba(var(--metric-second), 0.24),
+      transparent 64%
+    ),
+    linear-gradient(130deg, #ffffffe6, #eef0efbb 55%, #e8ebecb8);
+  background-size: 145% 145%;
+  background-position: 10% 35%;
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 6px 20px #38475005;
+  transition:
+    background-position 1000ms ease,
+    transform 280ms ease,
+    box-shadow 280ms ease,
+    border-color 280ms ease;
+  animation: metric-reveal 420ms ease-out both;
+}
+.metric-card[data-metric='views'],
+.stat-row > div[data-metric='views'] {
+  --metric-rgb: 119, 154, 207;
+  --metric-second: 163, 203, 224;
+  --metric-ink: #456990;
+}
+.metric-card[data-metric='reach'],
+.stat-row > div:nth-child(6n + 2),
+.stat-row > div[data-metric='reach'] {
+  --metric-rgb: 170, 142, 204;
+  --metric-second: 211, 182, 218;
+  --metric-ink: #78608e;
+}
+.metric-card[data-metric='engagements'],
+.stat-row > div:nth-child(6n + 3),
+.stat-row > div[data-metric='engagements'] {
+  --metric-rgb: 213, 154, 175;
+  --metric-second: 231, 195, 160;
+  --metric-ink: #926777;
+}
+.metric-card[data-metric='followers'],
+.stat-row > div:nth-child(6n + 4),
+.stat-row > div[data-metric='followers'] {
+  --metric-rgb: 190, 170, 114;
+  --metric-second: 229, 199, 163;
+  --metric-ink: #827045;
+}
+.metric-card[data-metric='users'],
+.stat-row > div:nth-child(6n + 5),
+.stat-row > div[data-metric='users'] {
+  --metric-rgb: 117, 183, 183;
+  --metric-second: 156, 203, 214;
+  --metric-ink: #487b7c;
+}
+.metric-card[data-metric='actions'],
+.stat-row > div:nth-child(6n + 6),
+.stat-row > div[data-metric='actions'] {
+  --metric-rgb: 132, 181, 152;
+  --metric-second: 192, 212, 169;
+  --metric-ink: #527c62;
+}
+.stat-row > div:last-child {
+  border: 1px solid #ffffffeb;
+}
+.metric-card:hover,
+.metric-card:focus-within,
+.stat-row > div:hover {
+  background-position: 85% 70%;
+  transform: translateY(-2px);
+  border-color: rgba(var(--metric-rgb), 0.35);
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 8px 25px rgba(var(--metric-rgb), 0.1);
+}
+.metric-card .metric-label,
+.stat-row > div > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid #ffffffc9;
+  border-radius: 18px;
+  background: linear-gradient(115deg, #ffffffa8, rgba(var(--metric-rgb), 0.12));
+  color: #4a5862;
+  font-size: 14px;
+  line-height: 1.45;
+  white-space: normal;
+}
+.metric-card .metric-label .help {
+  flex-shrink: 0;
+  color: var(--metric-ink);
+}
+.metric-card .metric-value,
+.stat-row > div > strong {
+  font-size: clamp(29px, 2.5vw, 37px);
+  font-weight: 400;
+  line-height: 1.25;
+  margin-top: 15px;
+  color: #303f4b;
+}
+.metric-card .metric-value:focus-visible {
+  outline: 2px solid var(--metric-ink);
+  outline-offset: 4px;
+  border-radius: 10px;
+}
+.metric-card .metric-bottom {
+  margin-top: 13px;
+  font-size: 12px;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.metric-card .metric-bottom .positive,
+.metric-card .metric-bottom .negative {
+  font-size: 12px;
+}
+.metric-card > .spark {
+  top: 61px;
+  bottom: auto;
+  right: 17px;
+  width: 66px;
+  color: var(--metric-ink);
+  opacity: 0.38;
+}
+.stat-row > div > small {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.admin-stat {
+  border-radius: 26px;
+  animation: metric-reveal 420ms ease-out both;
+}
+.admin-stat > span {
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border-radius: 18px;
+  background: #ffffff8a;
+}
+@keyframes metric-reveal {
+  from {
+    opacity: 0.65;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (min-width: 640px) {
+  .workspace-shell > [data-slot='sidebar'] {
+    display: block;
+    flex: 0 0 var(--sidebar-width);
+    width: var(--sidebar-width);
+  }
+  .workspace-shell [data-slot='sidebar-gap'] {
+    width: var(--sidebar-width);
+  }
+  .workspace-shell .ys-sidebar[data-slot='sidebar-container'] {
+    display: flex;
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: auto;
+    width: var(--sidebar-width);
+    height: 100dvh;
+    z-index: 30;
+  }
+  .workspace-shell .mobile-trigger {
+    display: none !important;
+  }
+}
+@media (min-width: 640px) and (max-width: 900px) {
+  .workspace-shell {
+    --sidebar-width: 205px !important;
+  }
+  .ys-sidebar [data-slot='sidebar-header'] {
+    padding: 24px 18px 18px;
+  }
+  .ys-sidebar [data-slot='sidebar-group'] {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .ys-sidebar [data-slot='sidebar-menu-button'] {
+    padding: 0 10px;
+    gap: 8px;
+  }
+  .page-body {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  .metrics-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metric-card,
+  .stat-row > div {
+    padding: 16px;
+  }
+  .metric-card > .spark {
+    display: none;
+  }
+}
+@media (min-width: 1500px) {
+  .metrics-strip {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+  .metric-card > .spark {
+    width: 48px;
+  }
+}
+@media (max-width: 639px) {
+  .workspace-shell > [data-slot='sidebar'] {
+    display: none;
+  }
+  .workspace-location {
+    max-width: 36vw;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 13px;
+  }
+  .ys-sidebar[data-mobile='true'] {
+    max-width: calc(100vw - 48px);
+  }
+  .metrics-strip,
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    overflow: visible;
+    margin-right: 0;
+  }
+  .metric-card,
+  .stat-row > div {
+    border-radius: 24px;
+    padding: 15px 13px;
+  }
+  .metric-card .metric-label,
+  .stat-row > div > span {
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+  .metric-card .metric-value,
+  .stat-row > div > strong {
+    font-size: 29px;
+    overflow-wrap: anywhere;
+  }
+  .metric-card > .spark {
+    display: none;
+  }
+  .metric-card .metric-bottom {
+    font-size: 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .metric-card,
+  .stat-row > div,
+  .admin-stat {
+    animation: none;
+    transition: none;
+  }
+  .metric-card:hover,
+  .metric-card:focus-within,
+  .stat-row > div:hover,
+  .admin-stat:hover {
+    transform: none;
+  }
+}
+@media print {
+  .workspace-shell > [data-slot='sidebar'],
+  .workspace-shell .ys-sidebar {
+    display: none !important;
+  }
+  .metric-card,
+  .stat-row > div {
+    background: white;
+    box-shadow: none;
+    border-color: #d9dddf;
+    break-inside: avoid;
+  }
+}
 @media (max-width: 1000px) {
   .assistant-providers {
     gap: 11px;

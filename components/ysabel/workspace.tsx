@@ -373,9 +373,14 @@ export default function Workspace({
       <SidebarProvider
         className="workspace-shell"
         data-section={page}
-        style={{ '--sidebar-width': '225px' } as React.CSSProperties}
+        mobileBreakpoint={640}
+        open={true}
       >
-        <Sidebar className="ys-sidebar">
+        <Sidebar
+          className="ys-sidebar"
+          side="left"
+          aria-label="Workspace navigation"
+        >
           <SidebarHeader>
             <button
               onClick={() => navigate('Overview')}
@@ -436,8 +441,11 @@ export default function Workspace({
         <main className="workspace">
           <header className="topbar">
             <div className="workspace-picker">
-              <SidebarTrigger className="mobile-trigger" />
-              <span className="workspace-name">YSABEL SOCIETY</span>
+              <SidebarTrigger
+                className="mobile-trigger"
+                aria-label="Open workspace sidebar"
+              />
+              <span className="workspace-location">{page}</span>
             </div>
             <div className="top-actions">
               <button

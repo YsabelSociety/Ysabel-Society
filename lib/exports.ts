@@ -65,9 +65,9 @@ export function exportPNG(
   c.width = 1600;
   c.height = 1000;
   const g = c.getContext('2d')!;
-  g.fillStyle = '#0b160f';
+  g.fillStyle = '#e9edf3';
   g.fillRect(0, 0, 1600, 1000);
-  g.fillStyle = '#b7cbaa';
+  g.fillStyle = '#465872';
   g.font = '22px Georgia';
   g.fillText('YSABEL SOCIETY', 70, 80);
   g.font = '13px Arial';
@@ -77,25 +77,25 @@ export function exportPNG(
     70,
     111,
   );
-  g.fillStyle = '#f2efe9';
+  g.fillStyle = '#26354b';
   g.font = '42px Arial';
-  g.fillText('A clearer view of Ysabel.', 70, 190);
-  g.fillStyle = '#94a38f';
+  g.fillText('A clearer view of Ysabel Society.', 70, 190);
+  g.fillStyle = '#5e6b7e';
   g.font = '19px Arial';
   g.fillText(unit + '   |   ' + range.start + ' — ' + range.end, 70, 230);
   METRICS.forEach((m, i) => {
     const x = 70 + (i % 3) * 495,
       y = 300 + Math.floor(i / 3) * 160;
-    g.fillStyle = '#93a18c';
+    g.fillStyle = '#5e6b7e';
     g.font = '17px Arial';
     g.fillText(m.label, x, y);
-    g.fillStyle = '#f2efe9';
+    g.fillStyle = '#26354b';
     g.font = '48px Arial';
     g.fillText(compact(total(rows, m.key)), x, y + 60);
   });
   const data = series(rows, 'views'),
     max = Math.max(...data.map((d) => Number(d.total)), 1);
-  g.strokeStyle = '#86b28f';
+  g.strokeStyle = '#607e9f';
   g.lineWidth = 3;
   g.beginPath();
   data.forEach((d, i) => {
@@ -105,7 +105,7 @@ export function exportPNG(
     else g.moveTo(x, y);
   });
   g.stroke();
-  g.fillStyle = '#7d937c';
+  g.fillStyle = '#5e6b7e';
   g.font = '15px Arial';
   g.fillText(
     'Social content views over time · Daily reach and users are additive, not unique audiences.',
@@ -149,7 +149,7 @@ export function exportPDF(
     x: number,
     y: number,
     size = 11,
-    color = '0.15 0.22 0.17',
+    color = '0.17 0.22 0.29',
     font = 'F1',
   ) => {
     stream +=
@@ -168,7 +168,7 @@ export function exportPDF(
   };
   const line = (x: number, y: number, w: number) => {
     stream +=
-      '0.79 0.83 0.77 RG .5 w ' +
+      '0.79 0.82 0.87 RG .5 w ' +
       x +
       ' ' +
       (H - y) +
@@ -195,7 +195,7 @@ export function exportPDF(
     return y;
   };
   const header = (n: number) => {
-    text('YSABEL SOCIETY', 48, 50, 15, '0.14 0.26 0.18', 'F2');
+    text('YSABEL SOCIETY', 48, 50, 15, '0.23 0.29 0.39', 'F2');
     text('DIGITAL INTELLIGENCE', 48, 69, 8);
     text(
       mode === 'live' ? 'PRIVATE / LIVE DATA' : 'PRIVATE / DEMO DATA',
@@ -208,11 +208,11 @@ export function exportPDF(
     text(range.start + ' - ' + range.end + '  /  ' + unit, 48, 803, 9);
   };
   header(1);
-  text(title, 48, 138, 30, '0.08 0.16 0.10', 'F2');
+  text(title, 48, 138, 30, '0.15 0.20 0.28', 'F2');
   text('A measured view of attention, community and intent.', 48, 164, 11);
   text('EXECUTIVE PERSPECTIVE', 48, 212, 9);
   let y = paragraph(
-    'Ysabel generated ' +
+    'Ysabel Society generated ' +
       number(total(rows, 'views')) +
       ' social content views and ' +
       number(total(rows, 'engagements')) +
@@ -228,7 +228,7 @@ export function exportPDF(
     const x = 48 + (i % 2) * 260,
       yy = 350 + Math.floor(i / 2) * 92;
     text(m.label, x, yy, 10);
-    text(compact(total(rows, m.key)), x, yy + 32, 28, '0.09 0.19 0.12', 'F2');
+    text(compact(total(rows, m.key)), x, yy + 32, 28, '0.17 0.23 0.32', 'F2');
     line(x, yy + 49, 230);
   });
   text('MEASUREMENT NOTES', 48, 675, 9);
@@ -239,7 +239,7 @@ export function exportPDF(
   pages.push(stream);
   stream = '';
   header(2);
-  text('Channels & creative performance', 48, 138, 26, '0.08 0.16 0.10', 'F2');
+  text('Channels & creative performance', 48, 138, 26, '0.15 0.20 0.28', 'F2');
   text('CHANNEL', 48, 198, 9);
   text('PRIMARY RESULT', 285, 198, 9);
   text('MEASUREMENT', 402, 198, 9);
@@ -262,7 +262,6 @@ export function exportPDF(
     .filter(
       (p) =>
         p.status === 'Published' &&
-        (unit === 'All Ysabel' || p.unit === unit) &&
         p.date >= range.start &&
         p.date <= range.end,
     )

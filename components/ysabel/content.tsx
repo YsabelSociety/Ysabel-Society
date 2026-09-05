@@ -62,7 +62,6 @@ import {
   type Post,
   type Range,
   CHANNELS,
-  UNITS,
   compact,
   number,
   engagement,
@@ -195,10 +194,7 @@ export function ContentIntelligence({
     [tab, setTab] = useState('Content');
   const published = data.posts.filter(
     (p) =>
-      p.status === 'Published' &&
-      (unit === 'All Ysabel' || p.unit === unit) &&
-      p.date >= range.start &&
-      p.date <= range.end,
+      p.status === 'Published' && p.date >= range.start && p.date <= range.end,
   );
   const filtered = published
     .filter(
@@ -434,7 +430,7 @@ export function ContentIntelligence({
               'Cocktails',
               'People',
               'Interior',
-              'Italian',
+              'Seasonal menu',
               'Events',
             ].map((label) => {
               const ps = published.filter((p) => p.tags.includes(label));
@@ -524,8 +520,8 @@ function Heatmap({ posts }: { posts: Post[] }) {
                 title={h + ':00 · ' + (v ? compact(v) : 'No observations')}
                 style={{
                   background: v
-                    ? 'rgba(148,195,145,' + (0.2 + (v / max) * 0.8) + ')'
-                    : '#213024',
+                    ? 'rgba(106,127,163,' + (0.2 + (v / max) * 0.8) + ')'
+                    : '#e4e9f0',
                 }}
               />
             ))}
@@ -704,15 +700,6 @@ export function PostDetail({
                 </label>
                 <div className="form-grid">
                   <label>
-                    Business unit
-                    <Picker
-                      label="Content business"
-                      value={shown.unit}
-                      onChange={(v) => edit({ unit: v })}
-                      options={data.settings.units}
-                    />
-                  </label>
-                  <label>
                     Status
                     <Picker
                       label="Content status"
@@ -855,7 +842,6 @@ export function Studio({
   const posts = data.posts
     .filter(
       (p) =>
-        (unit === 'All Ysabel' || p.unit === unit) &&
         (status === 'All states' || p.status === status) &&
         (tag === 'All tags' || p.tags.includes(tag)) &&
         (p.title + ' ' + p.campaign + ' ' + p.tags.join(' '))
@@ -881,7 +867,7 @@ export function Studio({
           mediaType: d.mediaType,
           caption: '',
           status: 'Draft',
-          unit: unit === 'All Ysabel' ? 'Society' : unit,
+          unit: 'Ysabel Society',
           scheduled: '',
           tags: [],
           campaign: '',
@@ -1016,7 +1002,7 @@ export function Studio({
               <p>
                 A place for extraordinary evenings.
                 <br />
-                Asian · Italian · Society
+                Extraordinary evenings. Ysabel Society.
                 <br />
                 <span>ysabelsociety.com</span>
               </p>
@@ -1182,10 +1168,7 @@ export function ContentCalendar({
     { length: 42 },
     (_, i) => new Date(start.getTime() + (i - offset) * 86400000),
   );
-  const posts = data.posts.filter(
-    (p) =>
-      (unit === 'All Ysabel' || p.unit === unit) && p.status !== 'Archived',
-  );
+  const posts = data.posts.filter((p) => p.status !== 'Archived');
   const filtered = posts
     .filter((p) => (p.scheduled || p.date).startsWith(month))
     .sort((a, b) =>

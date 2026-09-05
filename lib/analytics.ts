@@ -6,8 +6,9 @@ export const CHANNELS = [
   'Website',
 ] as const;
 export type Channel = (typeof CHANNELS)[number];
-export const COLORS = ['#7cc5a5', '#759db6', '#baa5c8', '#b8a278', '#b8c9c0'];
-export const UNITS = ['Asian', 'Italian', 'Society'];
+export const COLORS = ['#517b99', '#7a70a0', '#ae758e', '#8c7956', '#548b85'];
+export const BRAND_NAME = 'Ysabel Society';
+export const UNITS = [BRAND_NAME];
 export type Metric =
   | 'views'
   | 'reach'
@@ -159,14 +160,13 @@ export function demoDaily(): Daily[] {
   for (let i = 0; i <= 978; i++) {
     const d = new Date(start.getTime() + i * ms);
     if (iso(d) > ANCHOR) break;
-    UNITS.forEach((unit, u) =>
+    [0.42, 0.34, 0.24].forEach((weight, u) =>
       CHANNELS.forEach((channel, c) => {
         const trend = 0.62 + i / 1550;
         const wave =
           1 + Math.sin(i * 0.43 + c) * 0.19 + Math.cos(i * 0.17 + u) * 0.12;
         const spike =
           i % 31 === 18 || i % 31 === 19 ? (c === 2 ? 1.8 : 1.4) : 1;
-        const weight = [0.42, 0.34, 0.24][u];
         const social = c < 3;
         const v = Math.round(
           [16100, 5400, 12200, 3800, 760][c] * weight * trend * wave * spike,
@@ -175,7 +175,7 @@ export function demoDaily(): Daily[] {
         const users = c === 4 ? Math.round(v * 0.72) : 0;
         result.push({
           date: iso(d),
-          unit,
+          unit: BRAND_NAME,
           channel,
           views: social ? v : 0,
           reach: c < 2 ? Math.round(v * 0.53) : 0,
@@ -201,11 +201,29 @@ export function demoDaily(): Daily[] {
       }),
     );
   }
-  return result;
+  return consolidateDaily(result);
+}
+// Preserve every source observation when folding older workspace labels into one brand.
+export function consolidateDaily(rows: Daily[]): Daily[] {
+  const grouped = new Map<string, Daily>();
+  for (const row of rows) {
+    const key = row.date + ':' + row.channel;
+    const prior = grouped.get(key);
+    if (!prior) grouped.set(key, { ...row, unit: BRAND_NAME });
+    else {
+      for (const field of Object.keys(row) as (keyof Daily)[]) {
+        if (typeof row[field] === 'number') {
+          (prior as unknown as Record<string, unknown>)[field] =
+            Number(prior[field]) + Number(row[field]);
+        }
+      }
+    }
+  }
+  return [...grouped.values()];
 }
 export const DAILY = demoDaily();
 export function filterDaily(
-  unit: string,
+  _unit: string,
   range: Range,
   channels: readonly string[] = CHANNELS,
 ) {
@@ -213,7 +231,6 @@ export function filterDaily(
     (d) =>
       d.date >= range.start &&
       d.date <= range.end &&
-      (unit === 'All Ysabel' || unit === d.unit) &&
       channels.includes(d.channel),
   );
 }
@@ -302,14 +319,14 @@ export type Post = {
 const titles = [
   'The art of an evening',
   'A little fire. A lot of soul.',
-  'An Italian summer, plated',
+  'A summer evening, plated',
   'Behind every perfect bite',
   'A toast to the unexpected',
   'Where the evening unfolds',
   'Made slowly. Remembered always.',
   'A table worth gathering around',
   'The chef’s finishing touch',
-  'The Society after dark',
+  'Ysabel Society after dark',
   'The first pour',
   'From our kitchen, with love',
   'A new seasonal ritual',
@@ -333,7 +350,7 @@ export const POSTS: Post[] = titles.map((title, i) => {
     image: '/media/' + ((i % 6) + 1) + '.jpg',
     platform: CHANNELS[i % 3],
     format: ['Reel', 'Video', 'Carousel', 'Static'][i % 4],
-    unit: UNITS[i % 3],
+    unit: BRAND_NAME,
     date: '2026-08-' + String(31 - i).padStart(2, '0'),
     status:
       i < 12
@@ -346,12 +363,12 @@ export const POSTS: Post[] = titles.map((title, i) => {
     tags: [
       ['Atmosphere', 'Interior'],
       ['Chef', 'Food close-up'],
-      ['Italian', 'Food close-up'],
+      ['Seasonal menu', 'Food close-up'],
       ['Chef', 'People'],
       ['Cocktails'],
       ['Atmosphere', 'Events'],
     ][i % 6],
-    campaign: i % 2 ? 'Summer evenings' : 'A taste of Ysabel',
+    campaign: i % 2 ? 'Summer evenings' : 'A taste of Ysabel Society',
     distribution: 'Organic',
     views: i < 12 ? views : 0,
     reach: i < 12 ? Math.round(views * 0.64) : 0,

@@ -106,7 +106,7 @@ export async function POST(req: Request) {
           accountId,
           user.userId,
           config.channel,
-          secrets().SOURCE_BUSINESS_UNIT || 'Society',
+          'Ysabel Society',
           secrets()[
             config.id === 'ga4' ? 'GA4_PROPERTY_ID' : 'GBP_LOCATION_ID'
           ] || config.id,
@@ -116,24 +116,22 @@ export async function POST(req: Request) {
         .run();
       for (let i = 0; i < result.daily.length; i += 50)
         await db.batch(
-          result.daily
-            .slice(i, i + 50)
-            .map((row) =>
-              db
-                .prepare(
-                  'INSERT INTO account_metrics_daily(account_id,date,normalized,source_metrics,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(account_id,date) DO UPDATE SET normalized=excluded.normalized,source_metrics=excluded.source_metrics,updated_at=excluded.updated_at',
-                )
-                .bind(
-                  accountId,
-                  row.date,
-                  JSON.stringify(row),
-                  JSON.stringify({
-                    scope: result.scope,
-                    originalResponse: result.raw,
-                  }),
-                  now,
-                ),
-            ),
+          result.daily.slice(i, i + 50).map((row) =>
+            db
+              .prepare(
+                'INSERT INTO account_metrics_daily(account_id,date,normalized,source_metrics,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(account_id,date) DO UPDATE SET normalized=excluded.normalized,source_metrics=excluded.source_metrics,updated_at=excluded.updated_at',
+              )
+              .bind(
+                accountId,
+                row.date,
+                JSON.stringify(row),
+                JSON.stringify({
+                  scope: result.scope,
+                  originalResponse: result.raw,
+                }),
+                now,
+              ),
+          ),
         );
       await db
         .prepare(

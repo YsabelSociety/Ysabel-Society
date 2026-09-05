@@ -170,7 +170,7 @@ export function AnalyticsChart({
               ))}
             </defs>
             <CartesianGrid
-              stroke="#23302a"
+              stroke="#d5dce6"
               strokeDasharray="3 5"
               vertical={false}
             />
@@ -185,21 +185,21 @@ export function AnalyticsChart({
               axisLine={false}
               tickLine={false}
               minTickGap={55}
-              tick={{ fill: '#89978f', fontSize: 12 }}
+              tick={{ fill: '#657185', fontSize: 12 }}
               dy={12}
             />
             <YAxis
               tickFormatter={compact}
               axisLine={false}
               tickLine={false}
-              tick={{ fill: '#89978f', fontSize: 12 }}
+              tick={{ fill: '#657185', fontSize: 12 }}
             />
             <Tooltip
               contentStyle={{
-                background: '#15251e',
-                border: '1px solid #3b5044',
+                background: '#f8fafe',
+                border: '1px solid #cbd4e1',
                 borderRadius: 10,
-                color: '#f2efe9',
+                color: '#29374a',
                 fontSize: 13,
               }}
               labelFormatter={(v) =>
@@ -233,7 +233,7 @@ export function AnalyticsChart({
               <Line
                 dataKey="previous"
                 type="monotone"
-                stroke="#68736c"
+                stroke="#8b96a6"
                 strokeDasharray="3 5"
                 dot={false}
                 strokeWidth={1}
@@ -244,8 +244,8 @@ export function AnalyticsChart({
               <Brush
                 dataKey="date"
                 height={22}
-                stroke="#7cc5a5"
-                fill="#102018"
+                stroke="#517b99"
+                fill="#edf2f8"
               />
             )}
           </ComposedChart>

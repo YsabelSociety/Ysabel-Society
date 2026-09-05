@@ -29,7 +29,6 @@ import {
   CHANNELS,
   COLORS,
   METRICS,
-  UNITS,
   compact,
   number,
   total,
@@ -103,28 +102,28 @@ export function Trend({
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart data={data} margin={{ left: -15, right: 10, bottom: 8 }}>
             <CartesianGrid
-              stroke="#29392d"
+              stroke="#d5dce6"
               vertical={false}
               strokeDasharray="3 5"
             />
             <XAxis
               dataKey="date"
               minTickGap={45}
-              tick={{ fill: '#91a08e', fontSize: 11 }}
+              tick={{ fill: '#657185', fontSize: 11 }}
               tickFormatter={(v) => String(v).slice(5)}
               tickLine={false}
               axisLine={false}
             />
             <YAxis
               tickFormatter={compact}
-              tick={{ fill: '#91a08e', fontSize: 11 }}
+              tick={{ fill: '#657185', fontSize: 11 }}
               tickLine={false}
               axisLine={false}
             />
             <Tooltip
               contentStyle={{
-                background: '#18271c',
-                border: '1px solid #3b5040',
+                background: '#f8fafe',
+                border: '1px solid #cbd4e1',
                 borderRadius: 8,
               }}
             />
@@ -429,14 +428,7 @@ export function PerformancePage({
           </form>
           <div className="annotation-list">
             {data.annotations
-              .filter(
-                (n) =>
-                  (unit === 'All Ysabel' ||
-                    n.unit === unit ||
-                    n.unit === 'All Ysabel') &&
-                  n.date >= range.start &&
-                  n.date <= range.end,
-              )
+              .filter((n) => n.date >= range.start && n.date <= range.end)
               .map((n) => (
                 <div key={n.id}>
                   <span>{n.date}</span>
@@ -532,8 +524,8 @@ export function AudiencePage({
                     </Pie>
                     <Tooltip
                       contentStyle={{
-                        background: '#17271c',
-                        border: '1px solid #344a38',
+                        background: '#f8fafe',
+                        border: '1px solid #cbd4e1',
                       }}
                     />
                   </PieChart>
@@ -762,8 +754,8 @@ export function WebsitePage({
               </div>
               {[
                 'Menu',
-                'Asian',
-                'Italian',
+                'Dining',
+                'Experiences',
                 'Reservations',
                 'About',
                 'Contact',
@@ -820,7 +812,7 @@ export function GooglePage({ rows }: { rows: Daily[] }) {
       <div className="two-col">
         <Panel
           title="Customer actions"
-          description="What people did after discovering Ysabel"
+          description="What people did after discovering Ysabel Society"
         >
           <Bars
             items={[
@@ -835,30 +827,26 @@ export function GooglePage({ rows }: { rows: Daily[] }) {
           </p>
         </Panel>
         <Panel
-          title="Location comparison"
-          description="Visibility and intent across Ysabel"
+          title="Ysabel Society at a glance"
+          description="Search visibility and customer intent for your brand"
         >
           <div className="simple-table">
             <div className="simple-table-row table-label">
-              <span>Location</span>
+              <span>Workspace</span>
               <span>Search</span>
               <span>Maps</span>
               <span>Actions</span>
             </div>
-            {UNITS.map((u) => {
-              const rs = r.filter((d) => d.unit === u);
-              return (
-                <div className="simple-table-row" key={u}>
-                  <strong>{u}</strong>
-                  <span>{compact(total(rs, 'search'))}</span>
-                  <span>{compact(total(rs, 'maps'))}</span>
-                  <span>{compact(total(rs, 'actions'))}</span>
-                </div>
-              );
-            })}
+            <div className="simple-table-row">
+              <strong>Ysabel Society</strong>
+              <span>{compact(total(r, 'search'))}</span>
+              <span>{compact(total(r, 'maps'))}</span>
+              <span>{compact(total(r, 'actions'))}</span>
+            </div>
           </div>
           <p className="footnote">
-            Sample properties. Future business units can be added in Settings.
+            All connected Google Business sources are shown together for Ysabel
+            Society.
           </p>
         </Panel>
       </div>
@@ -874,22 +862,12 @@ export function ComparisonsPage({
   rows: Daily[];
   previous: Daily[];
 }) {
-  const [mode, setMode] = useState('Business units'),
-    [left, setLeft] = useState('Asian'),
-    [right, setRight] = useState('Italian');
-  const options = mode === 'Channels' ? [...CHANNELS] : UNITS;
-  const a =
-      mode === 'Periods'
-        ? rows
-        : mode === 'Channels'
-          ? rows.filter((r) => r.channel === left)
-          : filterDaily(left, range),
-    b =
-      mode === 'Periods'
-        ? previous
-        : mode === 'Channels'
-          ? rows.filter((r) => r.channel === right)
-          : filterDaily(right, range);
+  const [mode, setMode] = useState('Channels'),
+    [left, setLeft] = useState('Instagram'),
+    [right, setRight] = useState('TikTok');
+  const options = [...CHANNELS];
+  const a = mode === 'Periods' ? rows : rows.filter((r) => r.channel === left),
+    b = mode === 'Periods' ? previous : rows.filter((r) => r.channel === right);
   return (
     <div className="view-enter">
       <div className="studio-toolbar">
@@ -898,10 +876,10 @@ export function ComparisonsPage({
           value={mode}
           onChange={(v) => {
             setMode(v);
-            setLeft(v === 'Channels' ? 'Instagram' : 'Asian');
-            setRight(v === 'Channels' ? 'TikTok' : 'Italian');
+            setLeft('Instagram');
+            setRight('TikTok');
           }}
-          options={['Business units', 'Channels', 'Periods']}
+          options={['Channels', 'Periods']}
         />
         {mode !== 'Periods' && (
           <div className="inline-controls">

@@ -76,7 +76,7 @@ export default function Overview({
         <section className="intelligence surface">
           <div className="section-head">
             <h2>
-              <Sparkles size={16} /> Ysabel Intelligence
+              <Sparkles size={16} /> Digital Intelligence
             </h2>
             <span className="pill">PREVIEW</span>
           </div>
@@ -202,7 +202,7 @@ export default function Overview({
       />
       <p className="footnote">
         Demo media · licensed hospitality photographs. These images do not
-        depict Ysabel properties or staff.
+        depict Ysabel Society or its team.
       </p>
     </>
   );

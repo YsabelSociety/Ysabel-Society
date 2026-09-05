@@ -260,7 +260,7 @@ export function DataSourcesPage() {
           <p>
             This workspace opens in Demo Data. The sample series is
             deterministic, anchored to 5 September 2026. It never represents
-            actual Ysabel business results.
+            actual Ysabel Society business results.
           </p>
         </div>
       </section>
@@ -304,7 +304,7 @@ export function DataSourcesPage() {
           ],
           [
             'Sample photography',
-            'Licensed Unsplash images, unrelated to Ysabel properties or employees.',
+            'Licensed Unsplash images, unrelated to Ysabel Society or its team.',
           ],
         ].map(([a, b]) => (
           <div className="definition-row" key={a}>
@@ -325,14 +325,13 @@ export function DataSourcesPage() {
   );
 }
 export function SettingsPage({ data }: { data: WorkspaceData }) {
-  const [settings, setSettings] = useState(data.settings),
-    [newUnit, setNewUnit] = useState('');
+  const [settings, setSettings] = useState(data.settings);
   useEffect(() => setSettings(data.settings), [data.settings]);
   return (
     <div className="settings-layout">
       <section className="surface padded">
         <div className="eyebrow">WORKSPACE</div>
-        <h2>Ysabel, by design.</h2>
+        <h2>Ysabel Society, by design.</h2>
         <form
           className="edit-form"
           onSubmit={(e) => {
@@ -343,12 +342,9 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
           <label>
             Workspace name
             <input
-              value={settings.workspace}
-              onChange={(e) =>
-                setSettings({ ...settings, workspace: e.target.value })
-              }
-              maxLength={100}
-              required
+              value="Ysabel Society"
+              readOnly
+              aria-label="Workspace name"
             />
           </label>
           <label>
@@ -361,45 +357,10 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
               required
             />
           </label>
-          <h3>Business units</h3>
-          <div className="unit-list">
-            {settings.units.map((u, i) => (
-              <div key={i}>
-                <span className="unit-icon">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span>{u}</span>
-                <small>
-                  {['Asian', 'Italian', 'Society'].includes(u)
-                    ? 'Core business'
-                    : 'Additional property'}
-                </small>
-              </div>
-            ))}
-          </div>
-          <div className="inline-controls">
-            <input
-              aria-label="New business unit"
-              placeholder="Add a future business unit"
-              value={newUnit}
-              onChange={(e) => setNewUnit(e.target.value)}
-            />
-            <button
-              className="secondary"
-              type="button"
-              disabled={!newUnit.trim()}
-              onClick={() => {
-                if (newUnit.trim() && !settings.units.includes(newUnit.trim()))
-                  setSettings({
-                    ...settings,
-                    units: [...settings.units, newUnit.trim()],
-                  });
-                setNewUnit('');
-              }}
-            >
-              <Plus size={15} /> Add
-            </button>
-          </div>
+          <p className="muted">
+            Your analytics, content and reports belong to one workspace: Ysabel
+            Society.
+          </p>
           <button className="primary" disabled={data.busy || !data.ready}>
             Save workspace
           </button>
@@ -427,13 +388,13 @@ export function SettingsPage({ data }: { data: WorkspaceData }) {
           </div>
         </section>
         <section className="surface padded">
-          <h2>Brand assets</h2>
+          <h2>Workspace palette</h2>
           <p className="muted panel-description">
-            The wordmark is a temporary typographic treatment. Replace it with
-            the supplied Ysabel logo when available.
+            Silver surfaces, translucent layers and a subtle signature gradient
+            for each section.
           </p>
           <div className="brand-swatches">
-            {['#07100E', '#17392F', '#F2EFE9', '#B89B67'].map((c) => (
+            {['#E8EBEF', '#F7F8FA', '#677E9E', '#B9ADC5'].map((c) => (
               <div key={c}>
                 <i style={{ background: c }} />
                 <span>{c}</span>

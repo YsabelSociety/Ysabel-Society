@@ -5,14 +5,19 @@ import {
   json,
   requireDate,
 } from '@/lib/server/db';
-import { filterDaily, type Daily } from '@/lib/analytics';
+import {
+  filterDaily,
+  consolidateDaily,
+  BRAND_NAME,
+  type Daily,
+} from '@/lib/analytics';
 export async function GET(req: Request) {
   try {
     const user = await identity(),
       q = new URL(req.url).searchParams;
     const start = requireDate(q.get('start')),
       end = requireDate(q.get('end')),
-      unit = q.get('unit') || 'All Ysabel';
+      unit = BRAND_NAME;
     if (start > end) throw new Error('INPUT:Invalid date range.');
     const db = database();
     const accounts = await db
@@ -34,9 +39,9 @@ export async function GET(req: Request) {
       )
       .bind(user.userId, start, end)
       .all();
-    const rows = records.results
-      .map((r: any) => JSON.parse(r.normalized) as Daily)
-      .filter((r) => unit === 'All Ysabel' || r.unit === unit);
+    const rows = consolidateDaily(
+      records.results.map((r: any) => JSON.parse(r.normalized) as Daily),
+    );
     return json({
       mode: 'live',
       rows,

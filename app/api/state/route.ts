@@ -6,7 +6,7 @@ import {
   requireText,
   requireDate,
 } from '@/lib/server/db';
-import { POSTS, CHANNELS, UNITS, type Post } from '@/lib/analytics';
+import { POSTS, CHANNELS, UNITS, BRAND_NAME, type Post } from '@/lib/analytics';
 export async function GET() {
   try {
     const user = await identity();
@@ -51,17 +51,23 @@ export async function GET() {
     ]);
     return json({
       posts: content.results
-        .map((r: any) => ({ ...JSON.parse(r.payload), position: r.position }))
+        .map((r: any) => ({
+          ...JSON.parse(r.payload),
+          unit: BRAND_NAME,
+          position: r.position,
+        }))
         .filter((p: Post) => p.status !== 'Deleted'),
-      annotations: notes.results,
-      reports: reports.results.map((r: any) => JSON.parse(r.payload)),
-      settings: settings
-        ? JSON.parse(settings.payload)
-        : {
-            units: UNITS,
-            timezone: 'Europe/Tirane',
-            workspace: 'Ysabel Society',
-          },
+      annotations: notes.results.map((n: any) => ({ ...n, unit: BRAND_NAME })),
+      reports: reports.results.map((r: any) => ({
+        ...JSON.parse(r.payload),
+        unit: BRAND_NAME,
+      })),
+      settings: {
+        timezone: 'Europe/Tirane',
+        ...(settings ? JSON.parse(settings.payload) : {}),
+        units: UNITS,
+        workspace: BRAND_NAME,
+      },
       user: { name: user.displayName, email: user.email },
     });
   } catch (e) {
@@ -124,7 +130,7 @@ export async function POST(req: Request) {
         image,
         platform: input.platform,
         format: requireText(input.format, 40),
-        unit: requireText(input.unit, 80),
+        unit: BRAND_NAME,
         status: input.status,
         tags: Array.isArray(input.tags)
           ? input.tags.slice(0, 12).map((t: unknown) => requireText(t, 40))
@@ -190,7 +196,7 @@ export async function POST(req: Request) {
         id: crypto.randomUUID(),
         date: requireDate(body.date),
         text: requireText(body.text, 300),
-        unit: requireText(body.unit, 80),
+        unit: BRAND_NAME,
       };
       await db
         .prepare(
@@ -206,7 +212,7 @@ export async function POST(req: Request) {
         title: requireText(body.title, 160),
         start: requireDate(body.start),
         end: requireDate(body.end),
-        unit: requireText(body.unit, 80),
+        unit: BRAND_NAME,
         createdAt: now,
         mode: 'Demo Data',
       };
@@ -222,13 +228,9 @@ export async function POST(req: Request) {
     }
     if (op === 'settings') {
       const s = {
-        workspace: requireText(body.settings.workspace, 100),
+        workspace: BRAND_NAME,
         timezone: requireText(body.settings.timezone, 100),
-        units: Array.isArray(body.settings.units)
-          ? body.settings.units
-              .slice(0, 30)
-              .map((u: unknown) => requireText(u, 80))
-          : UNITS,
+        units: UNITS,
       };
       try {
         Intl.DateTimeFormat('en', { timeZone: s.timezone });

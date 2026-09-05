@@ -206,7 +206,7 @@ export function ReportsPage({
             </div>
           </form>
           <p className="footnote">
-            Saved reports retain their dates and business unit. Exports use the
+            Saved reports retain their dates for Ysabel Society. Exports use the
             current records for that selection. All demo reports are visibly
             labeled.
           </p>

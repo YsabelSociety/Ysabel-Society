@@ -18,7 +18,8 @@ This is a working preview and foundation, not a fully validated production analy
 - The phone preview is an original large-phone treatment, not an exact physical reproduction of a particular iPhone.
 - The official logo was not provided. The wordmark is temporary typography. Demo images are licensed Unsplash photos unrelated to Ysabel venues or staff.
 - Audience demographic snapshots and website source/page allocations are explicitly labeled fixtures. These details are suppressed for live-source reporting.
-- Report configurations preserve dates and business unit; exports are regenerated from current records, not frozen snapshots.
+- Report configurations preserve dates for Ysabel Society; exports are regenerated from current records, not frozen snapshots.
+- The workspace uses a silver, translucent interface with a distinct restrained gradient for each of its 16 sections. Content, source records and historical labels are consolidated under Ysabel Society without dropping observations.
 - WebMCP navigation/read tools are feature-detected. No supported validation context was available. Their browser runtime behavior has not been independently verified.
 - Browser visual and interaction QA was not requested and was not performed. Calculation, route, export and build checks are recorded separately.
 
@@ -31,7 +32,7 @@ pnpm db:generate creates schema deltas. Never rewrite applied migrations.
 
 ## Live Google configuration
 Set runtime values securely on the host:
-GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GA4_PROPERTY_ID, GBP_LOCATION_ID and optionally SOURCE_BUSINESS_UNIT (defaults to Society).
+GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GOOGLE_REFRESH_TOKEN, GA4_PROPERTY_ID and GBP_LOCATION_ID. All source records belong to Ysabel Society.
 
 The Google application needs analytics.readonly and/or business.manage grants, API enablement and access to the property/location. No credentials are accepted by the frontend. The Connection page reports missing setup. Supported configured adapters can sync the last 30 complete days.
 

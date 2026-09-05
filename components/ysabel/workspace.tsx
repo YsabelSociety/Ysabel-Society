@@ -140,7 +140,10 @@ const dateOptions = [
   'Custom Range',
 ];
 const headings: Record<string, [string, string]> = {
-  Overview: ['A clearer view of Ysabel.', 'Here’s how Ysabel is performing.'],
+  Overview: [
+    'A clearer view of Ysabel Society.',
+    'Here’s how Ysabel Society is performing.',
+  ],
   Performance: [
     'Every channel. One perspective.',
     'Follow the movement, understand the momentum.',
@@ -155,7 +158,7 @@ const headings: Record<string, [string, string]> = {
   ],
   Website: [
     'From attention to intention.',
-    'Understand the paths people take through Ysabel online.',
+    'Understand the paths people take through Ysabel Society online.',
   ],
   'Google Business': [
     'Discovery starts here.',
@@ -183,11 +186,11 @@ const headings: Record<string, [string, string]> = {
   ],
   Comparisons: [
     'A different point of view.',
-    'Compare periods, locations and channels with context.',
+    'Compare periods and channels with context.',
   ],
   Reports: [
     'Perspective, beautifully presented.',
-    'A clear account of performance for Ysabel ownership.',
+    'A clear account of performance for Ysabel Society ownership.',
   ],
   Connections: [
     'One connected ecosystem.',
@@ -198,14 +201,14 @@ const headings: Record<string, [string, string]> = {
     'Definitions, availability and where each observation comes from.',
   ],
   Settings: [
-    'Made for your Society.',
-    'Manage your business units and workspace preferences.',
+    'Your workspace, considered.',
+    'A single workspace for Ysabel Society.',
   ],
 };
 export default function Workspace() {
   const data = useWorkspace();
+  const unit = 'Ysabel Society';
   const [page, setPage] = useState('Overview'),
-    [unit, setUnit] = useState('All Ysabel'),
     [date, setDate] = useState('Previous Month'),
     [comparison, setComparison] = useState('Previous Period'),
     [custom, setCustom] = useState<Range>({
@@ -221,10 +224,7 @@ export default function Workspace() {
     rows = source.rows,
     previous = source.previous;
   const visiblePosts = data.posts.filter(
-    (p) =>
-      (unit === 'All Ysabel' || p.unit === unit) &&
-      p.date >= range.start &&
-      p.date <= range.end,
+    (p) => p.date >= range.start && p.date <= range.end,
   );
   function navigate(name: string) {
     if (!names.includes(name)) return;
@@ -269,8 +269,8 @@ export default function Workspace() {
     };
     register({
       name: 'navigate_ysabel_workspace',
-      title: 'Open a Ysabel section',
-      description: 'Navigate to an existing section of the Ysabel workspace.',
+      title: 'Open a Ysabel Society section',
+      description: 'Navigate to an existing section of the Ysabel Society workspace.',
       inputSchema: {
         type: 'object',
         properties: { section: { type: 'string', enum: names } },
@@ -326,13 +326,15 @@ export default function Workspace() {
   return (
     <TooltipProvider>
       <SidebarProvider
+        className="workspace-shell"
+        data-section={page}
         style={{ '--sidebar-width': '225px' } as React.CSSProperties}
       >
         <Sidebar className="ys-sidebar">
           <SidebarHeader>
             <button
               onClick={() => navigate('Overview')}
-              aria-label="Ysabel overview"
+              aria-label="Ysabel Society overview"
             >
               <div className="wordmark">
                 YSABEL<span>S O C I E T Y</span>
@@ -383,13 +385,6 @@ export default function Workspace() {
             <div className="workspace-picker">
               <SidebarTrigger className="mobile-trigger" />
               <span className="workspace-name">YSABEL SOCIETY</span>
-              <span className="slash">/</span>
-              <Picker
-                value={unit}
-                onChange={setUnit}
-                options={['All Ysabel', ...data.settings.units]}
-                label="Business unit"
-              />
             </div>
             <div className="top-actions">
               <button
@@ -428,7 +423,7 @@ export default function Workspace() {
                   <Sun size={13} />{' '}
                   {page === 'Overview'
                     ? 'YOUR DAILY PERSPECTIVE'
-                    : 'YSABEL / ' + page.toUpperCase()}
+                    : 'YSABEL SOCIETY / ' + page.toUpperCase()}
                 </div>
                 <h1>{heading[0]}</h1>
                 <p>
@@ -474,11 +469,10 @@ export default function Workspace() {
                   ]}
                   label="Comparison"
                 />
-                {(unit !== 'All Ysabel' || date !== 'Previous Month') && (
+                {date !== 'Previous Month' && (
                   <button
                     className="clear-filters"
                     onClick={() => {
-                      setUnit('All Ysabel');
                       setDate('Previous Month');
                       setComparison('Previous Period');
                     }}
@@ -636,7 +630,7 @@ export default function Workspace() {
         <CommandDialog
           open={command}
           onOpenChange={setCommand}
-          title="Ysabel command search"
+          title="Ysabel Society command search"
           description="Navigate, search content, or create a report."
         >
           <Command>

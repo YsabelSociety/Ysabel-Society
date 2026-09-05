@@ -58,7 +58,7 @@ function empty(date: string, channel: Channel): Daily {
   return {
     date,
     channel,
-    unit: secrets().SOURCE_BUSINESS_UNIT || 'Society',
+    unit: 'Ysabel Society',
     views: 0,
     reach: 0,
     engagements: 0,

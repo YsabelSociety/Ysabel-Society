@@ -98,7 +98,7 @@ async function mediaList(
     items: any[] = [];
   const fields = instagram
     ? 'id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count'
-    : 'id,message,created_time,full_picture,permalink_url,shares,reactions.limit(0).summary(true),comments.limit(0).summary(true)';
+    : 'id,message,created_time,full_picture,permalink_url,shares';
   let after = '';
   for (let page = 0; page < 20; page++) {
     const r = await graphGet(
@@ -407,6 +407,35 @@ export async function importMeta(
     () => mediaList(context, source, range, result),
     (r) => r.length,
   );
+  // Optional user-content permissions must not prevent importing the Page's posts.
+  if (!instagram && media?.length) {
+    const counts = await graphBatch(
+      context,
+      media.map((m: any) => encodeURIComponent(m.id) + '?' + query({
+        fields: 'reactions.limit(0).summary(true),comments.limit(0).summary(true)',
+      })),
+    );
+    let returned = 0;
+    for (let i = 0; i < media.length; i++) {
+      const body = counts[i].body;
+      if (body) {
+        media[i].reactions = body.reactions;
+        media[i].comments = body.comments;
+        if (finite(body.reactions?.summary?.total_count) !== null) returned++;
+        if (finite(body.comments?.summary?.total_count) !== null) returned++;
+      }
+    }
+    const failure = counts.find((c) => c.error);
+    result.checks.push({
+      key: 'post-interactions',
+      label: 'Facebook reactions and comments',
+      status: returned ? 'imported' : failure ? 'unavailable' : 'empty',
+      records: returned,
+      detail: returned + ' lifetime interaction totals returned.' + (failure
+        ? ' Check pages_read_user_content in the login configuration and reconnect. ' + failure.error
+        : ''),
+    });
+  }
   const posts = (media || []).map((m: any) => {
     const p = importedPost(
       channel,

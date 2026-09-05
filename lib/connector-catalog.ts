@@ -33,6 +33,7 @@ export const CONNECTOR_GROUPS = [
     scopes: [
       'pages_show_list',
       'pages_read_engagement',
+      'pages_read_user_content',
       'instagram_basic',
       'instagram_manage_insights',
       'read_insights',
@@ -42,7 +43,7 @@ export const CONNECTOR_GROUPS = [
       'Create a Meta developer app for your business. Configure Facebook Login for Business and Instagram API with Facebook Login. Create a login configuration with a User access token.',
       'Link the Ysabel Society professional Instagram account to its Facebook Page. Use a Facebook user with access to both accounts.',
       'Add the callback URL below to Valid OAuth Redirect URIs. Save the App ID, App Secret, Login configuration ID and the supported Graph API version shown in your Meta app.',
-      'Request pages_show_list, pages_read_engagement, instagram_basic, instagram_manage_insights and read_insights in the login configuration; include business_management for business-managed Pages. Add your Facebook account to the app and grant access to the Page. Business verification or App Review may be required for other accounts. Advertising requires ads_read and separate ad-account access.',
+      'Request pages_show_list, pages_read_engagement, pages_read_user_content, instagram_basic, instagram_manage_insights and read_insights in the login configuration; include business_management for business-managed Pages. Reactions and comments require pages_read_user_content. Add your Facebook account to the app and grant access to the Page. Business verification or App Review may be required for other accounts. Advertising requires ads_read and separate ad-account access.',
     ],
     capability:
       'Imports supported daily account insights, published content and its lifetime performance, current follower counts and permitted audience breakdowns. Every report is checked separately. Unavailable metrics are identified after import; access and history limits still apply.',

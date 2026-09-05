@@ -16,7 +16,7 @@ export const PROVIDER_CONFIG = [
     channel: 'Facebook',
     kind: 'Organic',
     required: ['META_ACCESS_TOKEN', 'FACEBOOK_PAGE_ID', 'META_API_VERSION'],
-    permissions: 'pages_read_engagement, read_insights',
+    permissions: 'pages_read_engagement, pages_read_user_content, read_insights',
     documentation: 'https://developers.facebook.com/docs/pages-api/insights/',
   },
   {

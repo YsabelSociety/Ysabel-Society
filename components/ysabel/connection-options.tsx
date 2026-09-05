@@ -33,7 +33,7 @@ const GUIDES: Record<
     console: 'https://developers.facebook.com/apps/',
     guide: 'https://developers.facebook.com/docs/pages-api/insights/',
     steps: [
-      'Use Meta sign-in above and grant pages_show_list, pages_read_engagement and read_insights. Your Facebook account needs access to the Page.',
+      'Use Meta sign-in above and grant pages_show_list, pages_read_engagement, pages_read_user_content and read_insights. Your Facebook account needs access to the Page. Reactions and comments need pages_read_user_content; reconnect after adding it.',
       'An existing Page access token or authorized system-user token is another connection method. Use the Facebook Page ID and the supported Graph API version.',
       'Meta metric names change. The import checks each metric separately; current media viewers are kept separate from legacy reach. Use a Business Suite export for other available reports.',
     ],

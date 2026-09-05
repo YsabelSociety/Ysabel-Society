@@ -194,9 +194,14 @@ async function main() {
       (c) => c.key === 'profile_links_taps' && c.status === 'unavailable',
     ),
   );
+  let allowFacebookInteractions = false;
   responder = (url, init) => {
     if (init?.body instanceof URLSearchParams && init.body.has('batch'))
       return JSON.parse(init.body.get('batch')).map((job) => {
+        const request = new URL(job.relative_url, 'https://test/');
+        if (request.searchParams.has('fields')) return allowFacebookInteractions
+          ? { code: 200, body: JSON.stringify({ reactions: { summary: { total_count: 0 } }, comments: { summary: { total_count: 2 } } }) }
+          : { code: 400, body: JSON.stringify({ error: { code: 10 } }) };
         const metric = new URL(
           job.relative_url,
           'https://test/',
@@ -213,7 +218,11 @@ async function main() {
           }),
         };
       });
-    if (url.includes('/published_posts')) return { data: [] };
+    if (url.includes('/published_posts')) {
+      assert.ok(!new URL(url).searchParams.get('fields').includes('reactions'));
+      assert.ok(!new URL(url).searchParams.get('fields').includes('comments'));
+      return { data: [{ id: 'facebook-post', message: 'Page content remains available', created_time: '2026-09-04T12:00:00Z' }] };
+    }
     if (url.includes('/insights')) return { data: [] };
     return { id: 'page-one', followers_count: 150 };
   };
@@ -226,6 +235,17 @@ async function main() {
   assert.equal(facebookDay.views, 10);
   assert.equal(facebookDay.mediaViewers, 10);
   assert.ok(!facebookDay.available.includes('reach'));
+  assert.equal(fb.posts.length, 1, 'missing comment access must not discard published posts');
+  assert.equal(fb.posts[0].views, 10);
+  assert.ok(!fb.posts[0].available.includes('likes'));
+  assert.ok(!fb.posts[0].available.includes('comments'));
+  assert.ok(fb.checks.find(c => c.key === 'post-interactions').detail.includes('pages_read_user_content'));
+  allowFacebookInteractions = true;
+  const fbWithInteractions = await meta.importMeta({ ...context, externalId: 'page-one' }, 'facebook', range);
+  assert.equal(fbWithInteractions.posts[0].likes, 0);
+  assert.ok(fbWithInteractions.posts[0].available.includes('likes'));
+  assert.equal(fbWithInteractions.posts[0].comments, 2);
+  assert.equal(fbWithInteractions.checks.find(c => c.key === 'post-interactions').records, 2);
   responder = (url, init) => {
     if (url.includes('/user/info'))
       return {

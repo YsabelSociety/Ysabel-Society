@@ -1,0 +1,15 @@
+{
+  "usage": "Demo sample photography only. These photos do not depict Ysabel Society properties, dishes, staff, or events.",
+  "license": "Unsplash License",
+  "licenseUrl": "https://unsplash.com/license",
+  "reuse": "Each source page labels its image free to use under the Unsplash License. The license permits free commercial and noncommercial use, copying, modification, and distribution. Attribution is appreciated but not required. Images cannot be sold without significant modification or compiled to replicate a competing image service.",
+  "verifiedOn": "2026-09-05",
+  "photos": [
+    {"file":"demo-interior.jpg","subject":"Warm, dark restaurant interior with golden pendant lighting","photographer":"Dmitry Spravko","sourcePage":"https://unsplash.com/photos/a-restaurant-with-a-bunch-of-lights-hanging-from-the-ceiling-wrW1mQTja7w","imageUrl":"https://images.unsplash.com/photo-1631615535272-1106aa1b3854?w=1600&q=85&fit=crop&auto=format","orientation":"portrait","notes":"Actual source location: Antalya, Turkey. Good for venue atmosphere demo cards."},
+    {"file":"demo-pasta.jpg","subject":"Carbonara pasta overhead on pale ceramic plates","photographer":"Bruna Branco","sourcePage":"https://unsplash.com/photos/pasta-on-plate-with-fork-t8hTmte4O_g","imageUrl":"https://images.unsplash.com/photo-1546549032-9571cd6b27df?w=1600&q=85&fit=crop&auto=format","orientation":"portrait"},
+    {"file":"demo-cocktail.jpg","subject":"Pale cocktail in martini glass with cucumber garnish and dark background","photographer":"Sebastian Coman Photography","sourcePage":"https://unsplash.com/photos/cocktail-glass-mRC4D1lgSoA","imageUrl":"https://images.unsplash.com/photo-1576670393064-0063c3492d38?w=1600&q=85&fit=crop&auto=format","orientation":"portrait"},
+    {"file":"demo-chef.jpg","subject":"Chef behind a restaurant kitchen service window","photographer":"Patrick Nguyen","sourcePage":"https://unsplash.com/photos/chef-working-in-a-restaurant-kitchen-XXpPoe1HT9Q","imageUrl":"https://images.unsplash.com/photo-1755121718779-903088ea15fe?w=1600&q=85&fit=crop&auto=format","orientation":"landscape","notes":"Actual source location: MIDA, Boston. Do not imply this person is Ysabel staff."},
+    {"file":"demo-table.jpg","subject":"Moody restaurant table detail with a menu card and greenery","photographer":"saronita (Sara)","sourcePage":"https://unsplash.com/photos/restaurant-table-with-a-menu-on-display-j9ylKrvqRlo","imageUrl":"https://images.unsplash.com/photo-1744776411218-cc28206f3fac?w=1600&q=85&fit=crop&auto=format","orientation":"portrait","notes":"Menu card contains visible non-English restaurant copy; use as secondary demo atmosphere image."},
+    {"file":"demo-asian-dish.jpg","subject":"Vegetable noodles in white bowls with chopsticks and sauce dishes","photographer":"Sanjay Dosajh","sourcePage":"https://unsplash.com/photos/delicious-vegetable-noodles-served-in-a-white-bowl-PxYofnvL6PI","imageUrl":"https://images.unsplash.com/photo-1780493219430-c3e45cd17df8?w=1600&q=85&fit=crop&auto=format","orientation":"portrait"}
+  ]
+}

@@ -271,7 +271,8 @@ export default function Workspace({
             ? 'Connections'
             : 'Overview';
       try {
-        name = decodeURIComponent(location.hash.slice(1)) || name;
+        const section = decodeURIComponent(location.hash.slice(1));
+        if (names.includes(section)) name = section;
       } catch {}
       setPage(names.includes(name) ? name : 'Overview');
     };

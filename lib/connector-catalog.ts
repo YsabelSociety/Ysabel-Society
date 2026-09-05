@@ -37,13 +37,12 @@ export const CONNECTOR_GROUPS = [
       'instagram_basic',
       'instagram_manage_insights',
       'read_insights',
-      'business_management',
     ],
     steps: [
       'Create a Meta developer app for your business. Configure Facebook Login for Business and Instagram API with Facebook Login. Create a login configuration with a User access token.',
       'Link the Ysabel Society professional Instagram account to its Facebook Page. Use a Facebook user with access to both accounts.',
       'Add the callback URL below to Valid OAuth Redirect URIs. Save the App ID, App Secret, Login configuration ID and the supported Graph API version shown in your Meta app.',
-      'Request pages_show_list, pages_read_engagement, pages_read_user_content, instagram_basic, instagram_manage_insights and read_insights in the login configuration; include business_management for business-managed Pages. Reactions and comments require pages_read_user_content. Add your Facebook account to the app and grant access to the Page. Business verification or App Review may be required for other accounts. Advertising requires ads_read and separate ad-account access.',
+      'Request pages_show_list, pages_read_engagement, pages_read_user_content, instagram_basic, instagram_manage_insights and read_insights in the login configuration. This connection lists Pages directly and does not request broad business-portfolio management. Reactions and comments require pages_read_user_content. Add your Facebook account to the app and grant access to the Page. Business verification or App Review may be required for other accounts. Advertising requires ads_read and separate ad-account access.',
       'For the Inbox, add the Messenger use case and pages_messaging, instagram_manage_messages and pages_manage_metadata to the login configuration, then authorize again. Customer conversations may require Advanced Access and App Review. Use Inbox → Access & import to check coverage. These permissions are additional to analytics access.',
     ],
     capability:

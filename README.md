@@ -19,7 +19,9 @@ This is a working preview and foundation, not a fully validated production analy
 - The official logo was not provided. The wordmark is temporary typography. Demo images are licensed Unsplash photos unrelated to Ysabel venues or staff.
 - Audience demographic snapshots and website source/page allocations are explicitly labeled fixtures. These details are suppressed for live-source reporting.
 - Report configurations preserve dates for Ysabel Society; exports are regenerated from current records, not frozen snapshots.
-- The workspace uses a silver, translucent interface with a distinct restrained gradient for each of its 16 sections. Content, source records and historical labels are consolidated under Ysabel Society without dropping observations.
+- The workspace uses silver and translucent surfaces with distinct gradient backgrounds on each navigation tab and section. Platform tabs, channel cards, media labels and connection cards carry their own platform colors.
+- The Admin panel is available from the top bar, the System navigation and directly at `/admin`. It includes a workspace dashboard, content uploads and editing, connection management, and saved workspace preferences. The same sign-in requirement and user-scoped data checks protect the admin route and its actions.
+- Content, source records and historical labels are consolidated under Ysabel Society without dropping observations.
 - WebMCP navigation/read tools are feature-detected. No supported validation context was available. Their browser runtime behavior has not been independently verified.
 - Browser visual and interaction QA was not requested and was not performed. Calculation, route, export and build checks are recorded separately.
 

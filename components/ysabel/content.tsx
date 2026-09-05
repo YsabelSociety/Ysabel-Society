@@ -113,7 +113,12 @@ export function MediaCards({
   return (
     <div className="media-cards">
       {posts.map((p) => (
-        <button className="media-card" key={p.id} onClick={() => onSelect(p)}>
+        <button
+          className="media-card"
+          data-platform={p.platform}
+          key={p.id}
+          onClick={() => onSelect(p)}
+        >
           <div className="media-photo">
             <Media post={p} />
             <span className="media-platform">
@@ -1030,6 +1035,7 @@ export function Studio({
             {posts.map((p, i) => (
               <div
                 className="studio-tile"
+                data-platform={p.platform}
                 key={p.id}
                 draggable={mode === 'Grid' || mode === 'Desktop'}
                 onDragStart={() => setDrag(p.id)}

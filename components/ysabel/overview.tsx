@@ -128,6 +128,7 @@ export default function Overview({
           return (
             <button
               className="channel-card surface"
+              data-platform={c}
               key={c}
               onClick={() =>
                 setPage(

@@ -103,7 +103,11 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
       )}
       <div className="connections-grid">
         {connections.map((c, i) => (
-          <section className="surface connection-card" key={c.id}>
+          <section
+            className="surface connection-card"
+            data-platform={c.channel}
+            key={c.id}
+          >
             <div className="connection-top">
               <span className="connection-mark">
                 {['◎', 'f', '♪', '↗', 'G', 'm', '♪', 'A'][i]}

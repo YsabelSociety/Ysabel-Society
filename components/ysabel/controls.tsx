@@ -25,12 +25,16 @@ export function Picker({
 }) {
   return (
     <Select value={value} onValueChange={(v) => v && onChange(v)}>
-      <SelectTrigger aria-label={label} className="picker">
+      <SelectTrigger
+        aria-label={label}
+        data-platform={value}
+        className="picker"
+      >
         <SelectValue>{value}</SelectValue>
       </SelectTrigger>
       <SelectContent>
         {options.map((v) => (
-          <SelectItem key={v} value={v}>
+          <SelectItem key={v} value={v} data-platform={v}>
             {v}
           </SelectItem>
         ))}

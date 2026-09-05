@@ -6,7 +6,7 @@ export const CHANNELS = [
   'Website',
 ] as const;
 export type Channel = (typeof CHANNELS)[number];
-export const COLORS = ['#517b99', '#7a70a0', '#ae758e', '#8c7956', '#548b85'];
+export const COLORS = ['#b83d83', '#3478ce', '#228d97', '#49916a', '#407b78'];
 export const BRAND_NAME = 'Ysabel Society';
 export const UNITS = [BRAND_NAME];
 export type Metric =

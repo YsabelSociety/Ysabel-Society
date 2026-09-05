@@ -348,12 +348,12 @@ export function PerformancePage({
         ? previous
         : previous.filter((r) => r.channel === channel);
   return (
-    <div className="view-enter">
+    <div className="view-enter platform-workspace" data-platform={channel}>
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
           <TabsList className="page-tabs">
             {['All', ...CHANNELS].map((c) => (
-              <TabsTrigger key={c} value={c}>
+              <TabsTrigger key={c} value={c} data-platform={c}>
                 {c}
               </TabsTrigger>
             ))}

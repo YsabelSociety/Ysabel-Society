@@ -26,6 +26,7 @@ import {
   Check,
   X,
   RefreshCw,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   SidebarProvider,
@@ -88,6 +89,7 @@ import {
 } from './analytics-pages';
 import { ReportsPage, ExportDialog } from './reports';
 import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
+import { AdminPanel } from './admin-panel';
 const groups = [
   {
     label: 'WORKSPACE',
@@ -120,6 +122,7 @@ const groups = [
   {
     label: 'SYSTEM',
     items: [
+      ['Admin Panel', ShieldCheck],
       ['Connections', Plug],
       ['Data Sources', Database],
       ['Settings', Settings],
@@ -140,6 +143,10 @@ const dateOptions = [
   'Custom Range',
 ];
 const headings: Record<string, [string, string]> = {
+  'Admin Panel': [
+    'Admin panel',
+    'Manage content, connections and preferences for Ysabel Society.',
+  ],
   Overview: [
     'A clearer view of Ysabel Society.',
     'Here’s how Ysabel Society is performing.',
@@ -205,10 +212,16 @@ const headings: Record<string, [string, string]> = {
     'A single workspace for Ysabel Society.',
   ],
 };
-export default function Workspace() {
+export default function Workspace({
+  initialPage = 'Overview',
+}: {
+  initialPage?: string;
+}) {
   const data = useWorkspace();
   const unit = 'Ysabel Society';
-  const [page, setPage] = useState('Overview'),
+  const [page, setPage] = useState(
+      names.includes(initialPage) ? initialPage : 'Overview',
+    ),
     [date, setDate] = useState('Previous Month'),
     [comparison, setComparison] = useState('Previous Period'),
     [custom, setCustom] = useState<Range>({
@@ -233,17 +246,24 @@ export default function Workspace() {
     window.history.pushState(
       {},
       '',
-      location.pathname + '#' + encodeURIComponent(name),
+      name === 'Admin Panel' ? '/admin' : '/#' + encodeURIComponent(name),
     );
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   useEffect(() => {
     const read = () => {
-      const name = decodeURIComponent(location.hash.slice(1));
+      let name =
+        location.pathname.replace(/\/$/, '') === '/admin'
+          ? 'Admin Panel'
+          : 'Overview';
+      try {
+        name = decodeURIComponent(location.hash.slice(1)) || name;
+      } catch {}
       if (names.includes(name)) setPage(name);
     };
     read();
     window.addEventListener('popstate', read);
+    window.addEventListener('hashchange', read);
     const key = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -254,6 +274,7 @@ export default function Workspace() {
     return () => {
       window.removeEventListener('keydown', key);
       window.removeEventListener('popstate', read);
+      window.removeEventListener('hashchange', read);
     };
   }, []);
   useEffect(() => {
@@ -270,7 +291,8 @@ export default function Workspace() {
     register({
       name: 'navigate_ysabel_workspace',
       title: 'Open a Ysabel Society section',
-      description: 'Navigate to an existing section of the Ysabel Society workspace.',
+      description:
+        'Navigate to an existing section of the Ysabel Society workspace.',
       inputSchema: {
         type: 'object',
         properties: { section: { type: 'string', enum: names } },
@@ -350,6 +372,7 @@ export default function Workspace() {
                   {group.items.map(([name, Icon]: any) => (
                     <SidebarMenuItem key={name}>
                       <SidebarMenuButton
+                        data-nav={name}
                         isActive={page === name}
                         onClick={() => navigate(name)}
                       >
@@ -371,10 +394,10 @@ export default function Workspace() {
               <i />
               Demo workspace<span>Sample data · 5 Sep 2026</span>
             </button>
-            <button className="profile" onClick={() => navigate('Settings')}>
+            <button className="profile" onClick={() => navigate('Admin Panel')}>
               <span className="avatar">YS</span>
               <span>
-                Ysabel Society<small>Private workspace</small>
+                Ysabel Society<small>Open admin panel</small>
               </span>
               <ChevronRight size={14} />
             </button>
@@ -387,6 +410,15 @@ export default function Workspace() {
               <span className="workspace-name">YSABEL SOCIETY</span>
             </div>
             <div className="top-actions">
+              <button
+                className="admin-launch"
+                onClick={() => navigate('Admin Panel')}
+                aria-label="Open admin panel"
+                aria-current={page === 'Admin Panel' ? 'page' : undefined}
+              >
+                <ShieldCheck size={16} />
+                <span>Admin panel</span>
+              </button>
               <button
                 className="demo-badge"
                 onClick={() => navigate('Data Sources')}
@@ -405,8 +437,8 @@ export default function Workspace() {
               </button>
               <button
                 className="avatar small"
-                aria-label="Workspace settings"
-                onClick={() => navigate('Settings')}
+                aria-label="Open admin panel"
+                onClick={() => navigate('Admin Panel')}
               >
                 YS
               </button>
@@ -431,69 +463,79 @@ export default function Workspace() {
                   {heading[1]}
                 </p>
               </div>
-              <button className="secondary" onClick={() => setExportOpen(true)}>
-                <ArrowDownToLine size={15} /> Export report
-              </button>
+              {page !== 'Admin Panel' && (
+                <button
+                  className="secondary"
+                  onClick={() => setExportOpen(true)}
+                >
+                  <ArrowDownToLine size={15} /> Export report
+                </button>
+              )}
             </div>
-            <div className="filter-row">
-              <div className="inline-controls">
-                <CalendarDays size={15} />
-                <Picker
-                  value={date}
-                  onChange={setDate}
-                  options={dateOptions}
-                  label="Date range"
-                />
-                <span className="date-caption">
-                  {new Date(range.start + 'T12:00:00Z').toLocaleDateString(
-                    'en',
-                    { month: 'short', day: 'numeric' },
-                  )}{' '}
-                  –{' '}
-                  {new Date(range.end + 'T12:00:00Z').toLocaleDateString('en', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
-                </span>
-                <span className="divider" />
-                <GitCompareArrows size={15} />
-                <Picker
-                  value={comparison}
-                  onChange={setComparison}
-                  options={[
-                    'Previous Period',
-                    'Previous Month',
-                    'Previous Year',
-                    'No Comparison',
-                  ]}
-                  label="Comparison"
-                />
-                {date !== 'Previous Month' && (
-                  <button
-                    className="clear-filters"
-                    onClick={() => {
-                      setDate('Previous Month');
-                      setComparison('Previous Period');
-                    }}
-                  >
-                    Clear filters <X size={11} />
-                  </button>
-                )}
+            {page !== 'Admin Panel' && (
+              <div className="filter-row">
+                <div className="inline-controls">
+                  <CalendarDays size={15} />
+                  <Picker
+                    value={date}
+                    onChange={setDate}
+                    options={dateOptions}
+                    label="Date range"
+                  />
+                  <span className="date-caption">
+                    {new Date(range.start + 'T12:00:00Z').toLocaleDateString(
+                      'en',
+                      { month: 'short', day: 'numeric' },
+                    )}{' '}
+                    –{' '}
+                    {new Date(range.end + 'T12:00:00Z').toLocaleDateString(
+                      'en',
+                      {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                      },
+                    )}
+                  </span>
+                  <span className="divider" />
+                  <GitCompareArrows size={15} />
+                  <Picker
+                    value={comparison}
+                    onChange={setComparison}
+                    options={[
+                      'Previous Period',
+                      'Previous Month',
+                      'Previous Year',
+                      'No Comparison',
+                    ]}
+                    label="Comparison"
+                  />
+                  {date !== 'Previous Month' && (
+                    <button
+                      className="clear-filters"
+                      onClick={() => {
+                        setDate('Previous Month');
+                        setComparison('Previous Period');
+                      }}
+                    >
+                      Clear filters <X size={11} />
+                    </button>
+                  )}
+                </div>
+                <button
+                  className="freshness"
+                  onClick={() => navigate('Connections')}
+                >
+                  <span className="small-dot" />{' '}
+                  {source.loading
+                    ? 'Updating…'
+                    : source.mode === 'live'
+                      ? 'Connected source data'
+                      : 'Preview data'}
+                </button>
               </div>
-              <button
-                className="freshness"
-                onClick={() => navigate('Connections')}
-              >
-                <span className="small-dot" />{' '}
-                {source.loading
-                  ? 'Updating…'
-                  : source.mode === 'live'
-                    ? 'Connected source data'
-                    : 'Preview data'}
-              </button>
-            </div>
-            {date === 'Custom Range' && (
+            )}
+            {page !== 'Admin Panel' && date === 'Custom Range' && (
               <div className="custom-dates">
                 <label>
                   From
@@ -538,6 +580,13 @@ export default function Workspace() {
               </div>
             )}
             <div className="view-content" key={page}>
+              {page === 'Admin Panel' && (
+                <AdminPanel
+                  data={data}
+                  onSelect={setPost}
+                  onNavigate={navigate}
+                />
+              )}
               {page === 'Overview' && (
                 <Overview
                   rows={rows}

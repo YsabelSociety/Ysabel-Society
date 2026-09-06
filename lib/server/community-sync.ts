@@ -44,7 +44,7 @@ export async function readConversationList(
       }),
     {
       headers: { Authorization: 'Bearer ' + context.accessToken },
-      signal: AbortSignal.timeout(20000),
+      signal: AbortSignal.timeout(45000),
     },
   );
   const body: any = await response.json();
@@ -468,16 +468,22 @@ export async function runCommunitySync(
       ? await syncReviews(owner, continueImport || automatic)
       : await syncMessages(owner, source, continueImport);
   } catch (e) {
-    const detail =
-      e instanceof Error && e.message.startsWith('INPUT:')
+    const timedOut =
+      !!e &&
+      typeof e === 'object' &&
+      'name' in e &&
+      ['TimeoutError', 'AbortError'].includes(String(e.name));
+    const detail = timedOut
+      ? 'The provider request timed out. Previously captured records are retained. Try importing again later; this does not establish a permission problem.'
+      : e instanceof Error && e.message.startsWith('INPUT:')
         ? e.message.slice(6)
         : source === 'gbp'
           ? 'Google reviews need access to a verified managed location and the Business Profile API. Check the Google connection and try again.'
-          : 'Messaging import could not finish. Check Meta permissions and reconnect.';
+          : 'The provider did not return a readable messaging response. Previously captured records are retained. Try importing again later.';
     await saveCommunityStatus(owner, {
       source,
       kind,
-      state: 'needs-access',
+      state: 'needs-attention',
       detail,
     });
     throw new Error('INPUT:' + detail);

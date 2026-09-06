@@ -227,7 +227,9 @@ function AccessStatus({
                     ? 'File import'
                     : s.state === 'syncing'
                       ? 'Importing'
-                      : 'Needs access'}
+                      : s.state === 'needs-attention'
+                        ? 'Needs attention'
+                        : 'Needs access'}
             </strong>
             <p>{s.detail}</p>
             {s.syncedAt && (

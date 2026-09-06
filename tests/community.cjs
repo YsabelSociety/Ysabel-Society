@@ -380,7 +380,7 @@ async function main() {
     (await store.readCommunity(owner, 'message')).statuses.find(
       (s) => s.source === 'instagram',
     ).state,
-    'needs-access',
+    'needs-attention',
   );
   await assert.rejects(
     () => sync.runCommunitySync(owner, 'tiktok'),
@@ -411,22 +411,81 @@ async function main() {
       !e.message.includes('https://'),
   );
   await link('gbp', 'google', 'location-1');
-  const attemptedLimits=[];
-  responder=async url=>{const size=new URL(url).searchParams.get('limit');attemptedLimits.push(size);return size==='10'?Response.json({error:{code:1,message:'Reduce data'}},{status:400}):{data:[]};};
-  await sync.readConversationList({accessToken:'test',apiVersion:'v26.0'},'page','instagram');
-  assert.deepEqual(attemptedLimits,['10','2'],'large Instagram requests retry with less data');
-  let messagePages=[];
-  responder=async(url,init)=>{
-    if(url.endsWith('/me?fields=id'))return {id:'fb-page'};
-    if(url.includes('/conversations?')){const n=Number(new URL(url).searchParams.get('after')||0)+1;messagePages.push(n);return {data:[{id:'older-thread-'+n}],...(n<11?{paging:{next:'provider-next',cursors:{after:String(n)}}}:{})};}
-    if(url.endsWith('/v26.0/'))return JSON.parse(new URLSearchParams(init.body).get('batch')).map(q=>q.relative_url.includes('/messages?')?{code:200,body:JSON.stringify({data:[{id:q.relative_url.split('/')[0]+'-message',created_time:'2026-09-01T10:00:00Z',from:{id:'older-customer'},message:'Earlier enquiry'}]})}:{code:403,body:'{}'});
+  responder=async()=>{throw new DOMException('Fixture timeout','TimeoutError');};
+  await assert.rejects(()=>sync.runCommunitySync(owner,'instagram'),e=>e.message.includes('timed out')&&!e.message.includes('reconnect'));
+  const attemptedLimits = [];
+  responder = async (url) => {
+    const size = new URL(url).searchParams.get('limit');
+    attemptedLimits.push(size);
+    return size === '10'
+      ? Response.json(
+          { error: { code: 1, message: 'Reduce data' } },
+          { status: 400 },
+        )
+      : { data: [] };
+  };
+  await sync.readConversationList(
+    { accessToken: 'test', apiVersion: 'v26.0' },
+    'page',
+    'instagram',
+  );
+  assert.deepEqual(
+    attemptedLimits,
+    ['10', '2'],
+    'large Instagram requests retry with less data',
+  );
+  let messagePages = [];
+  responder = async (url, init) => {
+    if (url.endsWith('/me?fields=id')) return { id: 'fb-page' };
+    if (url.includes('/conversations?')) {
+      const n = Number(new URL(url).searchParams.get('after') || 0) + 1;
+      messagePages.push(n);
+      return {
+        data: [{ id: 'older-thread-' + n }],
+        ...(n < 11
+          ? { paging: { next: 'provider-next', cursors: { after: String(n) } } }
+          : {}),
+      };
+    }
+    if (url.endsWith('/v26.0/'))
+      return JSON.parse(new URLSearchParams(init.body).get('batch')).map((q) =>
+        q.relative_url.includes('/messages?')
+          ? {
+              code: 200,
+              body: JSON.stringify({
+                data: [
+                  {
+                    id: q.relative_url.split('/')[0] + '-message',
+                    created_time: '2026-09-01T10:00:00Z',
+                    from: { id: 'older-customer' },
+                    message: 'Earlier enquiry',
+                  },
+                ],
+              }),
+            }
+          : { code: 403, body: '{}' },
+      );
     throw new Error('Unexpected pagination request');
   };
-  await sync.syncMessages(owner,'instagram');
-  assert.equal((await store.readCommunity(owner,'message')).statuses.find(s=>s.source==='instagram').more,true);
-  await sync.syncMessages(owner,'instagram',true);
-  assert.equal(messagePages.at(-1),11,'older import resumes at the saved cursor');
-  assert.equal((await store.readCommunity(owner,'message')).statuses.find(s=>s.source==='instagram').more,false);
+  await sync.syncMessages(owner, 'instagram');
+  assert.equal(
+    (await store.readCommunity(owner, 'message')).statuses.find(
+      (s) => s.source === 'instagram',
+    ).more,
+    true,
+  );
+  await sync.syncMessages(owner, 'instagram', true);
+  assert.equal(
+    messagePages.at(-1),
+    11,
+    'older import resumes at the saved cursor',
+  );
+  assert.equal(
+    (await store.readCommunity(owner, 'message')).statuses.find(
+      (s) => s.source === 'instagram',
+    ).more,
+    false,
+  );
   let requestedPages = [];
   responder = async (url) => {
     if (url.includes('accountmanagement'))

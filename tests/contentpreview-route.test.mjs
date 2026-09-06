@@ -24,6 +24,11 @@ test('preview build tools are installed even when the build environment is produ
   assert(read('scripts/build-contentpreview.mjs').includes("'--include=dev'"));
 });
 
+test('production builds bound memory and keep website style scanning isolated', () => {
+  assert(read('next.config.ts').includes('webpackMemoryOptimizations: true'));
+  assert(read('src/app/globals.css').includes('@import "tailwindcss" source("../")'));
+});
+
 test('API routing is restricted to the preview and keeps the existing data server', () => {
   const config = read('next.config.ts');
   assert(config.includes('source: "/contentpreview/api/:path*"'));

@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    // Keep the production build within the existing Netlify build container.
+    webpackMemoryOptimizations: true,
+  },
   async rewrites() {
     return [
       {

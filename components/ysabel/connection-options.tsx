@@ -183,13 +183,45 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
     setBusy(op);
     setError('');
     try {
-      const r = await fetch('/marketingdata/api/connection-options', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op, source, ...body }),
-      });
-      const d: any = await r.json();
-      if (!r.ok) throw new Error(d.error);
+      const request = async (payload: Record<string, unknown>) => {
+        const r = await fetch('/marketingdata/api/connection-options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ op, source, ...payload }),
+        });
+        if (!r.headers.get('content-type')?.includes('application/json'))
+          throw new Error(
+            'The import took too long. Saved records are retained; retry a shorter date range.',
+          );
+        const d: any = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        if (d.skipped)
+          throw new Error(
+            'Another refresh is still running. Wait for it to finish, then retry this period.',
+          );
+        return d;
+      };
+      let d: any;
+      if (op === 'history' && body.range) {
+        const range = body.range as { start: string; end: string };
+        for (
+          let end = Date.parse(range.end);
+          end >= Date.parse(range.start);
+          end -= 7 * 86400000
+        ) {
+          d = await request({
+            ...body,
+            range: {
+              start: new Date(
+                Math.max(Date.parse(range.start), end - 6 * 86400000),
+              )
+                .toISOString()
+                .slice(0, 10),
+              end: new Date(end).toISOString().slice(0, 10),
+            },
+          });
+        }
+      } else d = await request(body);
       if (op === 'permissions') setPermissions(d.permissions);
       else {
         window.dispatchEvent(new Event('ysabel:sources-updated'));
@@ -623,6 +655,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
               <input
                 type="date"
                 value={start}
+                onInput={(e) => setStart(e.currentTarget.value)}
                 onChange={(e) => setStart(e.target.value)}
               />
             </label>
@@ -631,6 +664,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
               <input
                 type="date"
                 value={end}
+                onInput={(e) => setEnd(e.currentTarget.value)}
                 onChange={(e) => setEnd(e.target.value)}
               />
             </label>

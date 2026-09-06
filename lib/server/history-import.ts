@@ -102,8 +102,36 @@ export async function startHistory(
     )
     .bind(owner, source, link.external_id)
     .first<{ payload: string }>();
-  if (existing && !restart)
-    return JSON.parse(existing.payload) as HistoryProgress;
+  if (existing && !restart) {
+    const saved = JSON.parse(existing.payload) as HistoryProgress;
+    if (
+      source === 'instagram' &&
+      saved.phase === 'done' &&
+      saved.oldest &&
+      saved.oldest < saved.floor
+    ) {
+      saved.phase = 'reports';
+      saved.end = day(Date.parse(saved.floor) - 86400000);
+      saved.floor = saved.oldest;
+      saved.message =
+        'Checking older daily reports back to the first imported post.';
+      saved.note =
+        'All accessible published content is saved. Daily reports are requested back to the earliest imported publication; provider retention and permission limits may leave gaps.';
+      await db
+        .prepare(
+          'UPDATE history_imports SET payload=? WHERE owner=? AND source=? AND external_id=? AND lease_until<?',
+        )
+        .bind(
+          JSON.stringify(saved),
+          owner,
+          source,
+          link.external_id,
+          Date.now(),
+        )
+        .run();
+    }
+    return saved;
+  }
   const end = today();
   const job: HistoryProgress = {
     source,
@@ -283,6 +311,16 @@ export async function stepHistory(owner: string, source: string) {
       job.cursor = result.nextCursor || '';
       if (!result.nextCursor)
         job.phase = source === 'tiktok' ? 'done' : 'reports';
+      if (
+        !result.nextCursor &&
+        source === 'instagram' &&
+        job.oldest &&
+        job.oldest < job.floor
+      ) {
+        job.floor = job.oldest;
+        job.note =
+          'All accessible published content is saved. Daily reports are requested back to the earliest imported publication; provider retention and permission limits may leave gaps.';
+      }
       job.message = result.nextCursor
         ? 'Importing older published content…'
         : 'All published content accessible through this connection has been scanned.';
@@ -294,7 +332,7 @@ export async function stepHistory(owner: string, source: string) {
     if (job.phase === 'done')
       job.message =
         'Available-history scan finished' +
-        (job.gaps ? ' with report gaps.' : ' .');
+        (job.gaps ? ' with report gaps.' : '.');
     job.error = undefined;
     return job;
   } catch (e) {

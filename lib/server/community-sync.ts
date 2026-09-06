@@ -65,13 +65,15 @@ export async function readConversationList(
       'INPUT:Meta conversation import: ' +
         detail +
         (Number.isInteger(error.code) ? ' (Meta ' + error.code + ')' : '') +
-        ([10, 190, 200, 294].includes(error.code)
-          ? ' Check ' +
-            (source === 'instagram'
-              ? 'instagram_manage_messages, connected-tool message access in Instagram,'
-              : 'pages_messaging,') +
-            ' pages_manage_metadata and the app access level. Only reconnect when permissions have changed.'
-          : ' The provider could not complete this request. Try the import again later.'),
+        (/advanced access|users who do not have a role/i.test(detail)
+          ? ' Advanced messaging access is required for these customer conversations. Complete Meta App Review; reconnecting alone will not resolve this restriction.'
+          : [10, 190, 200, 294].includes(error.code)
+            ? ' Check ' +
+              (source === 'instagram'
+                ? 'instagram_manage_messages, connected-tool message access in Instagram,'
+                : 'pages_messaging,') +
+              ' pages_manage_metadata and the app access level. Only reconnect when permissions have changed.'
+            : ' The provider could not complete this request. Try the import again later.'),
     );
   }
   return body;
@@ -182,6 +184,19 @@ export async function syncMessages(
           '&limit=20',
       ),
     );
+    // Optional attachment details must not prevent the core inbox from importing.
+    const attachments =
+      source === 'instagram'
+        ? await graphBatch(
+            context,
+            conversations.map(
+              (c: any) =>
+                encodeURIComponent(c.id) +
+                '/messages?fields=id,attachments&limit=20',
+            ),
+          )
+        : [];
+    const pageStart = imported.length;
     for (let i = 0; i < conversations.length; i++) {
       const c = conversations[i],
         response = replies[i];
@@ -228,7 +243,10 @@ export async function syncMessages(
         };
         imported.push(item);
         // Only explicit provider attachment types qualify; a shared post is not a story repost.
-        for (const a of m.attachments?.data || [])
+        for (const a of m.attachments?.data ||
+          attachments[i]?.body?.data?.find((x: any) => x.id === m.id)
+            ?.attachments?.data ||
+          [])
           if (['story_mention', 'story_repost'].includes(a.type))
             imported.push({
               ...item,
@@ -239,6 +257,9 @@ export async function syncMessages(
             });
       }
     }
+    await ensureStillLinked(owner, source, context.accountId);
+    for (let start = pageStart; start < imported.length; start += 2000)
+      await saveCommunity(owner, imported.slice(start, start + 2000));
     after = list.paging?.cursors?.after || '';
     if (!list.paging?.next || !after) {
       after = '';
@@ -311,6 +332,9 @@ export async function syncMessages(
     (after
       ? ' More conversations are available. Use Load older conversations to continue.'
       : '') +
+    (source === 'instagram'
+      ? ' No folder filter is applied: eligible Primary, General and Requests conversations are combined. Meta excludes Requests inactive for 30 days; folder labels may not be supplied. Use a Meta JSON download for older available message history.'
+      : '') +
     ' Story mentions/reposts count only when explicitly supplied; expired, private or untagged stories cannot be reconstructed.';
   await saveCommunityStatus(owner, {
     source,
@@ -324,6 +348,72 @@ export async function syncMessages(
     imported: imported.filter((r) => r.kind === 'message').length,
     detail,
   };
+}
+export async function syncInstagramTags(owner: string, continueImport = false) {
+  const context = await linkedContext(owner, 'instagram');
+  const previous = await database()
+    .prepare(
+      "SELECT cursor,account_id FROM community_sync WHERE owner=? AND source='instagram' AND kind='mention'",
+    )
+    .bind(owner)
+    .first<{ cursor: string; account_id: string }>();
+  let after =
+    continueImport && previous?.account_id === context.accountId
+      ? previous.cursor || ''
+      : '';
+  let count = 0;
+  for (let page = 0; page < 10; page++) {
+    const body = await graphGet(
+      context,
+      encodeURIComponent(context.externalId) +
+        '/tags?' +
+        new URLSearchParams({
+          fields: 'id,caption,username,timestamp,permalink',
+          limit: '50',
+          ...(after ? { after } : {}),
+        }),
+    );
+    if (!Array.isArray(body.data))
+      throw new Error(
+        'INPUT:Meta did not return tagged posts. Check the Instagram reporting connection.',
+      );
+    const records: CommunityRecord[] = body.data
+      .filter((m: any) => m.id && Number.isFinite(Date.parse(m.timestamp)))
+      .map((m: any) => ({
+        id: 'tag:' + m.id,
+        source: 'instagram',
+        kind: 'mention',
+        accountId: context.accountId,
+        time: new Date(m.timestamp).toISOString(),
+        username: m.username || undefined,
+        name: m.username || 'Profile unavailable',
+        text: String(m.caption || '').slice(0, 12000),
+        profileUrl: safeProfileURL(m.permalink),
+        mentionType: 'post_tag',
+        origin: 'api',
+      }));
+    await ensureStillLinked(owner, 'instagram', context.accountId);
+    await saveCommunity(owner, records);
+    count += records.length;
+    after = body.paging?.next ? body.paging?.cursors?.after || '' : '';
+    if (!after) break;
+  }
+  const detail =
+    count +
+    ' tagged posts imported. ' +
+    (after
+      ? 'More tagged posts are available; continue the import. '
+      : 'All tagged-post pages returned by Meta were checked. ') +
+    'Post tags are separate from caption mentions, story mentions and reposts. Historical stories and untagged reposts are not supplied by this endpoint.';
+  await saveCommunityStatus(owner, {
+    source: 'instagram',
+    kind: 'mention',
+    state: after ? 'partial' : 'synced',
+    cursor: after,
+    accountId: context.accountId,
+    detail,
+  });
+  return { imported: count, more: !!after, detail };
 }
 export async function syncReviews(owner: string, continueImport = false) {
   const context = await linkedContext(owner, 'gbp'),
@@ -440,10 +530,15 @@ export async function runCommunitySync(
   source: CommunitySource,
   continueImport = false,
   automatic = false,
+  requestedKind?: 'mention',
 ) {
-  const kind = source === 'gbp' ? 'review' : 'message',
+  const kind = requestedKind || (source === 'gbp' ? 'review' : 'message'),
     db = database(),
     now = new Date().toISOString();
+  if (kind === 'mention' && source !== 'instagram')
+    throw new Error(
+      'INPUT:Automatic tagged-post import is available for Instagram. Use an export for other mention history.',
+    );
   if (source === 'tiktok')
     throw new Error(
       'INPUT:TikTok inbox access requires separately approved Business Messaging API access. Import a reviewed message export in the meantime; Display API sign-in does not grant messaging access.',
@@ -464,9 +559,11 @@ export async function runCommunitySync(
     .run();
   if (!lock.meta.changes) return { skipped: true };
   try {
-    return source === 'gbp'
-      ? await syncReviews(owner, continueImport || automatic)
-      : await syncMessages(owner, source, continueImport);
+    return kind === 'mention'
+      ? await syncInstagramTags(owner, continueImport || automatic)
+      : source === 'gbp'
+        ? await syncReviews(owner, continueImport || automatic)
+        : await syncMessages(owner, source, continueImport);
   } catch (e) {
     const timedOut =
       !!e &&

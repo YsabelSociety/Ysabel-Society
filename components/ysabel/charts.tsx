@@ -23,11 +23,7 @@ import {
 } from '@/lib/analytics';
 import { Picker } from './controls';
 import { Maximize2, ArrowUpRight } from 'lucide-react';
-export function Spark({
-  values: input,
-}: {
-  values?: number[];
-}) {
+export function Spark({ values: input }: { values?: number[] }) {
   const data = input ?? [];
   if (!data.length) return null;
   const min = Math.min(...data),
@@ -95,15 +91,31 @@ export function AnalyticsChart({
     ...d,
     previous: prev[i]?.total ?? null,
   }));
+  const plottedChannels = CHANNELS.filter((c) =>
+    metricAvailable(
+      rows.filter((r) => r.channel === c),
+      activeMetric,
+    ),
+  );
+  const motionKey =
+    activeMetric +
+    ':' +
+    granularity +
+    ':' +
+    enabled.join(',') +
+    ':' +
+    data.map((d) => d.date).join(',');
   return (
     <section className={'surface chart-surface ' + (full ? 'chart-full' : '')}>
       <div className="section-head">
         <div>
           <h2>{title}</h2>
           <p>
-            {stacked
-              ? 'How attention is distributed across channels'
-              : 'Every interaction, part of a bigger picture.'}
+            {activeMetric === 'followers'
+              ? 'Recorded follower snapshots. Missing dates remain gaps; a single observation appears as a point.'
+              : stacked
+                ? 'How attention is distributed across channels'
+                : 'Every interaction, part of a bigger picture.'}
           </p>
         </div>
         <div className="inline-controls">
@@ -139,7 +151,7 @@ export function AnalyticsChart({
         </div>
       </div>
       <div className="chart-legend">
-        {CHANNELS.map((c, i) => (
+        {plottedChannels.map((c) => (
           <button
             key={c}
             aria-pressed={enabled.includes(c)}
@@ -152,7 +164,7 @@ export function AnalyticsChart({
               )
             }
           >
-            <i style={{ background: COLORS[i] }} />
+            <i style={{ background: COLORS[CHANNELS.indexOf(c)] }} />
             {c === 'Google Business' ? 'Google' : c}
           </button>
         ))}
@@ -162,7 +174,12 @@ export function AnalyticsChart({
       </div>
       <div className="chart-wrap">
         {supplied ? (
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer
+            width="100%"
+            height="100%"
+            minWidth={1}
+            minHeight={280}
+          >
             <ComposedChart
               data={chart}
               margin={{ top: 18, right: 8, left: -15, bottom: 0 }}
@@ -237,20 +254,41 @@ export function AnalyticsChart({
                   metricAvailable(
                     rows.filter((r) => r.channel === c),
                     activeMetric,
-                  ) && (
+                  ) &&
+                  (activeMetric === 'followers' ? (
+                    <Line
+                      key={c + motionKey}
+                      dataKey={c}
+                      type="linear"
+                      stroke={COLORS[i]}
+                      strokeWidth={2.5}
+                      connectNulls={false}
+                      dot={{
+                        r: 4,
+                        fill: COLORS[i],
+                        stroke: '#fff',
+                        strokeWidth: 2,
+                      }}
+                      activeDot={{ r: 7, stroke: '#fff', strokeWidth: 3 }}
+                      isAnimationActive={animate}
+                      animationDuration={900}
+                      animationEasing="ease-in-out"
+                    />
+                  ) : (
                     <Area
                       isAnimationActive={animate}
-                      animationDuration={420}
+                      animationDuration={800}
                       animationEasing="ease-out"
-                      key={c}
+                      key={c + motionKey}
                       type="monotone"
                       dataKey={c}
                       stackId={stacked ? 'all' : undefined}
                       fill={'url(#' + id + i + ')'}
                       stroke={COLORS[i]}
                       strokeWidth={1.8}
+                      dot={chart.length === 1 ? { r: 4 } : false}
                     />
-                  ),
+                  )),
               )}
               {comparisonSupplied && !stacked && (
                 <Line

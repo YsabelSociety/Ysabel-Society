@@ -13,6 +13,7 @@ import {
 import { runCommunitySync } from '@/lib/server/community-sync';
 import {
   parseCommunityCSV,
+  parseMetaMessageJSON,
   safeProfileURL,
   type CommunitySource,
   type CommunityRecord,
@@ -42,7 +43,13 @@ export async function POST(req: Request) {
       throw new Error('INPUT:Choose a supported platform.');
     if (body.op === 'sync')
       return json(
-        await runCommunitySync(owner, source, body.continue === true),
+        await runCommunitySync(
+          owner,
+          source,
+          body.continue === true,
+          false,
+          body.kind === 'mention' ? 'mention' : undefined,
+        ),
       );
     if (body.op === 'auto') {
       const link = await database()
@@ -52,7 +59,15 @@ export async function POST(req: Request) {
         .bind(owner, source)
         .first<{ auto_sync: number }>();
       if (!link?.auto_sync) return json({ skipped: true });
-      return json(await runCommunitySync(owner, source, false, true));
+      return json(
+        await runCommunitySync(
+          owner,
+          source,
+          false,
+          true,
+          body.kind === 'mention' ? 'mention' : undefined,
+        ),
+      );
     }
     if (body.op === 'preview' || body.op === 'import') {
       if (
@@ -60,11 +75,19 @@ export async function POST(req: Request) {
         (source === 'gbp') !== (body.kind === 'review')
       )
         throw new Error('INPUT:Choose a matching record type and platform.');
-      const records = parseCommunityCSV(
-        requireText(body.csv, 1400000),
-        source,
-        body.kind,
-      );
+      const records =
+        body.format === 'meta-json' && body.kind === 'message'
+          ? parseMetaMessageJSON(
+              requireText(body.csv, 1400000),
+              source,
+              requireText(body.ownName, 200),
+              body.folder,
+            )
+          : parseCommunityCSV(
+              requireText(body.csv, 1400000),
+              source,
+              body.kind,
+            );
       if (body.op === 'preview')
         return json({ count: records.length, preview: records.slice(0, 5) });
       await saveCommunity(owner, records);
@@ -92,6 +115,15 @@ export async function POST(req: Request) {
         throw new Error(
           'INPUT:Select a profile from an imported conversation.',
         );
+      const previous = records
+        .filter(
+          (r) =>
+            r.kind === 'profile' &&
+            r.source === source &&
+            r.participantId === participantId,
+        )
+        .sort((a, b) => b.time.localeCompare(a.time))
+        .find((r) => r.origin === 'manual');
       const followers =
         body.followers === '' || body.followers === null
           ? null
@@ -105,6 +137,7 @@ export async function POST(req: Request) {
         );
       const profile: CommunityRecord = {
         ...person,
+        ...previous,
         kind: 'profile',
         accountId: 'manual-profile',
         id: participantId,
@@ -119,6 +152,27 @@ export async function POST(req: Request) {
           : person.username,
         profileUrl: safeProfileURL(body.profileUrl),
         potentialClient: body.potentialClient === true,
+        country:
+          typeof body.country === 'string'
+            ? body.country.trim().slice(0, 100)
+            : previous?.country,
+        city:
+          typeof body.city === 'string'
+            ? body.city.trim().slice(0, 100)
+            : previous?.city,
+        locationGroup: ['local', 'abroad', 'unknown'].includes(
+          body.locationGroup,
+        )
+          ? body.locationGroup
+          : previous?.locationGroup || 'unknown',
+        profileCategory:
+          typeof body.profileCategory === 'string'
+            ? body.profileCategory.trim().slice(0, 120)
+            : previous?.profileCategory,
+        profileNotes:
+          typeof body.profileNotes === 'string'
+            ? body.profileNotes.trim().slice(0, 1200)
+            : previous?.profileNotes,
       };
       await saveCommunity(owner, [profile]);
       return json({ saved: true });

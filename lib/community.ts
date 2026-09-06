@@ -20,9 +20,15 @@ export type CommunityRecord = {
   text: string;
   rating?: number;
   reply?: string;
-  mentionType?: 'story_mention' | 'story_repost' | 'post_mention';
+  mentionType?: 'story_mention' | 'story_repost' | 'post_mention' | 'post_tag';
   origin: 'api' | 'file' | 'manual';
   potentialClient?: boolean;
+  country?: string;
+  city?: string;
+  locationGroup?: 'local' | 'abroad' | 'unknown';
+  profileCategory?: string;
+  profileNotes?: string;
+  folder?: 'primary' | 'general' | 'requests' | 'archived' | 'unknown';
 };
 export type CommunityStatus = {
   source: string;
@@ -95,6 +101,11 @@ export function inboxModel(
         previous.followers !== null && previous.followers !== undefined
           ? previous.followersObservedAt
           : profile.followersObservedAt;
+      merged.country = previous.country;
+      merged.city = previous.city;
+      merged.locationGroup = previous.locationGroup;
+      merged.profileCategory = previous.profileCategory;
+      merged.profileNotes = previous.profileNotes;
     }
     merged.avatar = profile.avatar || previous?.avatar;
     profiles.set(key, merged);
@@ -134,6 +145,7 @@ export function inboxModel(
               r.text,
             ),
           ),
+        selectedClient: profile?.potentialClient === true,
       };
     })
     .sort((a, b) => b.last.time.localeCompare(a.last.time));
@@ -154,6 +166,40 @@ export function inboxModel(
     influencerCount: waiting.filter((c) => (c.person.followers ?? 0) > 5000)
       .length,
   };
+}
+export function followerTier(followers: number | null | undefined) {
+  if (followers === null || followers === undefined) return 'Unknown';
+  if (followers >= 20000) return '20K+';
+  if (followers >= 10000) return '10K–19.9K';
+  if (followers > 5000) return '>5K–9.9K';
+  return '5K or fewer';
+}
+export function matchesProfile(
+  person: CommunityRecord,
+  minimum: string,
+  location: string,
+) {
+  const count = person.followers;
+  const followersMatch =
+    minimum === 'Any followers' ||
+    (minimum === 'Unknown followers'
+      ? count == null
+      : count != null &&
+        (minimum === '>5K followers'
+          ? count > 5000
+          : count >= (minimum === '10K+ followers' ? 10000 : 20000)));
+  return (
+    followersMatch &&
+    (location === 'All locations' ||
+      (person.locationGroup || 'unknown') ===
+        (
+          {
+            Local: 'local',
+            Abroad: 'abroad',
+            'Location unknown': 'unknown',
+          } as Record<string, string>
+        )[location])
+  );
 }
 const TOPICS: [string, RegExp][] = [
   [
@@ -260,11 +306,11 @@ export function parseCommunityCSV(
       );
     if (
       kind === 'mention' &&
-      !['story_mention', 'story_repost', 'post_mention'].includes(
+      !['story_mention', 'story_repost', 'post_mention', 'post_tag'].includes(
         row.mention_type,
       )
     )
-      fail('choose story_mention, story_repost or post_mention.');
+      fail('choose story_mention, story_repost, post_mention or post_tag.');
     const rating = row.rating ? Number(row.rating) : undefined;
     if (
       kind === 'review' &&
@@ -294,6 +340,115 @@ export function parseCommunityCSV(
       reply: row.reply || '',
       mentionType: row.mention_type as CommunityRecord['mentionType'],
       origin: 'file',
+      country: row.country?.slice(0, 100),
+      city: row.city?.slice(0, 100),
+      locationGroup: ['local', 'abroad'].includes(row.location_group)
+        ? (row.location_group as 'local' | 'abroad')
+        : 'unknown',
+      profileCategory: row.profile_category?.slice(0, 120),
+      folder: ['primary', 'general', 'requests', 'archived'].includes(
+        row.folder,
+      )
+        ? (row.folder as CommunityRecord['folder'])
+        : 'unknown',
+    };
+  });
+}
+
+// Official Meta JSON downloads can restore message history the API no longer returns.
+export function parseMetaMessageJSON(
+  text: string,
+  source: CommunitySource,
+  ownName: string,
+  folder: string = 'unknown',
+) {
+  if (!['facebook', 'instagram'].includes(source))
+    throw new Error('INPUT:Choose Facebook or Instagram.');
+  const document = JSON.parse(text);
+  if (
+    !Array.isArray(document.messages) ||
+    !Array.isArray(document.participants)
+  )
+    throw new Error(
+      'INPUT:Choose a message_1.json (or another message part) from your Meta information download.',
+    );
+  if (!document.messages.length || document.messages.length > 2000)
+    throw new Error('INPUT:Import a message part containing 1–2,000 messages.');
+  const normalized = (v: string) => v.trim().normalize('NFKC').toLowerCase();
+  const people = document.participants
+    .map((p: any) => String(p.name || '').trim())
+    .filter(Boolean);
+  if (
+    !ownName.trim() ||
+    !people.some((p: string) => normalized(p) === normalized(ownName))
+  )
+    throw new Error(
+      'INPUT:Your account name must exactly match one of the participants in this export. This identifies your replies correctly.',
+    );
+  if (people.length !== 2)
+    throw new Error(
+      'INPUT:Only one-to-one conversations are supported; this file has a different participant count.',
+    );
+  const peer = people.find(
+    (p: string) => normalized(p) !== normalized(ownName),
+  );
+  if (!peer)
+    throw new Error('INPUT:The other participant could not be identified.');
+  const hash = (s: string) => {
+    let a = 2166136261,
+      b = 5381;
+    for (const ch of s) {
+      a = Math.imul(a ^ ch.charCodeAt(0), 16777619);
+      b = Math.imul(b, 33) ^ ch.charCodeAt(0);
+    }
+    return (a >>> 0).toString(16) + (b >>> 0).toString(16);
+  };
+  const thread =
+    String(document.thread_path || '')
+      .split('/')
+      .filter(Boolean)
+      .at(-1) || hash([...people].sort().join('|'));
+  const seen = new Map<string, number>();
+  return document.messages.map((m: any): CommunityRecord => {
+    const sender = String(m.sender_name || '');
+    if (
+      !people.some((p: string) => normalized(p) === normalized(sender)) ||
+      !Number.isFinite(m.timestamp_ms) ||
+      !Number.isFinite(new Date(m.timestamp_ms).getTime())
+    )
+      throw new Error(
+        'INPUT:Every message needs a valid sender_name and timestamp_ms.',
+      );
+    const content =
+      typeof m.content === 'string' ? m.content.slice(0, 12000) : '';
+    const signature = hash(
+      JSON.stringify([
+        m.timestamp_ms,
+        sender,
+        content,
+        m.photos,
+        m.videos,
+        m.share,
+      ]),
+    );
+    const duplicate = seen.get(signature) || 0;
+    seen.set(signature, duplicate + 1);
+    return {
+      id: String(m.message_id || thread + ':' + signature + ':' + duplicate),
+      source,
+      kind: 'message',
+      accountId: 'meta-export:' + hash(normalized(ownName)),
+      conversationId: thread,
+      participantId: 'export:' + hash(normalized(peer)),
+      name: peer,
+      time: new Date(m.timestamp_ms).toISOString(),
+      direction: normalized(sender) === normalized(ownName) ? 'out' : 'in',
+      text: content || '[Media or unsupported message in Meta export]',
+      origin: 'file',
+      followers: null,
+      folder: ['primary', 'general', 'requests', 'archived'].includes(folder)
+        ? (folder as CommunityRecord['folder'])
+        : 'unknown',
     };
   });
 }

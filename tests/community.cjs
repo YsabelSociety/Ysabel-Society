@@ -86,6 +86,121 @@ function load(file) {
 }
 
 const community = load('lib/community.ts');
+const analytics = load('lib/analytics.ts');
+assert.equal(community.followerTier(5000), '5K or fewer');
+assert.equal(community.followerTier(5001), '>5K–9.9K');
+assert.equal(community.followerTier(10000), '10K–19.9K');
+assert.equal(community.followerTier(20000), '20K+');
+assert.equal(community.followerTier(null), 'Unknown');
+assert.equal(
+  community.matchesProfile(
+    { followers: null, locationGroup: 'local' },
+    '20K+ followers',
+    'Local',
+  ),
+  false,
+);
+assert.equal(
+  community.matchesProfile(
+    { followers: 20000, locationGroup: 'abroad' },
+    '10K+ followers',
+    'Abroad',
+  ),
+  true,
+);
+assert.equal(
+  community.matchesProfile({ followers: 22000 }, '20K+ followers', 'Local'),
+  false,
+  'unknown location must not become local',
+);
+const sparseFollowers = analytics.series(
+  [
+    {
+      date: '2026-09-01',
+      channel: 'Instagram',
+      followers: 20,
+      available: ['followers'],
+    },
+    {
+      date: '2026-09-02',
+      channel: 'Facebook',
+      followers: 10,
+      available: ['followers'],
+    },
+  ],
+  'followers',
+);
+assert.equal(
+  sparseFollowers[0].Facebook,
+  undefined,
+  'missing follower observations are not zero',
+);
+assert.equal(sparseFollowers[1].Instagram, undefined);
+const exportFixture = JSON.stringify({
+  participants: [{ name: 'Ysabel Society' }, { name: 'Visitor' }],
+  thread_path: 'messages/inbox/visitor_123',
+  messages: [
+    {
+      sender_name: 'Visitor',
+      timestamp_ms: Date.parse('2026-09-01T10:00:00Z'),
+      content: 'Hello',
+    },
+    {
+      sender_name: 'Ysabel Society',
+      timestamp_ms: Date.parse('2026-09-01T11:00:00Z'),
+      content: 'Our reply',
+    },
+  ],
+});
+const exportMessages = community.parseMetaMessageJSON(
+  exportFixture,
+  'instagram',
+  'Ysabel Society',
+  'requests',
+);
+assert.deepEqual(
+  exportMessages.map((m) => m.direction),
+  ['in', 'out'],
+);
+assert.equal(exportMessages[0].folder, 'requests');
+assert.equal(exportMessages[0].followers, null);
+assert.deepEqual(
+  exportMessages.map((m) => m.id),
+  community
+    .parseMetaMessageJSON(
+      exportFixture,
+      'instagram',
+      'Ysabel Society',
+      'requests',
+    )
+    .map((m) => m.id),
+  're-import has stable IDs',
+);
+assert.throws(
+  () =>
+    community.parseMetaMessageJSON(
+      exportFixture,
+      'instagram',
+      'Different business',
+    ),
+  /exactly match/,
+);
+assert.throws(
+  () =>
+    community.parseMetaMessageJSON(
+      JSON.stringify({
+        participants: [
+          { name: 'Ysabel Society' },
+          { name: 'A' },
+          { name: 'B' },
+        ],
+        messages: [{}],
+      }),
+      'instagram',
+      'Ysabel Society',
+    ),
+  /one-to-one/,
+);
 const store = load('lib/server/community-store.ts');
 const vault = load('lib/server/connector-vault.ts');
 const sync = load('lib/server/community-sync.ts');
@@ -411,9 +526,36 @@ async function main() {
       !e.message.includes('https://'),
   );
   await link('gbp', 'google', 'location-1');
-  responder=async()=>{throw new DOMException('Fixture timeout','TimeoutError');};
-  await assert.rejects(()=>sync.runCommunitySync(owner,'instagram'),e=>e.message.includes('timed out')&&!e.message.includes('reconnect'));
+  responder = async () => {
+    throw new DOMException('Fixture timeout', 'TimeoutError');
+  };
+  await assert.rejects(
+    () => sync.runCommunitySync(owner, 'instagram'),
+    (e) => e.message.includes('timed out') && !e.message.includes('reconnect'),
+  );
   const attemptedLimits = [];
+  responder = async () =>
+    Response.json(
+      {
+        error: {
+          code: -2,
+          message:
+            'Please request for advanced access to instagram_manage_messages permission',
+        },
+      },
+      { status: 400 },
+    );
+  await assert.rejects(
+    () =>
+      sync.readConversationList(
+        { accessToken: 'test', apiVersion: 'v26.0' },
+        'page',
+        'instagram',
+      ),
+    (e) =>
+      e.message.includes('reconnecting alone') ||
+      e.message.includes('reconnecting alone'.replace('r', 'R')),
+  );
   responder = async (url) => {
     const size = new URL(url).searchParams.get('limit');
     attemptedLimits.push(size);
@@ -487,6 +629,40 @@ async function main() {
     false,
   );
   let requestedPages = [];
+  let tagPages = [];
+  responder = async (url) => {
+    if (!url.includes('/tags?')) throw new Error('Unexpected tag request');
+    const after = new URL(url).searchParams.get('after');
+    tagPages.push(after);
+    return {
+      data: [
+        {
+          id: after ? 'tag-old' : 'tag-new',
+          timestamp: after ? '2025-01-01T12:00:00Z' : '2026-09-01T12:00:00Z',
+          caption: 'Dinner',
+          username: 'public-creator',
+          permalink: 'https://www.instagram.com/p/example/',
+        },
+      ],
+      ...(!after
+        ? { paging: { next: 'provider-next', cursors: { after: 'tag-next' } } }
+        : {}),
+    };
+  };
+  await sync.syncInstagramTags(owner);
+  assert.deepEqual(tagPages, [null, 'tag-next']);
+  const tags = (await store.readCommunity(owner, 'mention')).records;
+  assert.equal(tags.length, 2);
+  assert.ok(
+    tags.every((t) => t.mentionType === 'post_tag'),
+    'photo tags must not become story mentions or reposts',
+  );
+  await sync.syncInstagramTags(owner);
+  assert.equal(
+    (await store.readCommunity(owner, 'mention')).records.length,
+    2,
+    'tags upsert stable IDs',
+  );
   responder = async (url) => {
     if (url.includes('accountmanagement'))
       return { accounts: [{ name: 'accounts/account-1' }] };

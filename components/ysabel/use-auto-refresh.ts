@@ -44,6 +44,21 @@ export function useAutoRefresh(ready: boolean) {
             signal: controller.signal,
           });
         }
+        if (
+          !controller.signal.aborted &&
+          document.visibilityState === 'visible'
+        ) {
+          await fetch('/api/community', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              op: 'auto',
+              source: 'instagram',
+              kind: 'mention',
+            }),
+            signal: controller.signal,
+          });
+        }
         window.dispatchEvent(new Event('ysabel:community-updated'));
       } catch {
       } finally {

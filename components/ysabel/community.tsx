@@ -35,6 +35,8 @@ import {
   inboxModel,
   inWindow,
   reviewTopics,
+  matchesProfile,
+  followerTier,
   type CommunityRecord,
   type CommunitySource,
   type CommunityStatus,
@@ -397,15 +399,36 @@ function ImportAccess({
                   >
                     TikTok Business Messaging access
                   </a>
-                  <h3>Story mentions & reposts</h3>
+                  <h3>Instagram approval</h3>
+                  <p>
+                    If Meta reports that conversations involve users without an
+                    app role, request Advanced Access to
+                    instagram_manage_messages. In the app’s Instagram
+                    permissions, choose Actions → Add to App Review. Meta may
+                    require business verification, access verification and Tech
+                    Provider status. Meta describes the Tech Provider decision
+                    as irreversible; review that step before accepting it.
+                    Granting a permission in a login configuration is not the
+                    same as Meta approving live access.
+                  </p>
+                  <a
+                    className="secondary"
+                    href="https://developers.facebook.com/apps/"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open Meta app review <ArrowUpRight size={15} />
+                  </a>
+                  <h3>Story mentions, tags & reposts</h3>
                   <p>
                     These are separate events. A tagged story mention is not
-                    counted as a repost. Only explicit records supplied by the
-                    platform or your import are counted. A general shared post
-                    does not prove a story repost. Complete story monitoring
-                    requires an approved event receiver; it is not active on
-                    this private site. Untagged, expired and private stories may
-                    remain unavailable.
+                    counted as a repost. The Mentions page can import available
+                    Instagram tagged posts separately. Only explicit records
+                    supplied by the platform or your import are counted. A
+                    general shared post does not prove a story repost. Complete
+                    story monitoring requires an approved event receiver; it is
+                    not active on this private site. Untagged, expired and
+                    private stories may remain unavailable.
                   </p>
                 </>
               )}
@@ -504,6 +527,185 @@ function ImportAccess({
     </Dialog>
   );
 }
+function MetaArchiveImport({
+  onClose,
+  onSaved,
+}: {
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [source, setSource] = useState('instagram'),
+    [ownName, setOwnName] = useState('Ysabel Society'),
+    [folder, setFolder] = useState('Unknown'),
+    [file, setFile] = useState(''),
+    [filename, setFilename] = useState(''),
+    [preview, setPreview] = useState<any>(null),
+    [error, setError] = useState(''),
+    [busy, setBusy] = useState(false);
+  const reset = () => setPreview(null);
+  async function act(op: string) {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await communityAction({
+        op,
+        source,
+        kind: 'message',
+        format: 'meta-json',
+        csv: file,
+        ownName,
+        folder: folder.toLowerCase(),
+      });
+      if (op === 'preview') setPreview(result);
+      else {
+        onSaved();
+        onClose();
+      }
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog
+      open
+      onOpenChange={(v) => {
+        if (!v) onClose();
+      }}
+    >
+      <DialogContent className="community-dialog">
+        <DialogHeader>
+          <DialogTitle>Import older Meta messages</DialogTitle>
+          <DialogDescription>
+            Add available history from Facebook or Instagram’s official JSON
+            download.
+          </DialogDescription>
+        </DialogHeader>
+        <ol className="archive-steps">
+          <li>
+            In Accounts Center, open Your information and permissions → Export
+            your information. Select the business account, Messages, All time
+            and JSON.
+          </li>
+          <li>
+            Extract the download and choose a <code>message_1.json</code> file
+            from a conversation folder. Additional message parts can be imported
+            separately.
+          </li>
+          <li>
+            Enter your own sender name exactly as it appears in the file, then
+            review the preview before importing.
+          </li>
+        </ol>
+        <a
+          className="secondary"
+          href="https://accountscenter.instagram.com/info_and_permissions/"
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open Accounts Center <ArrowUpRight size={15} />
+        </a>
+        <div className="community-profile-grid">
+          <label>
+            Platform
+            <select
+              value={source}
+              onChange={(e) => {
+                setSource(e.target.value);
+                reset();
+              }}
+            >
+              <option value="instagram">Instagram</option>
+              <option value="facebook">Facebook</option>
+            </select>
+          </label>
+          <label>
+            Your exact sender name
+            <input
+              value={ownName}
+              onChange={(e) => {
+                setOwnName(e.target.value);
+                reset();
+              }}
+            />
+          </label>
+          <label>
+            Original folder
+            <select
+              value={folder}
+              onChange={(e) => {
+                setFolder(e.target.value);
+                reset();
+              }}
+            >
+              {['Unknown', 'Primary', 'General', 'Requests', 'Archived'].map(
+                (v) => (
+                  <option key={v}>{v}</option>
+                ),
+              )}
+            </select>
+          </label>
+          <label>
+            Message JSON
+            <input
+              type="file"
+              accept=".json,application/json"
+              onChange={async (e) => {
+                reset();
+                setError('');
+                setFile('');
+                const f = e.target.files?.[0];
+                if (!f) return;
+                if (f.size > 1400000) {
+                  setError('Choose a message part under 1.4 MB.');
+                  return;
+                }
+                setFile(await f.text());
+                setFilename(f.name);
+              }}
+            />
+          </label>
+        </div>
+        <p className="source-asof">
+          {filename} · One-to-one conversations only. Choose Unknown unless the
+          export identifies its folder. Downloads cannot restore messages Meta
+          has already deleted. File and API histories are separate; overlapping
+          dates may count twice.
+        </p>
+        {error && (
+          <p role="alert" className="save-error">
+            {error}
+          </p>
+        )}
+        {preview && (
+          <div className="archive-preview">
+            <strong>{number(preview.count)} messages ready</strong>
+            {preview.preview.map((m: CommunityRecord) => (
+              <p key={m.id}>
+                <b>{m.direction === 'out' ? 'Your reply' : m.name}</b> ·{' '}
+                {new Date(m.time).toLocaleString()}
+                <br />
+                {m.text.slice(0, 240)}
+              </p>
+            ))}
+          </div>
+        )}
+        <button
+          className="primary"
+          disabled={busy || !file || !ownName.trim()}
+          onClick={() => void act(preview ? 'import' : 'preview')}
+        >
+          {busy
+            ? 'Checking…'
+            : preview
+              ? 'Import reviewed messages'
+              : 'Preview messages'}
+        </button>
+      </DialogContent>
+    </Dialog>
+  );
+}
 function ConversationDetail({
   conversation,
   onClose,
@@ -521,6 +723,11 @@ function ConversationDetail({
     ),
     [username, setUsername] = useState(p.username || ''),
     [profileUrl, setProfileUrl] = useState(p.profileUrl || ''),
+    [country, setCountry] = useState(p.country || ''),
+    [city, setCity] = useState(p.city || ''),
+    [locationGroup, setLocationGroup] = useState(p.locationGroup || 'unknown'),
+    [profileCategory, setProfileCategory] = useState(p.profileCategory || ''),
+    [profileNotes, setProfileNotes] = useState(p.profileNotes || ''),
     [lead, setLead] = useState(!!p.potentialClient),
     [busy, setBusy] = useState(false),
     [error, setError] = useState('');
@@ -535,6 +742,11 @@ function ConversationDetail({
         username,
         profileUrl,
         potentialClient: lead,
+        country,
+        city,
+        locationGroup,
+        profileCategory,
+        profileNotes,
       });
       onSaved();
       onClose();
@@ -629,8 +841,58 @@ function ConversationDetail({
               checked={lead}
               onCheckedChange={(v) => setLead(v === true)}
             />
-            Potential client
+            Select as potential client
           </label>
+          <div className="community-profile-grid">
+            <label>
+              Country shown on profile
+              <input
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                placeholder="Unknown"
+              />
+            </label>
+            <label>
+              City shown on profile
+              <input
+                value={city}
+                onChange={(e) => setCity(e.target.value)}
+                placeholder="Unknown"
+              />
+            </label>
+            <label>
+              Location group
+              <select
+                value={locationGroup}
+                onChange={(e) => setLocationGroup(e.target.value)}
+              >
+                <option value="unknown">Location unknown</option>
+                <option value="local">Local</option>
+                <option value="abroad">Abroad</option>
+              </select>
+            </label>
+            <label>
+              Profile category
+              <input
+                value={profileCategory}
+                onChange={(e) => setProfileCategory(e.target.value)}
+                placeholder="Food creator, travel, lifestyle…"
+              />
+            </label>
+          </div>
+          <label>
+            Why this profile is a potential client
+            <textarea
+              value={profileNotes}
+              maxLength={1200}
+              onChange={(e) => setProfileNotes(e.target.value)}
+              placeholder="Record relevant public profile details or collaboration interest."
+            />
+          </label>
+          <p className="source-asof">
+            Use a stated location or your verified knowledge. Names, language
+            and appearance do not establish where someone lives.
+          </p>
           <button
             className="primary"
             disabled={busy}
@@ -658,6 +920,12 @@ export function CommunityPage({
     [source, setSource] = useState('all'),
     [tab, setTab] = useState('all'),
     [search, setSearch] = useState(''),
+    [minimum, setMinimum] = useState('Any followers'),
+    [location, setLocation] = useState('All locations'),
+    [replyFilter, setReplyFilter] = useState('Any reply status'),
+    [folder, setFolder] = useState('All folders'),
+    [clientFilter, setClientFilter] = useState('Selected clients'),
+    [archive, setArchive] = useState(false),
     [setup, setSetup] = useState(false),
     [busy, setBusy] = useState(false),
     [selected, setSelected] = useState<any>(null);
@@ -693,17 +961,21 @@ export function CommunityPage({
     setBusy(true);
     data.setError('');
     const errors = [];
-    for (const s of source === 'all' ? ['facebook', 'instagram'] : [source]) {
+    for (const s of mode === 'mentions'
+      ? ['instagram']
+      : source === 'all'
+        ? ['facebook', 'instagram']
+        : [source]) {
       if (
         older &&
         !data.statuses.some(
           (status) =>
-            status.source === s && status.kind === 'message' && status.more,
+            status.source === s && status.kind === kind && status.more,
         )
       )
         continue;
       try {
-        await communityAction({ op: 'sync', source: s, continue: older });
+        await communityAction({ op: 'sync', source: s, kind, continue: older });
       } catch (e) {
         errors.push((e as Error).message);
       }
@@ -717,17 +989,31 @@ export function CommunityPage({
     tab === 'waiting'
       ? model.waiting
       : tab === 'influencers'
-        ? model.waiting.filter((c) => (c.person.followers ?? 0) > 5000)
+        ? model.conversations.filter((c) => (c.person.followers ?? 0) > 5000)
         : tab === 'leads'
-          ? model.waiting.filter((c) => c.possibleClient)
+          ? model.conversations.filter((c) =>
+              clientFilter === 'Selected clients'
+                ? c.selectedClient
+                : c.possibleClient && !c.selectedClient,
+            )
           : model.conversations.filter((c) =>
               c.messages.some((r) => inWindow(r, range, timezone)),
             )
-  ).filter((c) =>
-    [c.person.name, c.person.username, c.last.text]
-      .join(' ')
-      .toLowerCase()
-      .includes(search.toLowerCase()),
+  ).filter(
+    (c) =>
+      matchesProfile(c.person, minimum, location) &&
+      (replyFilter === 'Any reply status' ||
+        (replyFilter === 'Awaiting reply'
+          ? c.waiting
+          : !c.waiting && !c.ambiguous)) &&
+      (folder === 'All folders' ||
+        c.messages.some(
+          (m) => (m.folder || 'unknown') === folder.toLowerCase(),
+        )) &&
+      [c.person.name, c.person.username, c.last.text]
+        .join(' ')
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
   return (
     <div className="community-view">
@@ -754,31 +1040,41 @@ export function CommunityPage({
           <Settings2 size={16} />
           Access & import
         </button>
-        {mode === 'inbox' && (
+        {(mode === 'inbox' || source === 'all' || source === 'instagram') && (
           <button
             className="primary"
             disabled={busy}
             onClick={() => void sync()}
           >
             <RefreshCw size={16} className={busy ? 'animate-spin' : ''} />
-            {busy ? 'Checking inboxes…' : 'Sync inboxes'}
+            {busy
+              ? 'Importing…'
+              : mode === 'inbox'
+                ? 'Sync inboxes'
+                : 'Import Instagram tags'}
           </button>
         )}
-        {mode === 'inbox' &&
-          data.statuses.some(
-            (s) =>
-              s.kind === 'message' &&
-              s.more &&
-              (source === 'all' || s.source === source),
-          ) && (
-            <button
-              className="secondary"
-              disabled={busy}
-              onClick={() => void sync(true)}
-            >
-              Load older conversations
-            </button>
-          )}
+        {data.statuses.some(
+          (s) =>
+            s.kind === kind &&
+            s.more &&
+            (source === 'all' || s.source === source),
+        ) && (
+          <button
+            className="secondary"
+            disabled={busy}
+            onClick={() => void sync(true)}
+          >
+            {mode === 'inbox'
+              ? 'Load older conversations'
+              : 'Continue tagged-post import'}
+          </button>
+        )}
+        {mode === 'inbox' && (
+          <button className="secondary" onClick={() => setArchive(true)}>
+            <Upload size={16} /> Import Meta history
+          </button>
+        )}
       </div>
       {data.error && (
         <div className="save-error" role="alert">
@@ -819,6 +1115,15 @@ export function CommunityPage({
             ]}
           />
           <Activity records={model.received} timezone={timezone} />
+          <div className="inbox-coverage-note">
+            <strong>Facebook + Instagram · one inbox</strong>
+            <p>
+              All API-accessible folders are requested together. Instagram
+              excludes Requests inactive for 30 days and restricts older message
+              details. Use a Meta JSON download to add available older history.
+              Folder names are shown only when supplied in your import.
+            </p>
+          </div>
           <section className="surface community-panel">
             <div className="section-head">
               <h2>Conversations</h2>
@@ -842,13 +1147,68 @@ export function CommunityPage({
                 <TabsTrigger value="leads">Potential clients</TabsTrigger>
               </TabsList>
             </Tabs>
+            <div className="community-filters">
+              <Picker
+                label="Follower threshold"
+                value={minimum}
+                onChange={setMinimum}
+                options={[
+                  'Any followers',
+                  '>5K followers',
+                  '10K+ followers',
+                  '20K+ followers',
+                  'Unknown followers',
+                ]}
+              />
+              <Picker
+                label="Client location"
+                value={location}
+                onChange={setLocation}
+                options={[
+                  'All locations',
+                  'Local',
+                  'Abroad',
+                  'Location unknown',
+                ]}
+              />
+              <Picker
+                label="Reply status"
+                value={replyFilter}
+                onChange={setReplyFilter}
+                options={['Any reply status', 'Awaiting reply', 'Replied']}
+              />
+              <Picker
+                label="Message folder"
+                value={folder}
+                onChange={setFolder}
+                options={[
+                  'All folders',
+                  'Primary',
+                  'General',
+                  'Requests',
+                  'Archived',
+                  'Unknown',
+                ]}
+              />
+              {tab === 'leads' && (
+                <Picker
+                  label="Client selection"
+                  value={clientFilter}
+                  onChange={setClientFilter}
+                  options={['Selected clients', 'Enquiry suggestions']}
+                />
+              )}
+            </div>
             <p className="source-asof">
               “Unanswered” means the latest captured message is incoming.
               Messages sharing an incoming/outgoing timestamp have uncertain
               reply order and are excluded from the unanswered count.
-              Read/unread status is different. Potential clients are suggested
-              from enquiry words or your manual flag; they are not confirmed
-              leads.
+              Read/unread status is different. Select potential clients after
+              reviewing their profiles. Enquiry suggestions are separate. Local
+              means Kosovo unless you classify a profile differently; unknown
+              locations stay unclassified. These filters affect the conversation
+              list, while the counters above describe all captured activity for
+              the chosen platform and dates.
             </p>
             {data.loading ? (
               <p className="community-empty">Loading captured conversations…</p>
@@ -878,6 +1238,23 @@ export function CommunityPage({
                         : ' · Followers unavailable'}
                     </span>
                     <p>{c.last.text || 'Attachment or unsupported message'}</p>
+                    <span className="profile-context">
+                      {[
+                        c.person.profileCategory,
+                        c.person.city,
+                        c.person.country,
+                        c.person.locationGroup === 'local'
+                          ? 'Local'
+                          : c.person.locationGroup === 'abroad'
+                            ? 'Abroad'
+                            : 'Location unknown',
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                    {c.person.profileNotes && (
+                      <p className="profile-notes">{c.person.profileNotes}</p>
+                    )}
                     <small>
                       {new Date(c.last.time).toLocaleString()} ·{' '}
                       {c.ambiguous
@@ -892,10 +1269,16 @@ export function CommunityPage({
                   </div>
                   <div className="conversation-actions">
                     {(c.person.followers ?? 0) > 5000 && (
-                      <span className="pill">Influencer &gt;5K</span>
+                      <span className="pill">
+                        {followerTier(c.person.followers)}
+                      </span>
                     )}
                     {c.possibleClient && (
-                      <span className="pill">Possible enquiry</span>
+                      <span className="pill">
+                        {c.selectedClient
+                          ? 'Selected client'
+                          : 'Possible enquiry'}
+                      </span>
                     )}
                     {c.person.profileUrl && (
                       <a
@@ -910,7 +1293,7 @@ export function CommunityPage({
                       className="secondary"
                       onClick={() => setSelected(c)}
                     >
-                      View conversation
+                      Review profile & messages
                     </button>
                   </div>
                 </article>
@@ -935,7 +1318,7 @@ export function CommunityPage({
             items={[
               {
                 label: 'Story mentions',
-                value: ready
+                value: records.some((r) => r.mentionType === 'story_mention')
                   ? records.filter((r) => r.mentionType === 'story_mention')
                       .length
                   : null,
@@ -943,7 +1326,7 @@ export function CommunityPage({
               },
               {
                 label: 'Story reposts',
-                value: ready
+                value: records.some((r) => r.mentionType === 'story_repost')
                   ? records.filter((r) => r.mentionType === 'story_repost')
                       .length
                   : null,
@@ -951,11 +1334,19 @@ export function CommunityPage({
               },
               {
                 label: 'Post mentions',
-                value: ready
+                value: records.some((r) => r.mentionType === 'post_mention')
                   ? records.filter((r) => r.mentionType === 'post_mention')
                       .length
                   : null,
                 detail: 'Tracked separately from stories',
+              },
+              {
+                label: 'Tagged posts',
+                value: ready
+                  ? records.filter((r) => r.mentionType === 'post_tag').length
+                  : null,
+                detail:
+                  'Photo/video tags returned by Instagram · selected dates',
               },
             ]}
           />
@@ -963,9 +1354,11 @@ export function CommunityPage({
           <section className="surface community-panel">
             <h2>Mention history</h2>
             <p className="source-asof">
-              These are captured records, not every story posted about the
-              business. Automatic story-event collection is not active; use
-              Access & import for coverage and reviewed exports.
+              Tagged-post import retrieves available historical photo/video
+              tags. Story mentions, caption mentions and reposts remain
+              separate; a general share is not a story repost. Automatic
+              story-event collection is not active. A dash means coverage is
+              unavailable, not that nobody mentioned you.
             </p>
             {records.length ? (
               records.slice(0, 300).map((r) => (
@@ -1009,6 +1402,12 @@ export function CommunityPage({
         </>
       )}
       <AccessStatus statuses={data.statuses} kind={kind} source={source} />
+      {archive && (
+        <MetaArchiveImport
+          onClose={() => setArchive(false)}
+          onSaved={data.refresh}
+        />
+      )}
       <ImportAccess
         open={setup}
         onOpenChange={setSetup}

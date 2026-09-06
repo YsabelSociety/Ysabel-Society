@@ -546,12 +546,72 @@ export function AudiencePage({
       />
       {live ? (
         <Panel
-          title="Observed community"
-          description="Imported demographic reports appear below with their own time scope and privacy limits."
+          title="Community by platform"
+          description="Latest captured follower count per platform in the selected dates. The same person may follow more than one account."
         >
-          <p className="footnote">
-            Follower history appears when the connected source supplies it.
-          </p>
+          <div className="audience-distribution">
+            <div
+              className="donut audience-donut"
+              role="img"
+              aria-label={distribution
+                .filter((d) => d.value > 0)
+                .map((d) => d.label + ': ' + number(d.value))
+                .join('; ')}
+            >
+              <ResponsiveContainer width="100%" height={260} minWidth={1}>
+                <PieChart>
+                  <Pie
+                    key={distribution.map((d) => d.value).join(',')}
+                    data={distribution.filter((d) => d.value > 0)}
+                    dataKey="value"
+                    nameKey="label"
+                    innerRadius={83}
+                    outerRadius={110}
+                    paddingAngle={3}
+                    cornerRadius={7}
+                    stroke="#f8f9fb"
+                    strokeWidth={3}
+                    isAnimationActive={animate}
+                    animationDuration={1000}
+                    animationEasing="ease-in-out"
+                  >
+                    {distribution
+                      .filter((d) => d.value > 0)
+                      .map((d) => (
+                        <Cell key={d.label} fill={d.color} />
+                      ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(v: any) => number(Number(v))}
+                    contentStyle={{
+                      borderRadius: 16,
+                      background: '#f8fafe',
+                      border: '1px solid #c6d1df',
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <strong>
+                {compact(followers)}
+                <small>followers</small>
+              </strong>
+            </div>
+            <div>
+              <Bars
+                items={distribution.filter((d) =>
+                  metricAvailable(
+                    rows.filter((r) => r.channel === d.label),
+                    'followers',
+                  ),
+                )}
+              />
+              <p className="footnote">
+                Counts are observations, not a reconstructed history.
+                Demographic reports below retain Meta’s time scope and privacy
+                limits.
+              </p>
+            </div>
+          </div>
         </Panel>
       ) : (
         <>

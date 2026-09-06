@@ -6,6 +6,7 @@ import { database, secrets } from './db';
 import { digest, randomToken, readVault, writeVault } from './connector-vault';
 import { requestJSON } from './providers';
 import { googleScopes } from '@/lib/source-status';
+import { APP_BASE } from '@/lib/app-path';
 export type AppCredentials = {
   clientId: string;
   clientSecret: string;
@@ -29,7 +30,7 @@ export type Grant = {
 };
 export function siteOrigin(req: Request) {
   const url = new URL(secrets().CONNECTOR_SITE_URL || req.url);
-  return url.origin;
+  return url.origin + APP_BASE;
 }
 export async function getApp(owner: string, provider: string) {
   const app = await readVault<AppCredentials>(owner, 'app', provider);
@@ -125,7 +126,7 @@ export async function beginOAuth(
   const secure = new URL(req.url).protocol === 'https:' ? '; Secure' : '';
   return {
     url: url.toString(),
-    cookie: `ys_oauth_${provider}=${nonce}; HttpOnly; SameSite=Lax; Path=/api/oauth/${provider}; Max-Age=600${secure}`,
+    cookie: `ys_oauth_${provider}=${nonce}; HttpOnly; SameSite=Lax; Path=${APP_BASE}/api/oauth/${provider}; Max-Age=600${secure}`,
   };
 }
 export async function finishOAuth(

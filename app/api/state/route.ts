@@ -52,7 +52,7 @@ export async function GET() {
     return json({
       posts: content.results
         .map((r: any) => ({
-          ...JSON.parse(r.payload),
+          ...JSON.parse(r.payload, (_, value) => typeof value === 'string' && /^\/(api|media)\//.test(value) ? '/marketingdata' + value : value),
           unit: BRAND_NAME,
           position: r.position,
         }))

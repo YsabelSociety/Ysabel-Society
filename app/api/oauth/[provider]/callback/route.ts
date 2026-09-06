@@ -1,6 +1,7 @@
 import { identity } from '@/lib/server/db';
 import { connectorGroup } from '@/lib/connector-catalog';
 import { finishOAuth, siteOrigin } from '@/lib/server/connector-oauth';
+import { APP_BASE } from '@/lib/app-path';
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ provider: string }> },
@@ -24,7 +25,7 @@ export async function GET(
   if (provider)
     headers.set(
       'Set-Cookie',
-      `ys_oauth_${provider}=; HttpOnly; SameSite=Lax; Path=/api/oauth/${provider}; Max-Age=0${new URL(req.url).protocol === 'https:' ? '; Secure' : ''}`,
+      `ys_oauth_${provider}=; HttpOnly; SameSite=Lax; Path=${APP_BASE}/api/oauth/${provider}; Max-Age=0${new URL(req.url).protocol === 'https:' ? '; Secure' : ''}`,
     );
   return new Response(null, { status: 303, headers });
 }

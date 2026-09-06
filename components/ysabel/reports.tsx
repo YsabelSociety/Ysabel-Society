@@ -1,4 +1,5 @@
 'use client';
+import { BrandLogo } from './brand-logo';
 import { useState } from 'react';
 import { ArrowDownToLine, FileText, Plus, ArrowUpRight } from 'lucide-react';
 import {
@@ -114,9 +115,7 @@ export function ReportsPage({
     <div className="view-enter">
       <div className="reports-layout">
         <section className="report-cover">
-          <div className="wordmark">
-            YSABEL<span>S O C I E T Y</span>
-          </div>
+          <BrandLogo />
           <div className="report-cover-title">
             <span>DIGITAL INTELLIGENCE</span>
             <h2>

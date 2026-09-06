@@ -1,5 +1,8 @@
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { env } from 'cloudflare:workers';
+import { getSessionUser } from '@/lib/server/session';
+import { appPath } from '@/lib/app-path';
 
 export type ChatGPTUser = {
   userId: string;
@@ -19,10 +22,14 @@ const SIGN_OUT_PATH = '/signout-with-chatgpt';
 const CALLBACK_PATH = '/callback';
 
 export async function getChatGPTUser(): Promise<ChatGPTUser | null> {
+  const session = await getSessionUser();
+  if (session) return session;
   const requestHeaders = await headers();
   const userId = requestHeaders.get(USER_ID_HEADER);
   const email = requestHeaders.get(USER_EMAIL_HEADER);
   if (!userId || !email) return null;
+  const owner = (env as unknown as Record<string, string>).MARKETING_OWNER_ID;
+  if (owner && owner !== userId) return null;
 
   const encodedFullName = requestHeaders.get(USER_FULL_NAME_HEADER);
   const fullName =
@@ -45,7 +52,9 @@ export async function requireChatGPTUser(
   const user = await getChatGPTUser();
   if (user) return user;
 
-  redirect(chatGPTSignInPath(returnTo));
+  redirect(
+    appPath('/login') + '?returnTo=' + encodeURIComponent(appPath(returnTo)),
+  );
 }
 
 export function chatGPTSignInPath(returnTo: string): string {

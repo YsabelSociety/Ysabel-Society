@@ -1,4 +1,5 @@
 'use client';
+import { BrandLogo } from './brand-logo';
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -255,19 +256,20 @@ export default function Workspace({
       {},
       '',
       name === 'Admin Panel'
-        ? '/admin'
+        ? '/marketingdata/admin'
         : name === 'Connections'
-          ? '/connections'
-          : '/#' + encodeURIComponent(name),
+          ? '/marketingdata/connections'
+          : '/marketingdata/#' + encodeURIComponent(name),
     );
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   useEffect(() => {
     const read = () => {
       let name =
-        location.pathname.replace(/\/$/, '') === '/admin'
+        location.pathname.replace(/\/$/, '') === '/marketingdata/admin'
           ? 'Admin Panel'
-          : location.pathname.replace(/\/$/, '') === '/connections'
+          : location.pathname.replace(/\/$/, '') ===
+              '/marketingdata/connections'
             ? 'Connections'
             : 'Overview';
       try {
@@ -378,9 +380,7 @@ export default function Workspace({
               onClick={() => navigate('Overview')}
               aria-label="Ysabel Society overview"
             >
-              <div className="wordmark">
-                YSABEL<span>S O C I E T Y</span>
-              </div>
+              <BrandLogo />
             </button>
             <div className="brand-caption">DIGITAL INTELLIGENCE</div>
           </SidebarHeader>
@@ -444,6 +444,18 @@ export default function Workspace({
               <span className="workspace-location">{page}</span>
             </div>
             <div className="top-actions">
+              <button
+                className="admin-launch"
+                onClick={async () => {
+                  const response = await fetch('/marketingdata/api/session', {
+                    method: 'DELETE',
+                  });
+                  if (response.ok) location.assign('/marketingdata/login');
+                }}
+                aria-label="Sign out"
+              >
+                Sign out
+              </button>
               <button
                 className="admin-launch"
                 onClick={() => navigate('Admin Panel')}

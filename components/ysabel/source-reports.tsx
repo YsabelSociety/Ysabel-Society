@@ -82,7 +82,7 @@ export function SourceReports({
           selected dates and the connection coverage. Provider exports can
           supply additional available reports.
         </p>
-        <a className="text-link" href="/connections">
+        <a className="text-link" href="/marketingdata/connections">
           Open connection & import centre
         </a>
       </section>

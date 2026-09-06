@@ -14,8 +14,12 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Ysabel Society — Digital Intelligence',
-  description:
-    'The private intelligence and creative workspace for Ysabel Society.',
+  description: 'The private digital intelligence workspace for Ysabel Society.',
+  robots: { index: false, follow: false },
+  icons: {
+    icon: '/marketingdata/ysabel-society-logo.png',
+    apple: '/marketingdata/ysabel-society-logo.png',
+  },
 };
 
 export default function RootLayout({

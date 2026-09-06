@@ -13,7 +13,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
     setBusy(true);
     setError('');
     try {
-      const response = await fetch('/api/instagram-messaging', {
+      const response = await fetch('/marketingdata/api/instagram-messaging', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op: 'diagnose' }),
@@ -30,7 +30,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
   }
   useEffect(() => {
     const controller = new AbortController();
-    fetch('/api/instagram-messaging', { signal: controller.signal })
+    fetch('/marketingdata/api/instagram-messaging', { signal: controller.signal })
       .then((r) => r.json())
       .then((r: any) => {
         if (r.connected)
@@ -49,7 +49,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
     setError('');
     setStatus('Checking your Instagram account and conversation access…');
     try {
-      const response = await fetch('/api/instagram-messaging', {
+      const response = await fetch('/marketingdata/api/instagram-messaging', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessToken: token, apiVersion: version }),
@@ -64,7 +64,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
         'Account linked for @' + result.username + '. Checking messages…',
       );
       onSaved();
-      const imported = await fetch('/api/community', {
+      const imported = await fetch('/marketingdata/api/community', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op: 'sync', source: 'instagram' }),

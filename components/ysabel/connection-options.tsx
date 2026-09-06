@@ -144,7 +144,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
   const selected = links.find((l) => l.source === source),
     guide = GUIDES[source];
   async function load() {
-    const r = await fetch('/api/connectors');
+    const r = await fetch('/marketingdata/api/connectors');
     if (r.ok) {
       const d = (await r.json()) as { links: Link[] };
       setLinks(d.links);
@@ -164,7 +164,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
       completedReservationEvent: '',
     });
     if (source === 'ga4') {
-      void fetch('/api/connection-options?source=ga4', { signal: abort.signal })
+      void fetch('/marketingdata/api/connection-options?source=ga4', { signal: abort.signal })
         .then(async (response) => {
           if (!response.ok) return;
           const data = (await response.json()) as {
@@ -180,7 +180,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
     setBusy(op);
     setError('');
     try {
-      const r = await fetch('/api/connection-options', {
+      const r = await fetch('/marketingdata/api/connection-options', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op, source, ...body }),

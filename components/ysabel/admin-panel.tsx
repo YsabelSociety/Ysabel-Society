@@ -103,7 +103,7 @@ function AdminDashboard({
   }
   useEffect(() => {
     const controller = new AbortController();
-    void fetch('/api/connections', { signal: controller.signal })
+    void fetch('/marketingdata/api/connections', { signal: controller.signal })
       .then(async (response) => {
         const result = (await response.json()) as SourceState & {
           error?: string;

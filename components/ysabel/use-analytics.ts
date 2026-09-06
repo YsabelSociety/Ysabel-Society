@@ -44,7 +44,7 @@ export function useSourceAnalytics(
       try {
         const read = async (r: Range) => {
           const q = new URLSearchParams({ unit, start: r.start, end: r.end });
-          const response = await fetch('/api/analytics?' + q, {
+          const response = await fetch('/marketingdata/api/analytics?' + q, {
             signal: abort.signal,
           });
           const data: any = await response.json();

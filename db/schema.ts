@@ -5,6 +5,20 @@ import {
   primaryKey,
   index,
 } from 'drizzle-orm/sqlite-core';
+export const marketingSessions = sqliteTable('marketing_sessions', {
+  tokenHash: text('token_hash').primaryKey(),
+  owner: text('owner').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+});
+export const marketingLoginLimits = sqliteTable(
+  'marketing_login_limits',
+  {
+    key: text('key').notNull(),
+    window: integer('window').notNull(),
+    attempts: integer('attempts').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.key, t.window] })],
+);
 export const contentItems = sqliteTable(
   'content_items',
   {
@@ -153,13 +167,34 @@ export const sourcePosts = sqliteTable(
   ],
 );
 
-export const communityRecords = sqliteTable('community_records', {
-  owner: text('owner').notNull(), source: text('source').notNull(), kind: text('kind').notNull(),
-  id: text('id').notNull(), occurredAt: text('occurred_at').notNull(), encrypted: text('encrypted').notNull(),
-  updatedAt: text('updated_at').notNull(),
-}, t => [primaryKey({ columns: [t.owner, t.source, t.kind, t.id] }), index('idx_community_owner_kind_time').on(t.owner, t.kind, t.occurredAt)]);
-export const communitySync = sqliteTable('community_sync', {
-  owner: text('owner').notNull(), source: text('source').notNull(), kind: text('kind').notNull(),
-  state: text('state').notNull(), detail: text('detail').notNull(), updatedAt: text('updated_at').notNull(),
-  cursor: text('cursor'), accountId: text('account_id'), total: integer('total'),
-}, t => [primaryKey({ columns: [t.owner, t.source, t.kind] })]);
+export const communityRecords = sqliteTable(
+  'community_records',
+  {
+    owner: text('owner').notNull(),
+    source: text('source').notNull(),
+    kind: text('kind').notNull(),
+    id: text('id').notNull(),
+    occurredAt: text('occurred_at').notNull(),
+    encrypted: text('encrypted').notNull(),
+    updatedAt: text('updated_at').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.owner, t.source, t.kind, t.id] }),
+    index('idx_community_owner_kind_time').on(t.owner, t.kind, t.occurredAt),
+  ],
+);
+export const communitySync = sqliteTable(
+  'community_sync',
+  {
+    owner: text('owner').notNull(),
+    source: text('source').notNull(),
+    kind: text('kind').notNull(),
+    state: text('state').notNull(),
+    detail: text('detail').notNull(),
+    updatedAt: text('updated_at').notNull(),
+    cursor: text('cursor'),
+    accountId: text('account_id'),
+    total: integer('total'),
+  },
+  (t) => [primaryKey({ columns: [t.owner, t.source, t.kind] })],
+);

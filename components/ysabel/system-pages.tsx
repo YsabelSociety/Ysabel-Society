@@ -54,7 +54,7 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
     [error, setError] = useState('');
   async function load() {
     try {
-      const r = await fetch('/api/connections');
+      const r = await fetch('/marketingdata/api/connections');
       const d: any = await r.json();
       if (!r.ok) throw new Error(d.error);
       setConnections(d.connections);
@@ -73,7 +73,7 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   async function action(id: string, action: string) {
     setBusy(id);
     try {
-      const r = await fetch('/api/connections', {
+      const r = await fetch('/marketingdata/api/connections', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, action }),
@@ -198,7 +198,7 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
                   checked={c.autoSync}
                   onCheckedChange={async (enabled) => {
                     try {
-                      const r = await fetch('/api/connectors', {
+                      const r = await fetch('/marketingdata/api/connectors', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -412,7 +412,7 @@ export function DataSourcesPage() {
           </div>
         ))}
         <a
-          href="/media/credits.json"
+          href="/marketingdata/media/credits.json"
           target="_blank"
           rel="noreferrer"
           className="text-link"

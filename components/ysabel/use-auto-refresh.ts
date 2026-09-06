@@ -15,7 +15,7 @@ export function useAutoRefresh(ready: boolean) {
             document.visibilityState !== 'visible'
           )
             break;
-          const response = await fetch('/api/connectors', {
+          const response = await fetch('/marketingdata/api/connectors', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ op: 'autoRefresh' }),
@@ -37,7 +37,7 @@ export function useAutoRefresh(ready: boolean) {
             document.visibilityState !== 'visible'
           )
             break;
-          await fetch('/api/community', {
+          await fetch('/marketingdata/api/community', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ op: 'auto', source }),
@@ -48,7 +48,7 @@ export function useAutoRefresh(ready: boolean) {
           !controller.signal.aborted &&
           document.visibilityState === 'visible'
         ) {
-          await fetch('/api/community', {
+          await fetch('/marketingdata/api/community', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

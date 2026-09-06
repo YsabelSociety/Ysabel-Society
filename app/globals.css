@@ -6482,3 +6482,20 @@ h1 {
     transition: none !important;
   }
 }
+
+/* Supplied Ysabel Society artwork, shared by the workspace and sign-in screen. */
+.brand-logo { display:block; width:100%; height:auto; object-fit:contain; mix-blend-mode:multiply; }
+.ys-sidebar .brand-logo { width:215px; max-width:100%; margin:-12px auto -5px; }
+.report-cover .brand-logo { width:260px; }
+.login-shell { min-height:100svh; display:grid; place-items:center; padding:28px 18px; }
+.login-card { width:min(100%,460px); padding:20px 48px 44px; border-radius:28px; box-shadow:0 24px 70px #32404e16; }
+.login-card .brand-logo { width:340px; margin:0 auto -10px; }
+.login-card .brand-caption { text-align:center; margin-bottom:34px; }
+.login-card h1 { font-size:28px; letter-spacing:-.8px; margin:0 0 8px; }
+.login-card form { display:grid; gap:10px; margin-top:28px; }
+.login-card label { font-size:14px; margin-top:9px; }
+.login-card input { min-height:48px; width:100%; padding:12px 15px; border:1px solid #bfc9cf; border-radius:12px; background:#ffffffb5; font-size:16px; }
+.login-card input:focus { outline:2px solid #5d9286; outline-offset:2px; }
+.login-card button { width:100%; justify-content:center; min-height:48px; margin-top:18px; }
+.login-error { color:#992f37; font-size:14px; }
+@media(max-width:520px){ .login-card { padding:18px 28px 32px; } }

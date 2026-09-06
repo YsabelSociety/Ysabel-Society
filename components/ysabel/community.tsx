@@ -46,7 +46,7 @@ import { number, type Range } from '@/lib/analytics';
 import { InstagramMessaging } from './instagram-messaging';
 
 async function communityAction(body: unknown) {
-  const r = await fetch('/api/community', {
+  const r = await fetch('/marketingdata/api/community', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -68,7 +68,7 @@ function useCommunity(kind: string) {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    void fetch('/api/community?kind=' + kind, { signal: controller.signal })
+    void fetch('/marketingdata/api/community?kind=' + kind, { signal: controller.signal })
       .then(async (r) => {
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
@@ -349,7 +349,7 @@ function ImportAccess({
                     collects pages of reviews; continue if more history is
                     available.
                   </p>
-                  <a className="secondary" href="/connections?connect=google">
+                  <a className="secondary" href="/marketingdata/connections?connect=google">
                     Connect Google Business <ArrowUpRight size={15} />
                   </a>
                   <a
@@ -379,7 +379,7 @@ function ImportAccess({
                     them; you can record a manually verified count from a
                     conversation.
                   </p>
-                  <a className="secondary" href="/connections?connect=meta">
+                  <a className="secondary" href="/marketingdata/connections?connect=meta">
                     Update Meta access <ArrowUpRight size={15} />
                   </a>
                   <a

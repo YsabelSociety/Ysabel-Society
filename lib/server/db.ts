@@ -1,5 +1,6 @@
 import { env } from 'cloudflare:workers';
 import { getChatGPTUser } from '@/app/chatgpt-auth';
+import { verifyOrigin } from './session';
 export const database = () => (env as unknown as { DB: D1Database }).DB;
 export const files = () => (env as unknown as { FILES: R2Bucket }).FILES;
 export const secrets = () => env as unknown as Record<string, string>;
@@ -7,9 +8,7 @@ export async function identity(req?: Request) {
   const user = await getChatGPTUser();
   if (!user) throw new Error('UNAUTHORIZED');
   if (req && req.method !== 'GET') {
-    const origin = req.headers.get('origin');
-    if (!origin || new URL(req.url).origin !== origin)
-      throw new Error('FORBIDDEN');
+    verifyOrigin(req);
   }
   return user;
 }

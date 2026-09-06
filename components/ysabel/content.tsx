@@ -634,7 +634,7 @@ export function PostDetail({
     try {
       const form = new FormData();
       form.set('file', f);
-      const r = await fetch('/api/media', { method: 'POST', body: form });
+      const r = await fetch('/marketingdata/api/media', { method: 'POST', body: form });
       const d: any = await r.json();
       if (!r.ok) throw new Error(d.error);
       setDraft({ ...shown, image: d.url, mediaType: d.mediaType });
@@ -925,7 +925,7 @@ export function Studio({
       for (const f of Array.from(files)) {
         const form = new FormData();
         form.set('file', f);
-        const r = await fetch('/api/media', { method: 'POST', body: form });
+        const r = await fetch('/marketingdata/api/media', { method: 'POST', body: form });
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
         await data.save({

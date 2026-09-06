@@ -425,7 +425,7 @@ export const POSTS: Post[] = titles.map((title, i) => {
     caption:
       title +
       '. An invitation to slow down and savour the moment. #YsabelSociety',
-    image: '/media/' + ((i % 6) + 1) + '.jpg',
+    image: '/marketingdata/media/' + ((i % 6) + 1) + '.jpg',
     platform: CHANNELS[i % 3],
     format: ['Reel', 'Video', 'Carousel', 'Static'][i % 4],
     unit: BRAND_NAME,

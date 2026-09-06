@@ -42,7 +42,7 @@ type State = {
 };
 type Resource = { source: string; id: string; label: string };
 async function readState() {
-  const r = await fetch('/api/connectors');
+  const r = await fetch('/marketingdata/api/connectors');
   const d = (await r.json()) as State & { error?: string };
   if (!r.ok) throw new Error(d.error || 'Connection setup is unavailable.');
   return d;
@@ -72,7 +72,7 @@ export function ConnectionAssistant({
   const group = CONNECTOR_GROUPS.find((g) => g.id === selected),
     configured = state?.groups.find((g) => g.id === selected);
   async function request<T = { saved: boolean }>(body: unknown) {
-    const r = await fetch('/api/connectors', {
+    const r = await fetch('/marketingdata/api/connectors', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -215,7 +215,7 @@ export function ConnectionAssistant({
                 ? 'gbp'
                 : 'both')
           : '';
-      const r = await fetch('/api/oauth/' + selected + '/start' + sourceQuery, {
+      const r = await fetch('/marketingdata/api/oauth/' + selected + '/start' + sourceQuery, {
         method: 'POST',
       });
       const d = (await r.json()) as { url: string; error?: string };

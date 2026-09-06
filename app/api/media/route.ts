@@ -33,7 +33,7 @@ export async function POST(req: Request) {
       .run();
     return json({
       id,
-      url: '/api/media/' + id,
+      url: '/marketingdata/api/media/' + id,
       mediaType: file.type.startsWith('video/') ? 'video' : 'image',
     });
   } catch (e) {

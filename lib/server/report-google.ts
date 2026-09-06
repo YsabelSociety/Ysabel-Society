@@ -8,6 +8,11 @@ import {
   type ReportTable,
 } from '@/lib/reporting';
 import { requestJSON } from './providers';
+import {
+  WEBSITE_SOURCE,
+  websiteReportFilter,
+  websiteStreamFilter,
+} from '@/lib/website-source';
 
 export type ReportingContext = {
   accessToken: string;
@@ -29,6 +34,10 @@ export async function importGA4(context: ReportingContext, range: Range) {
     };
   if (!/^\d+$/.test(context.externalId))
     throw new Error('INPUT:Enter the numeric GA4 property ID.');
+  if (context.externalId !== WEBSITE_SOURCE.propertyId)
+    throw new Error(
+      'INPUT:Select the Ysabel Society website property 552874533.',
+    );
   const endpoint =
     'https://analyticsdata.googleapis.com/v1beta/properties/' +
     context.externalId +
@@ -48,7 +57,7 @@ export async function importGA4(context: ReportingContext, range: Range) {
           dateRanges: [{ startDate: range.start, endDate: range.end }],
           dimensions: dimensions.map((name) => ({ name })),
           metrics: metrics.map((name) => ({ name })),
-          ...(filter ? { dimensionFilter: filter } : {}),
+          dimensionFilter: websiteReportFilter(filter),
           offset,
           limit: 2000,
         }),
@@ -108,6 +117,8 @@ export async function importGA4(context: ReportingContext, range: Range) {
       ...row,
       reportingTimezone:
         daily?.raw?.metadata?.timeZone || 'GA4 property timezone',
+      website: WEBSITE_SOURCE.website,
+      streamId: WEBSITE_SOURCE.streamId,
       conversionsDefinition:
         'GA4 key events as configured in the property. Not necessarily reservations.',
     };
@@ -243,6 +254,7 @@ export async function importGA4(context: ReportingContext, range: Range) {
         method: 'POST',
         headers,
         body: JSON.stringify({
+          dimensionFilter: websiteStreamFilter,
           metrics: ['activeUsers', 'screenPageViews', 'eventCount'].map(
             (name) => ({ name }),
           ),
@@ -260,7 +272,8 @@ export async function importGA4(context: ReportingContext, range: Range) {
     };
   }
   result.scope =
-    'GA4 observed daily metrics, acquisition, content, devices, geography and configured events. Today’s reports may be incomplete while Google processes visits. The 30-minute snapshot is separate from date-range totals. Missing tracking remains unavailable.';
+    'ysabelsociety.com · GA4 property 552874533 · website stream 15726284662. Daily reports include only ysabelsociety.com and www.ysabelsociety.com, excluding /marketingdata. Realtime is restricted to this website stream. Today’s reports may be incomplete while Google processes visits. Missing tracking remains unavailable.';
+  result.profile.websiteSource = WEBSITE_SOURCE;
   return result;
 }
 

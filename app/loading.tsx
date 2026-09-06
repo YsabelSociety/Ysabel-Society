@@ -1,2 +1,23 @@
-import {Skeleton} from '@/components/ui/skeleton';
-export default function Loading(){return <div className="workspace" style={{minHeight:'100vh',padding:'60px 5vw'}} aria-label="Loading Ysabel workspace"><div className="wordmark" style={{textAlign:'left'}}>YSABEL<span>S O C I E T Y</span></div><div style={{marginTop:55}}><Skeleton className="h-8 w-72"/><Skeleton className="mt-4 h-4 w-56"/><div className="metrics-strip mt-12">{Array.from({length:6},(_,i)=><Skeleton key={i} className="h-32"/>)}</div><Skeleton className="h-80 w-full"/></div></div>}
+import { BrandLogo } from '@/components/ysabel/brand-logo';
+import { Skeleton } from '@/components/ui/skeleton';
+export default function Loading() {
+  return (
+    <div
+      className="workspace"
+      style={{ minHeight: '100vh', padding: '60px 5vw' }}
+      aria-label="Loading Ysabel workspace"
+    >
+      <BrandLogo />
+      <div style={{ marginTop: 55 }}>
+        <Skeleton className="h-8 w-72" />
+        <Skeleton className="mt-4 h-4 w-56" />
+        <div className="metrics-strip mt-12">
+          {Array.from({ length: 6 }, (_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <Skeleton className="h-80 w-full" />
+      </div>
+    </div>
+  );
+}

@@ -294,7 +294,7 @@ export function InsightsPage({
             title="More evidence is needed"
             description="Daily social observations are not available yet. View current account statistics in Connections, or connect Google for daily website and business metrics."
           >
-            <a className="secondary" href="/connections">
+            <a className="secondary" href="/marketingdata/connections">
               Open Connections
             </a>
           </Panel>
@@ -522,7 +522,7 @@ export function AudiencePage({
         title="Follower history is not available"
         description="Current social account statistics are shown in Connections. Daily historical follower series are not supplied by the connected sources."
       >
-        <a className="secondary" href="/connections">
+        <a className="secondary" href="/marketingdata/connections">
           View account snapshots
         </a>
       </Panel>
@@ -771,7 +771,7 @@ export function WebsitePage({
     setRefreshing(true);
     setRefreshError('');
     try {
-      const response = await fetch('/api/connectors', {
+      const response = await fetch('/marketingdata/api/connectors', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op: 'refresh', source: 'ga4' }),
@@ -790,6 +790,14 @@ export function WebsitePage({
   }
   const connectionPanel = live && (
     <Panel title={connection.title} description={connection.detail}>
+      <p className="footnote">
+        Website source:{' '}
+        <a href="https://ysabelsociety.com" target="_blank" rel="noreferrer">
+          ysabelsociety.com
+        </a>{' '}
+        · Google Analytics. Dashboard visits are excluded from daily website
+        reports.
+      </p>
       {status?.lastSync && (
         <p className="footnote">
           Last successful report check:{' '}
@@ -797,7 +805,7 @@ export function WebsitePage({
         </p>
       )}
       <div className="inline-controls">
-          <a className="secondary" href="/connections">
+        <a className="secondary" href="/marketingdata/connections">
           Manage Google connection
         </a>
         {status && (
@@ -1060,7 +1068,7 @@ export function GooglePage({
         title="Business Profile metrics are not available for this period"
         description="Connect a Google Business Profile location or choose a date range with imported observations."
       >
-        <a className="secondary" href="/connections">
+        <a className="secondary" href="/marketingdata/connections">
           Open Connections
         </a>
       </Panel>

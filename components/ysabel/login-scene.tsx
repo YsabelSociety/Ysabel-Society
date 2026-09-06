@@ -133,13 +133,7 @@ export function LoginScene() {
         clearcoat: 0.25,
         clearcoatRoughness: 0.32,
       });
-      const marble = new THREE.MeshPhysicalMaterial({
-        color: 0xe1dac4,
-        roughness: 0.51,
-        metalness: 0.12,
-        envMapIntensity: 0.7,
-      });
-      materials.push(bronze, marble);
+      materials.push(bronze);
       const world = new THREE.Group();
       scene.add(world);
 
@@ -183,111 +177,10 @@ export function LoginScene() {
       });
       dataField = createLoginDataField(world, numberOrigins);
 
-      function readSculpture(buffer: ArrayBuffer) {
-        const header = new Uint32Array(buffer, 0, 2);
-        if (buffer.byteLength !== 8 + header[0] * 12 + header[1] * 4)
-          throw new Error('Invalid sculpture');
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute(
-          'position',
-          new THREE.BufferAttribute(
-            new Float32Array(buffer, 8, header[0] * 3),
-            3,
-          ),
-        );
-        geometry.setIndex(
-          new THREE.BufferAttribute(
-            new Uint32Array(buffer, 8 + header[0] * 12, header[1]),
-            1,
-          ),
-        );
-        geometry.computeVertexNormals();
-        geometry.computeBoundingSphere();
-        return geometry;
-      }
-      const count = 120;
-      const statueBatches = [marble, bronze].map((material) => {
-        const batch = new THREE.BatchedMesh(60, 180000, 900000, material);
-        batch.castShadow = true;
-        batch.receiveShadow = true;
-        batch.frustumCulled = false;
-        batch.perObjectFrustumCulled = false;
-        batch.sortObjects = false;
-        batch.visible = false;
-        world.add(batch);
-        return batch;
-      });
-      const statues: Array<
-        | { batch: InstanceType<typeof THREE.BatchedMesh>; instance: number }
-        | undefined
-      > = Array(count);
-      async function loadSculptures() {
-        const response = await fetch(appPath('/sculptures/collection.json'), {
-          signal: abort.signal,
-        });
-        if (!response.ok) throw new Error('Sculpture collection unavailable');
-        const catalog = (await response.json()) as Array<{
-          id: string;
-          file: string;
-          offset: number;
-          length: number;
-        }>;
-        if (
-          catalog.length !== count ||
-          new Set(catalog.map((item) => item.id)).size !== count
-        )
-          throw new Error('Incomplete sculpture collection');
-        const volumes = [...new Set(catalog.map((item) => item.file))];
-        await Promise.all(
-          volumes.map(async (file) => {
-            for (let attempt = 0; attempt < 2; attempt++) {
-              try {
-                const result = await fetch(appPath(file), {
-                  signal: abort.signal,
-                });
-                if (!result.ok) throw new Error('Sculpture unavailable');
-                const buffer = await result.arrayBuffer();
-                if (disposed) return;
-                for (let index = 0; index < catalog.length; index++) {
-                  const item = catalog[index];
-                  if (item.file !== file || statues[index]) continue;
-                  if (disposed) return;
-                  if (
-                    !Number.isSafeInteger(item.offset) ||
-                    !Number.isSafeInteger(item.length) ||
-                    item.offset < 0 ||
-                    item.offset + item.length > buffer.byteLength
-                  )
-                    throw new Error('Invalid sculpture volume');
-                  const geometry = readSculpture(
-                    buffer.slice(item.offset, item.offset + item.length),
-                  );
-                  const batch = statueBatches[Math.floor(index / 2) % 2];
-                  const geometryId = batch.addGeometry(geometry);
-                  const instance = batch.addInstance(geometryId);
-                  batch.setVisibleAt(instance, false);
-                  batch.visible = true;
-                  geometry.dispose();
-                  statues[index] = { batch, instance };
-                  // Yield between uploads so new sculptures never stop the opening motion.
-                  if (index % 2 === 1)
-                    await new Promise<void>((resolve) =>
-                      requestAnimationFrame(() => resolve()),
-                    );
-                }
-                break;
-              } catch {
-                if (disposed) return;
-              }
-            }
-          }),
-        );
-      }
       const dummy = new THREE.Object3D();
-      // Every sculpture uses a different catalog object and unique scanned geometry.
-      const destinations = Array.from({ length: count }, (_, i) => {
+      const destinations = sculptedPaths.map((_, i) => {
         const angle = i * 2.39996323;
-        const radius = 0.12 + 2.18 * Math.sqrt(i / Math.max(1, count - 1));
+        const radius = 0.12 + 2.18 * Math.sqrt(i / 119);
         return new THREE.Vector3(
           Math.cos(angle) * radius,
           Math.sin(angle) * radius * 0.86 + 0.12,
@@ -432,37 +325,6 @@ export function LoginScene() {
           );
           mesh.visible = shrink > 0.002;
         });
-        destinations.forEach((destination, i) => {
-          const local = ease((i / count) * 0.16, 0.84 + (i / count) * 0.16, p);
-          const travel = ease(0.02, 0.92, local);
-          const arc = Math.sin(travel * Math.PI);
-          const angle = i * 2.39996323 + travel * 1.7;
-          dummy.position
-            .copy(sculptedPaths[i % sculptedPaths.length].center)
-            .lerp(destination, travel);
-          dummy.position.x += Math.cos(angle) * arc * 0.4;
-          dummy.position.y += Math.sin(angle) * arc * 0.4;
-          dummy.position.z += arc * (0.8 + (i % 3) * 0.2);
-          const grow = ease(0.35, 0.94, local);
-          const size =
-            (0.28 + 0.07 * Math.sin(i * 4.2) + (i % 19 === 0 ? 0.26 : 0)) *
-            grow;
-          dummy.scale.setScalar(Math.max(0.00001, size));
-          dummy.rotation.set(
-            0.04 * Math.sin(i),
-            (1 - grow) * -Math.PI +
-              Math.sin(i * 3.7) * 0.42 +
-              Math.sin(elapsed * 0.15 + i) * 0.08,
-            0.025 * Math.sin(elapsed * 0.3 + i),
-          );
-          dummy.position.y += grow * Math.sin(elapsed * 0.5 + i) * 0.055;
-          dummy.updateMatrix();
-          const statue = statues[i];
-          if (statue) {
-            statue.batch.setMatrixAt(statue.instance, dummy.matrix);
-            statue.batch.setVisibleAt(statue.instance, grow > 0.005);
-          }
-        });
         renderer.render(scene, camera);
       }
       const onVisibility = () => {
@@ -501,13 +363,10 @@ export function LoginScene() {
           'webglcontextlost',
           onContextLost,
         );
-        statueBatches.forEach((mesh) => mesh.dispose());
         dispose();
       };
       onVisibility();
       setReady(true);
-      // Begin rendering before downloading the collection; never hold the intro for all models.
-      void loadSculptures().catch(() => {});
     }
     start().catch(() => {
       cleanup();
@@ -544,7 +403,7 @@ export function LoginScene() {
           className="login-three"
           role="img"
           tabIndex={ready ? 0 : -1}
-          aria-label="Interactive sculpted Ysabel emblem transforming into 3,120 digits, mathematical equations, moving statistical charts, and 120 distinct female and male classical sculptures. Drag to rotate, or use the left and right arrow keys."
+          aria-label="Interactive 3D Ysabel emblem transforming into 3,120 digits, mathematical equations, and moving statistical charts. Drag to rotate, or use the left and right arrow keys."
         />
       </div>
       <p className="login-marketing-caption">
@@ -556,7 +415,7 @@ export function LoginScene() {
             <button
               className="login-transform"
               type="button"
-              aria-label="Transform emblem and sculptures"
+              aria-label="Transform emblem and data"
               title="Transform"
               onClick={() => {
                 const state = settings.current;

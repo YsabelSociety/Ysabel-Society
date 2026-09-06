@@ -1,8 +1,22 @@
 Ysabel Society — classical sculpture assets
 
 Source: SMK — National Gallery of Denmark, Royal Cast Collection.
-Both source records designate these works as public domain (Public Domain Mark 1.0):
+The 120 distinct sculptures in the current animation are selected from museum
+records explicitly marked public domain. They include female and male figures,
+goddesses, athletes, philosophers, and portraits from antiquity and later periods.
+Public Domain Mark 1.0:
 https://creativecommons.org/publicdomain/mark/1.0/
+
+Every work's museum title, object ID, source record, original model URL, rights
+reference, and optimized geometry hash are listed in collection.json in this folder.
+The scene contains one instance of each work. Different rotations or materials
+are not counted as additional sculptures.
+
+Current collection adaptations: each scan simplified to 4,000 triangles,
+centered, normalized, converted to Y-up, and oriented for display. The individual
+geometries are packed into six binary volumes for efficient downloading.
+
+Earlier models retained for compatibility with previous app versions:
 
 Poseidon or Zeus from Artemision, KAS2100
 https://open.smk.dk/artwork/image/KAS2100
@@ -14,7 +28,7 @@ https://open.smk.dk/artwork/image/KAS193
 Metadata: https://api.smk.dk/api/v1/art?object_number=KAS193
 Original scan: https://api.smk.dk/api/v1/download-3d/k3569913m_KAS193_small.stl
 
-Adaptations: simplified to 6,000 triangles per model, centered, normalized,
+Earlier model adaptations: simplified to 6,000 triangles per model, centered, normalized,
 converted from Z-up to Y-up, and stored as indexed geometry for real-time rendering.
 The museum does not endorse this application.
 

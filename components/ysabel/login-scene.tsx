@@ -14,9 +14,9 @@ export function LoginScene() {
   const settings = useRef({
     automatic: true,
     reduced: false,
-    target: 0,
-    progress: 0,
-    time: 0,
+    target: 0.13,
+    progress: 0.13,
+    time: 1.04,
   });
   const [playing, setPlaying] = useState(false);
   const [ready, setReady] = useState(false);
@@ -45,33 +45,19 @@ export function LoginScene() {
         { RoomEnvironment },
         { createLoginDataField },
         svgResponse,
-        firstResponse,
-        secondResponse,
       ] = await Promise.all([
         import('three'),
         import('three/examples/jsm/loaders/SVGLoader.js'),
         import('three/examples/jsm/environments/RoomEnvironment.js'),
         import('./login-data-field'),
         fetch(appPath('/ysabel-emblem-source.svg'), { signal: abort.signal }),
-        fetch(appPath('/sculptures/poseidon.bin'), { signal: abort.signal }),
-        fetch(appPath('/sculptures/kneeling.bin'), { signal: abort.signal }),
       ]);
-      if (
-        ![svgResponse, firstResponse, secondResponse].every(
-          (response) => response.ok,
-        )
-      )
-        throw new Error('Sculpture unavailable');
-      const [svg, first, second] = await Promise.all([
-        svgResponse.text(),
-        firstResponse.arrayBuffer(),
-        secondResponse.arrayBuffer(),
-      ]);
+      if (!svgResponse.ok) throw new Error('Emblem unavailable');
+      const svg = await svgResponse.text();
       if (disposed) return;
 
       const geometries: InstanceType<typeof THREE.BufferGeometry>[] = [];
       const materials: InstanceType<typeof THREE.Material>[] = [];
-      const textures: InstanceType<typeof THREE.Texture>[] = [];
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 60);
       const renderer = new THREE.WebGLRenderer({
@@ -86,7 +72,7 @@ export function LoginScene() {
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1.15;
       renderer.shadowMap.enabled = true;
-      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.shadowMap.type = THREE.PCFShadowMap;
       renderer.domElement.setAttribute('aria-hidden', 'true');
       target!.appendChild(renderer.domElement);
       let frame = 0;
@@ -99,7 +85,6 @@ export function LoginScene() {
         dataField?.dispose();
         geometries.forEach((item) => item.dispose());
         materials.forEach((item) => item.dispose());
-        textures.forEach((item) => item.dispose());
         environment?.dispose();
         scene.traverse((item) => {
           if (item instanceof THREE.Light && 'shadow' in item)
@@ -160,7 +145,7 @@ export function LoginScene() {
 
       const paths = new SVGLoader().parse(svg).paths;
       const sculptedPaths = paths
-        .flatMap((path) => SVGLoader.createShapes(path))
+        .flatMap((path) => path.toShapes())
         .map((shape) => {
           const geometry = new THREE.ExtrudeGeometry(shape, {
             depth: 35,
@@ -198,7 +183,7 @@ export function LoginScene() {
       });
       dataField = createLoginDataField(world, numberOrigins);
 
-      function readSculpture(buffer: ArrayBuffer, turn: number) {
+      function readSculpture(buffer: ArrayBuffer) {
         const header = new Uint32Array(buffer, 0, 2);
         if (buffer.byteLength !== 8 + header[0] * 12 + header[1] * 4)
           throw new Error('Invalid sculpture');
@@ -216,113 +201,98 @@ export function LoginScene() {
             1,
           ),
         );
-        geometry.rotateY(turn);
         geometry.computeVertexNormals();
         geometry.computeBoundingSphere();
-        geometries.push(geometry);
         return geometry;
       }
-      const statueGeometries = [
-        readSculpture(first, 0),
-        readSculpture(second, Math.PI / 2),
-      ];
       const count = 120;
-      const statues = statueGeometries.map((geometry, index) => {
-        const mesh = new THREE.InstancedMesh(
-          geometry,
-          index ? bronze : marble,
-          Math.ceil(count / 2),
-        );
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-        mesh.frustumCulled = false;
-        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-        world.add(mesh);
-        return mesh;
+      const statueBatches = [marble, bronze].map((material) => {
+        const batch = new THREE.BatchedMesh(60, 180000, 900000, material);
+        batch.castShadow = true;
+        batch.receiveShadow = true;
+        batch.frustumCulled = false;
+        batch.perObjectFrustumCulled = false;
+        batch.sortObjects = false;
+        batch.visible = false;
+        world.add(batch);
+        return batch;
       });
+      const statues: Array<
+        | { batch: InstanceType<typeof THREE.BatchedMesh>; instance: number }
+        | undefined
+      > = Array(count);
+      async function loadSculptures() {
+        const response = await fetch(appPath('/sculptures/collection.json'), {
+          signal: abort.signal,
+        });
+        if (!response.ok) throw new Error('Sculpture collection unavailable');
+        const catalog = (await response.json()) as Array<{
+          id: string;
+          file: string;
+          offset: number;
+          length: number;
+        }>;
+        if (
+          catalog.length !== count ||
+          new Set(catalog.map((item) => item.id)).size !== count
+        )
+          throw new Error('Incomplete sculpture collection');
+        const volumes = [...new Set(catalog.map((item) => item.file))];
+        await Promise.all(
+          volumes.map(async (file) => {
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try {
+                const result = await fetch(appPath(file), {
+                  signal: abort.signal,
+                });
+                if (!result.ok) throw new Error('Sculpture unavailable');
+                const buffer = await result.arrayBuffer();
+                if (disposed) return;
+                for (let index = 0; index < catalog.length; index++) {
+                  const item = catalog[index];
+                  if (item.file !== file || statues[index]) continue;
+                  if (disposed) return;
+                  if (
+                    !Number.isSafeInteger(item.offset) ||
+                    !Number.isSafeInteger(item.length) ||
+                    item.offset < 0 ||
+                    item.offset + item.length > buffer.byteLength
+                  )
+                    throw new Error('Invalid sculpture volume');
+                  const geometry = readSculpture(
+                    buffer.slice(item.offset, item.offset + item.length),
+                  );
+                  const batch = statueBatches[Math.floor(index / 2) % 2];
+                  const geometryId = batch.addGeometry(geometry);
+                  const instance = batch.addInstance(geometryId);
+                  batch.setVisibleAt(instance, false);
+                  batch.visible = true;
+                  geometry.dispose();
+                  statues[index] = { batch, instance };
+                  // Yield between uploads so new sculptures never stop the opening motion.
+                  if (index % 2 === 1)
+                    await new Promise<void>((resolve) =>
+                      requestAnimationFrame(() => resolve()),
+                    );
+                }
+                break;
+              } catch {
+                if (disposed) return;
+              }
+            }
+          }),
+        );
+      }
       const dummy = new THREE.Object3D();
-      // Reuse two indexed museum scans across 120 real, solid miniature sculptures.
+      // Every sculpture uses a different catalog object and unique scanned geometry.
       const destinations = Array.from({ length: count }, (_, i) => {
         const angle = i * 2.39996323;
         const radius = 0.12 + 2.18 * Math.sqrt(i / Math.max(1, count - 1));
         return new THREE.Vector3(
           Math.cos(angle) * radius,
           Math.sin(angle) * radius * 0.86 + 0.12,
-          Math.sin(i * 1.81) * 1.05,
+          Math.sin(i * 1.81) * 1.05 + (i % 19 === 0 ? 0.6 : 0),
         );
-      });
-      // Inscribed tablets and abstract chart objects tie ancient records to digital data.
-      // These are decorative forms; no private reports or invented KPI values are shown.
-      const inscription = document.createElement('canvas');
-      inscription.width = 256;
-      inscription.height = 384;
-      const ink = inscription.getContext('2d')!;
-      ink.fillStyle = '#d4c6a4';
-      ink.fillRect(0, 0, 256, 384);
-      ink.fillStyle = '#786a4b';
-      ink.font = '35px Georgia';
-      ink.textAlign = 'center';
-      [
-        'Α · Β · Γ',
-        'ΙΙΙ  ΙΙ  Ι',
-        'Δ · Ε · Ζ',
-        'Ι  ΙΙΙ  ΙΙ',
-        'Η · Θ · Ι',
-      ].forEach((line, i) => ink.fillText(line, 128, 65 + i * 58));
-      const tabletMap = new THREE.CanvasTexture(inscription);
-      tabletMap.colorSpace = THREE.SRGBColorSpace;
-      textures.push(tabletMap);
-      const tabletMaterial = new THREE.MeshPhysicalMaterial({
-        color: 0xe7ddc6,
-        map: tabletMap,
-        bumpMap: tabletMap,
-        bumpScale: -0.018,
-        roughness: 0.72,
-        metalness: 0.08,
-      });
-      materials.push(tabletMaterial);
-      const tabletGeometry = new THREE.BoxGeometry(0.27, 0.39, 0.065);
-      const barGeometry = new THREE.BoxGeometry(0.055, 1, 0.055);
-      geometries.push(tabletGeometry, barGeometry);
-      const dataForms = Array.from({ length: 18 }, (_, i) => {
-        const group = new THREE.Group();
-        if (i % 2 === 0) {
-          const tablet = new THREE.Mesh(tabletGeometry, tabletMaterial);
-          tablet.castShadow = true;
-          group.add(tablet);
-        } else {
-          [0.13, 0.24, 0.18, 0.34].forEach((height, bar) => {
-            const mesh = new THREE.Mesh(barGeometry, bar % 2 ? marble : bronze);
-            mesh.scale.y = height;
-            mesh.position.set((bar - 1.5) * 0.085, height / 2 - 0.17, 0);
-            mesh.castShadow = true;
-            group.add(mesh);
-          });
-          const points = [
-            new THREE.Vector3(-0.16, -0.04, 0.06),
-            new THREE.Vector3(-0.05, 0.05, 0.06),
-            new THREE.Vector3(0.045, 0.015, 0.06),
-            new THREE.Vector3(0.15, 0.17, 0.06),
-          ];
-          const lineGeometry = new THREE.TubeGeometry(
-            new THREE.CatmullRomCurve3(points),
-            16,
-            0.009,
-            5,
-            false,
-          );
-          geometries.push(lineGeometry);
-          group.add(new THREE.Mesh(lineGeometry, bronze));
-        }
-        const angle = i * 2.39996323 + 1.2;
-        const radius = 0.6 + 1.55 * Math.sqrt(i / 17);
-        const destination = new THREE.Vector3(
-          Math.cos(angle) * radius,
-          Math.sin(angle) * radius * 0.86,
-          0.4 + Math.sin(i * 2.4) * 0.8,
-        );
-        world.add(group);
-        return { group, destination };
       });
       const groundGeometry = new THREE.PlaneGeometry(80, 80);
       geometries.push(groundGeometry);
@@ -409,15 +379,9 @@ export function LoginScene() {
         if (state.automatic) {
           elapsed += dt;
           state.time += dt;
-          const cycle = state.time % 38;
+          const cycle = state.time % 24;
           state.target =
-            cycle < 5
-              ? 0
-              : cycle < 17
-                ? ease(5, 17, cycle)
-                : cycle < 26
-                  ? 1
-                  : ease(37, 26, cycle);
+            cycle < 8 ? cycle / 8 : cycle < 15 ? 1 : 1 - (cycle - 15) / 9;
         }
         if (state.reduced) state.progress = state.target;
         else if (state.automatic)
@@ -481,7 +445,8 @@ export function LoginScene() {
           dummy.position.z += arc * (0.8 + (i % 3) * 0.2);
           const grow = ease(0.35, 0.94, local);
           const size =
-            (0.28 + 0.07 * Math.sin(i * 4.2) + (i < 5 ? 0.16 : 0)) * grow;
+            (0.28 + 0.07 * Math.sin(i * 4.2) + (i % 19 === 0 ? 0.26 : 0)) *
+            grow;
           dummy.scale.setScalar(Math.max(0.00001, size));
           dummy.rotation.set(
             0.04 * Math.sin(i),
@@ -492,23 +457,11 @@ export function LoginScene() {
           );
           dummy.position.y += grow * Math.sin(elapsed * 0.5 + i) * 0.055;
           dummy.updateMatrix();
-          statues[i % 2].setMatrixAt(Math.floor(i / 2), dummy.matrix);
-        });
-        statues.forEach((mesh) => {
-          mesh.instanceMatrix.needsUpdate = true;
-          mesh.visible = p > 0.08;
-        });
-        dataForms.forEach(({ group, destination }, i) => {
-          const appear = ease(0.32 + (i % 3) * 0.04, 0.94, p);
-          group.visible = appear > 0.001;
-          group.position.copy(destination).multiplyScalar(0.3 + appear * 0.7);
-          group.position.z += Math.sin(appear * Math.PI) * 0.7;
-          group.rotation.set(
-            0.12 * Math.sin(i),
-            Math.sin(i * 2.1) * 0.3 + (1 - appear) * 2,
-            Math.sin(elapsed * 0.16 + i) * 0.06,
-          );
-          group.scale.setScalar(Math.max(0.00001, appear));
+          const statue = statues[i];
+          if (statue) {
+            statue.batch.setMatrixAt(statue.instance, dummy.matrix);
+            statue.batch.setVisibleAt(statue.instance, grow > 0.005);
+          }
         });
         renderer.render(scene, camera);
       }
@@ -548,11 +501,13 @@ export function LoginScene() {
           'webglcontextlost',
           onContextLost,
         );
-        statues.forEach((mesh) => mesh.dispose());
+        statueBatches.forEach((mesh) => mesh.dispose());
         dispose();
       };
       onVisibility();
       setReady(true);
+      // Begin rendering before downloading the collection; never hold the intro for all models.
+      void loadSculptures().catch(() => {});
     }
     start().catch(() => {
       cleanup();
@@ -589,7 +544,7 @@ export function LoginScene() {
           className="login-three"
           role="img"
           tabIndex={ready ? 0 : -1}
-          aria-label="Interactive sculpted Ysabel emblem transforming into 3,120 digits, mathematical equations, diagrams, 120 classical sculptures, and ancient tablets. Drag to rotate, or use the left and right arrow keys."
+          aria-label="Interactive sculpted Ysabel emblem transforming into 3,120 digits, mathematical equations, moving statistical charts, and 120 distinct female and male classical sculptures. Drag to rotate, or use the left and right arrow keys."
         />
       </div>
       <p className="login-marketing-caption">
@@ -626,7 +581,7 @@ export function LoginScene() {
                 state.automatic = !playing;
                 if (!playing) {
                   state.reduced = false;
-                  state.time = state.progress < 0.5 ? 0 : 20;
+                  state.time = state.progress < 0.5 ? 1.04 : 10;
                 }
                 setPlaying(!playing);
               }}

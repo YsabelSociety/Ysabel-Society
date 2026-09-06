@@ -6546,7 +6546,7 @@ h1 {
   transform: translate(-50%, -50%);
   mix-blend-mode: multiply;
   pointer-events: none;
-  transition: opacity 500ms ease;
+  transition: opacity 180ms ease;
 }
 .login-emblem-fallback.is-ready {
   opacity: 0;

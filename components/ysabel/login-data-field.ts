@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { createLoginStatistics } from './login-statistics';
 
 const vertex = `
   attribute vec3 aOrigin;
@@ -263,86 +264,7 @@ export function createLoginDataField(
   const numbers = field(numberCount, false, digits);
   const formulas = field(formulae.length, true, equations);
 
-  // Euclidean geometry and network diagrams are built as actual tubes and nodes.
-  const lineMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xb8b783,
-    metalness: 0.55,
-    roughness: 0.38,
-  });
-  const nodeMaterial = new THREE.MeshPhysicalMaterial({
-    color: 0xe4d9b5,
-    metalness: 0.45,
-    roughness: 0.29,
-  });
-  const nodeGeometry = new THREE.SphereGeometry(0.035, 8, 6);
-  resources.push(lineMaterial, nodeMaterial, nodeGeometry);
-  const diagrams = Array.from({ length: 8 }, (_, i) => {
-    const diagram = new THREE.Group();
-    const points =
-      i % 2
-        ? [
-            new THREE.Vector3(-0.3, -0.23, 0),
-            new THREE.Vector3(0.3, -0.23, 0),
-            new THREE.Vector3(-0.3, 0.23, 0),
-            new THREE.Vector3(-0.3, -0.23, 0),
-          ]
-        : Array.from(
-            { length: 6 },
-            (_, j) =>
-              new THREE.Vector3(
-                Math.cos((j * Math.PI) / 3) * 0.3,
-                Math.sin((j * Math.PI) / 3) * 0.3,
-                Math.sin(j * 2) * 0.05,
-              ),
-          );
-    const pairs =
-      i % 2
-        ? [
-            [0, 1],
-            [1, 2],
-            [2, 3],
-          ]
-        : [
-            [0, 1],
-            [1, 2],
-            [2, 3],
-            [3, 4],
-            [4, 5],
-            [5, 0],
-            [0, 3],
-            [1, 4],
-            [2, 5],
-          ];
-    pairs.forEach(([a, b]) => {
-      const geometry = new THREE.TubeGeometry(
-        new THREE.LineCurve3(points[a], points[b]),
-        1,
-        0.006,
-        5,
-        false,
-      );
-      resources.push(geometry);
-      diagram.add(new THREE.Mesh(geometry, lineMaterial));
-    });
-    points.slice(0, i % 2 ? 3 : 6).forEach((point) => {
-      const node = new THREE.Mesh(nodeGeometry, nodeMaterial);
-      node.position.copy(point);
-      diagram.add(node);
-    });
-    if (i % 2) {
-      const ring = new THREE.TorusGeometry(0.39, 0.005, 5, 48);
-      resources.push(ring);
-      diagram.add(new THREE.Mesh(ring, lineMaterial));
-    }
-    const angle = i * 2.39996323 + 0.7;
-    const destination = new THREE.Vector3(
-      Math.cos(angle) * 2.2,
-      Math.sin(angle) * 1.7,
-      0.15 + Math.sin(i) * 0.6,
-    );
-    group.add(diagram);
-    return { diagram, destination };
-  });
+  const statistics = createLoginStatistics(group);
 
   return {
     update(progress: number, time: number) {
@@ -351,23 +273,10 @@ export function createLoginDataField(
       numbers.uniforms.uTime.value = time;
       formulas.uniforms.uProgress.value = progress;
       formulas.uniforms.uTime.value = time;
-      diagrams.forEach(({ diagram, destination }, i) => {
-        const growth = THREE.MathUtils.smoothstep(
-          progress,
-          0.24 + (i % 3) * 0.04,
-          0.88,
-        );
-        diagram.visible = growth > 0.001;
-        diagram.scale.setScalar(Math.max(0.00001, growth));
-        diagram.position.copy(destination).multiplyScalar(0.2 + growth * 0.8);
-        diagram.rotation.set(
-          Math.sin(time * 0.12 + i) * 0.12,
-          (1 - growth) * Math.PI + Math.sin(time * 0.1 + i) * 0.15,
-          Math.sin(time * 0.13 + i) * 0.08,
-        );
-      });
+      statistics.update(progress, time);
     },
     dispose() {
+      statistics.dispose();
       parent.remove(group);
       resources.forEach((resource) => resource.dispose());
     },

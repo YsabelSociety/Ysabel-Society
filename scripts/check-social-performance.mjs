@@ -246,6 +246,9 @@ assert.equal(
   'Website users cannot be combined with social followers',
 );
 assert(!m.SOCIAL_METRICS.some((x) => x.key === 'conversions'));
+const currentCountry = {...table('facebook','audience-country',[{country:'AL',followers:80}]),period:{start:'2026-09-01',end:'2026-09-06'}};
+const historicalCountry = {...table('facebook','audience-country',[{country:'AL',followers:15}],'2026-09-08T00:00:00Z'),period:{start:'2024-09-01',end:'2024-09-30'}};
+assert.equal(m.latestAudienceTables([historicalCountry,currentCountry],['Facebook'],'country').get('Facebook').rows[0].followers,80,'Backfills must not replace current geography with an older period');
 const countries = JSON.parse(
   fs.readFileSync('public/maps/world-countries.json', 'utf8'),
 );

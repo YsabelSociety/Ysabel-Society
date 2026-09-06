@@ -85,7 +85,14 @@ export async function GET(req: Request) {
         tableMap.set(key, table);
         continue;
       }
-      if (!table.rows.some((r: any) => r.date)) continue;
+      if (!table.rows.some((r: any) => r.date)) {
+        if (
+          table.key.startsWith('audience-') &&
+          table.period.end > prior.period.end
+        )
+          tableMap.set(key, table);
+        continue;
+      }
       const rowKey = (r: any) =>
         JSON.stringify(
           Object.entries(r).filter(

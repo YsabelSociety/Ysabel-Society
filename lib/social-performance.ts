@@ -246,8 +246,9 @@ export function latestAudienceTables(
     const previous = chosen.get(platform);
     if (
       !previous ||
-      (table.observedAt || table.period.end) >
-        (previous.observedAt || previous.period.end)
+      table.period.end > previous.period.end ||
+      (table.period.end === previous.period.end &&
+        (table.observedAt || '') > (previous.observedAt || ''))
     )
       chosen.set(platform, table);
   }

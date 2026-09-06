@@ -310,7 +310,12 @@ export async function importMeta(
               [breakdown]: (r.dimension_values || []).join(' · '),
               followers: finite(r.value),
             })),
-            period: range,
+            period: {
+              start: new Date(Date.now() - 29 * 86400000)
+                .toISOString()
+                .slice(0, 10),
+              end: new Date().toISOString().slice(0, 10),
+            },
             scope:
               'Current provider demographic snapshot for the last 30 days. Privacy thresholds apply; not a historical daily series.',
           });

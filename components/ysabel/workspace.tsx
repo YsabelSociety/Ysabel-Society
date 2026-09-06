@@ -312,6 +312,8 @@ export default function Workspace({
       window.removeEventListener('hashchange', read);
     };
   }, []);
+  const currentMetricsRef = useRef({ mode: source.mode, unit, range, rows });
+  currentMetricsRef.current = { mode: source.mode, unit, range, rows };
   useEffect(() => {
     const context = (document as any).modelContext;
     if (!context?.registerTool) return;
@@ -354,12 +356,14 @@ export default function Workspace({
       },
       annotations: { readOnlyHint: true },
       execute: async () => ({
-        mode: source.mode,
-        unit,
-        range,
+        mode: currentMetricsRef.current.mode,
+        unit: currentMetricsRef.current.unit,
+        range: currentMetricsRef.current.range,
         metrics: METRICS.map((m) => ({
           name: m.label,
-          value: metricAvailable(rows, m.key) ? total(rows, m.key) : null,
+          value: metricAvailable(currentMetricsRef.current.rows, m.key)
+            ? total(currentMetricsRef.current.rows, m.key)
+            : null,
           definition: m.definition,
         })),
       }),
@@ -424,7 +428,7 @@ export default function Workspace({
       },
     });
     return () => lifecycle.abort();
-  }, [unit, range, rows]);
+  }, []);
   const heading = headings[page];
   const [greeting, setGreeting] = useState('Good afternoon.');
   useEffect(() => {

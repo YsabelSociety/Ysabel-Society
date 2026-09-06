@@ -52,9 +52,8 @@ export async function requireChatGPTUser(
   const user = await getChatGPTUser();
   if (user) return user;
 
-  redirect(
-    appPath('/login') + '?returnTo=' + encodeURIComponent(appPath(returnTo)),
-  );
+  // Framework redirects already prepend the configured basePath.
+  redirect('/login?returnTo=' + encodeURIComponent(appPath(returnTo)));
 }
 
 export function chatGPTSignInPath(returnTo: string): string {

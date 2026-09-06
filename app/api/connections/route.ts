@@ -83,6 +83,11 @@ export async function POST(req: Request) {
             "DELETE FROM connector_vault WHERE owner=? AND kind='direct' AND provider=?",
           )
           .bind(user.userId, config.id),
+        db
+          .prepare(
+            "DELETE FROM connector_vault WHERE owner=? AND kind='messaging' AND provider=?",
+          )
+          .bind(user.userId, config.id),
       ]);
       return json({
         ok: true,

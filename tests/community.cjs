@@ -553,8 +553,8 @@ async function main() {
         'instagram',
       ),
     (e) =>
-      e.message.includes('reconnecting alone') ||
-      e.message.includes('reconnecting alone'.replace('r', 'R')),
+      e.message.includes('Direct Instagram') &&
+      e.message.includes('Advanced Access'),
   );
   responder = async (url) => {
     const size = new URL(url).searchParams.get('limit');
@@ -718,6 +718,136 @@ async function main() {
   assert.equal(
     (await store.readCommunity('other-owner', 'review')).records.length,
     0,
+  );
+  const directInstagram = load('lib/server/instagram-messaging.ts');
+  await link('instagram', 'meta', '178400001');
+  const directCalls = [];
+  responder = async (url, init) => {
+    directCalls.push(url);
+    assert.equal(
+      new URL(url).hostname,
+      'graph.instagram.com',
+      'direct Instagram token must not go to the Facebook host',
+    );
+    assert.equal(init.headers.Authorization, 'Bearer direct-ig-fixture');
+    if (url.endsWith('/me?fields=user_id,username'))
+      return {
+        id: '178400001',
+        user_id: '178400001',
+        username: 'ysabelsociety',
+      };
+    if (url.includes('/conversations?')) {
+      const after = new URL(url).searchParams.get('after');
+      return {
+        data: [{ id: after ? 'ig-thread-2' : 'ig-thread-1' }],
+        ...(!after
+          ? {
+              paging: {
+                next: 'https://evil.invalid/never-follow',
+                cursors: { after: 'second-page' },
+              },
+            }
+          : {}),
+      };
+    }
+    if (url.includes('ig-thread-1?fields=messages'))
+      return {
+        messages: {
+          data: [{ id: 'ig-in' }, { id: 'ig-out' }, { id: 'unavailable' }],
+        },
+      };
+    if (url.includes('ig-thread-2?fields=messages'))
+      return { messages: { data: [{ id: 'ig-in-2' }] } };
+    if (url.includes('/unavailable?'))
+      return Response.json(
+        { error: { code: 100, message: 'Message no longer available' } },
+        { status: 400 },
+      );
+    if (url.includes('?fields=id,created_time')) {
+      const id = new URL(url).pathname.split('/').pop();
+      const outgoing = id === 'ig-out';
+      return {
+        id,
+        created_time: '2026-09-05T10:00:00Z',
+        from: { id: outgoing ? '178400001' : 'ig-guest' },
+        to: { data: [{ id: outgoing ? 'ig-guest' : '178400001' }] },
+        message: outgoing ? 'Our reply' : 'Guest message',
+      };
+    }
+    if (url.includes('/ig-guest?fields='))
+      return {
+        id: 'ig-guest',
+        username: 'visitor',
+        name: 'Visitor',
+        follower_count: 22000,
+      };
+    throw new Error('Unexpected direct Instagram URL: ' + url);
+  };
+  await directInstagram.connectInstagramMessaging(owner, {
+    accessToken: 'direct-ig-fixture',
+    apiVersion: 'v26.0',
+  });
+  assert.equal(
+    (await directInstagram.readInstagramMessaging(owner)).username,
+    'ysabelsociety',
+  );
+  assert.equal(
+    await directInstagram.readInstagramMessaging('different-owner'),
+    null,
+  );
+  assert.equal(
+    (await vault.readVault(owner, 'target', 'instagram')).pageToken,
+    'test-page-token',
+    'keep Facebook-linked analytics credential',
+  );
+  const directImport = await sync.syncMessages(owner, 'instagram');
+  assert.equal(directImport.imported, 3);
+  assert.match(directImport.detail, /Direct Instagram/);
+  assert.match(directImport.detail, /inaccessible/);
+  const directRecords = (
+    await store.readCommunity(owner, 'message')
+  ).records.filter((r) => r.accountId === '178400001');
+  assert.equal(directRecords.find((r) => r.id === 'ig-out').direction, 'out');
+  assert.equal(directRecords.find((r) => r.id === 'ig-in').direction, 'in');
+  assert.ok(
+    directCalls.some((url) => url.includes('after=second-page')),
+    'follow all conversation pages using cursor only',
+  );
+  await sync.syncMessages(owner, 'instagram');
+  assert.equal(
+    (await store.readCommunity(owner, 'message')).records.filter(
+      (r) => r.accountId === '178400001',
+    ).length,
+    3,
+    'direct re-import upserts messages',
+  );
+  await link('instagram', 'meta', 'another-account');
+  await assert.rejects(
+    () => sync.syncMessages(owner, 'instagram'),
+    /connection changed/,
+    'stored token must not follow a changed account selection',
+  );
+  responder = async () =>
+    Response.json(
+      {
+        error: {
+          code: 190,
+          message:
+            'Expired direct-ig-fixture https://graph.instagram.com/?access_token=direct-ig-fixture',
+        },
+      },
+      { status: 400 },
+    );
+  await assert.rejects(
+    () =>
+      directInstagram.instagramMessageGet(
+        { accessToken: 'direct-ig-fixture', apiVersion: 'v26.0' },
+        'me',
+      ),
+    (e) =>
+      e.message.includes('Meta 190') &&
+      !e.message.includes('direct-ig-fixture') &&
+      !e.message.includes('https://'),
   );
   console.log(
     'PASS: inbox reply timing, strict influencer threshold, verified profile persistence, timezone grouping, review evidence, CSV validation, encryption and owner isolation, Meta sender identities and access failure, Google review pagination and upserts.',

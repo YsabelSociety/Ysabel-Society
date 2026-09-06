@@ -42,6 +42,7 @@ import {
   type CommunityStatus,
 } from '@/lib/community';
 import { number, type Range } from '@/lib/analytics';
+import { InstagramMessaging } from './instagram-messaging';
 
 async function communityAction(body: unknown) {
   const r = await fetch('/api/community', {
@@ -330,6 +331,9 @@ function ImportAccess({
         <Tabs defaultValue="access">
           <TabsList className="page-tabs">
             <TabsTrigger value="access">Platform access</TabsTrigger>
+            {kind === 'message' && (
+              <TabsTrigger value="instagram">Direct Instagram</TabsTrigger>
+            )}
             <TabsTrigger value="file">Import CSV</TabsTrigger>
           </TabsList>
           <TabsContent value="access">
@@ -434,6 +438,11 @@ function ImportAccess({
               )}
             </div>
           </TabsContent>
+          {kind === 'message' && (
+            <TabsContent value="instagram">
+              <InstagramMessaging onSaved={onSaved} />
+            </TabsContent>
+          )}
           <TabsContent value="file">
             <div className="community-help">
               <p>

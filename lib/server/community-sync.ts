@@ -4,6 +4,12 @@ import { readVault } from './connector-vault';
 import { readDirect, directContext } from './connection-direct';
 import { graphGet, graphBatch } from './report-meta';
 import { requestJSON } from './providers';
+import {
+  readInstagramMessaging,
+  instagramMessageBatch,
+  instagramConversationMessages,
+  metaMessageError,
+} from './instagram-messaging';
 import { saveCommunity, saveCommunityStatus } from './community-store';
 import {
   safeProfileURL,
@@ -12,7 +18,11 @@ import {
 } from '@/lib/community';
 
 export async function readConversationList(
-  context: { accessToken: string; apiVersion?: string },
+  context: {
+    accessToken: string;
+    apiVersion?: string;
+    instagramLogin?: boolean;
+  },
   pageId: string,
   source: 'facebook' | 'instagram',
   after = '',
@@ -21,7 +31,9 @@ export async function readConversationList(
   if (!/^v\d{1,2}\.\d{1,2}$/.test(context.apiVersion || ''))
     throw new Error('INPUT:Check the configured Meta API version.');
   const response = await fetch(
-    'https://graph.facebook.com/' +
+    (context.instagramLogin
+      ? 'https://graph.instagram.com/'
+      : 'https://graph.facebook.com/') +
       context.apiVersion +
       '/' +
       encodeURIComponent(pageId) +
@@ -66,7 +78,9 @@ export async function readConversationList(
         detail +
         (Number.isInteger(error.code) ? ' (Meta ' + error.code + ')' : '') +
         (/advanced access|users who do not have a role/i.test(detail)
-          ? ' Advanced messaging access is required for these customer conversations. Complete Meta App Review; reconnecting alone will not resolve this restriction.'
+          ? context.instagramLogin
+            ? ' Meta is restricting these customer conversations. Check the Instagram account role and required access level.'
+            : ' This Facebook-linked route requires Advanced Access for these customer conversations. Try Direct Instagram in Access & import for your own account, or complete Meta App Review.'
           : [10, 190, 200, 294].includes(error.code)
             ? ' Check ' +
               (source === 'instagram'
@@ -135,10 +149,15 @@ export async function syncMessages(
   source: 'facebook' | 'instagram',
   continueImport = false,
 ) {
-  const context = await linkedContext(owner, source);
+  const instagram =
+    source === 'instagram' ? await readInstagramMessaging(owner) : null;
+  if (instagram) await ensureStillLinked(owner, source, instagram.accountId);
+  const context = instagram || (await linkedContext(owner, source));
   // A Page token identifies the Page used by the Facebook Login conversations API.
-  const page = await graphGet(context, 'me?fields=id');
-  const own = new Set([String(page.id), context.externalId]);
+  const page = instagram
+    ? { id: instagram.externalId }
+    : await graphGet(context, 'me?fields=id');
+  const own = new Set([String(page.id), context.externalId, context.accountId]);
   const imported: CommunityRecord[] = [];
   const previous = await database()
     .prepare(
@@ -153,13 +172,48 @@ export async function syncMessages(
     partial = false,
     inaccessible = 0,
     conversationCount = 0;
+  let conversationNode = String(page.id);
+  if (!instagram && source === 'instagram' && after.startsWith('ig-node:')) {
+    conversationNode = context.externalId;
+    after = after.slice(8);
+  }
   for (let batch = 0; batch < 10; batch++) {
-    const list = await readConversationList(
-      context,
-      String(page.id),
-      source,
-      after,
-    );
+    let list: any;
+    try {
+      list = await readConversationList(
+        context,
+        conversationNode,
+        source,
+        after,
+      );
+    } catch (e) {
+      // Probe the linked Instagram node as well as the Page node. Both calls
+      // use the existing approved Page grant; Meta still enforces its access level.
+      if (
+        !instagram &&
+        source === 'instagram' &&
+        !after &&
+        conversationNode !== context.externalId &&
+        /Meta -2|Meta 1\)/.test(String(e))
+      ) {
+        try {
+          list = await readConversationList(
+            context,
+            context.externalId,
+            source,
+          );
+          conversationNode = context.externalId;
+        } catch (alternate) {
+          throw new Error(
+            String(e instanceof Error ? e.message : e) +
+              ' The linked Instagram-account route also failed: ' +
+              String(
+                alternate instanceof Error ? alternate.message : alternate,
+              ).replace(/^INPUT:/, ''),
+          );
+        }
+      } else throw e;
+    }
     if (list.error || !Array.isArray(list.data))
       throw new Error(
         'INPUT:Meta did not return a readable conversation list. Check messaging access and reconnect.',
@@ -176,19 +230,34 @@ export async function syncMessages(
         conversationCount +
         ' accessible conversations. The first import can take several minutes.',
     });
-    const replies = await graphBatch(
-      context,
-      conversations.map(
-        (c: any) =>
-          encodeURIComponent(c.id) +
-          '/messages?fields=id,created_time,from,to,message' +
-          (source === 'facebook' ? ',attachments' : '') +
-          '&limit=20',
-      ),
-    );
+    const replies: { body?: any; error?: string; inaccessible?: number }[] = [];
+    if (instagram) {
+      for (let i = 0; i < conversations.length; i += 2)
+        replies.push(
+          ...(await Promise.all(
+            conversations
+              .slice(i, i + 2)
+              .map((c: any) =>
+                instagramConversationMessages(instagram, String(c.id)),
+              ),
+          )),
+        );
+    } else
+      replies.push(
+        ...(await graphBatch(
+          context,
+          conversations.map(
+            (c: any) =>
+              encodeURIComponent(c.id) +
+              '/messages?fields=id,created_time,from,to,message' +
+              (source === 'facebook' ? ',attachments' : '') +
+              '&limit=20',
+          ),
+        )),
+      );
     // Optional attachment details must not prevent the core inbox from importing.
     const attachments =
-      source === 'instagram'
+      source === 'instagram' && !instagram
         ? await graphBatch(
             context,
             conversations.map(
@@ -202,6 +271,7 @@ export async function syncMessages(
     for (let i = 0; i < conversations.length; i++) {
       const c = conversations[i],
         response = replies[i];
+      inaccessible += response.inaccessible || 0;
       if (response.error) {
         inaccessible++;
         continue;
@@ -259,6 +329,11 @@ export async function syncMessages(
             });
       }
     }
+    if (instagram && conversations.length && replies.every((r) => !!r.error))
+      throw new Error(
+        'INPUT:The Instagram conversation list is accessible, but message details failed: ' +
+          replies[0].error,
+      );
     await ensureStillLinked(owner, source, context.accountId);
     for (let start = pageStart; start < imported.length; start += 2000)
       await saveCommunity(owner, imported.slice(start, start + 2000));
@@ -280,17 +355,17 @@ export async function syncMessages(
         .map((r) => [r.participantId!, r]),
     ).values(),
   ].slice(0, 100);
-  const profiles = await graphBatch(
-    context,
-    people.map(
-      (p) =>
-        encodeURIComponent(p.participantId!) +
-        '?fields=' +
-        (source === 'instagram'
-          ? 'name,username,profile_pic,follower_count'
-          : 'first_name,last_name,profile_pic'),
-    ),
+  const profilePaths = people.map(
+    (p) =>
+      encodeURIComponent(p.participantId!) +
+      '?fields=' +
+      (source === 'instagram'
+        ? 'name,username,profile_pic,follower_count'
+        : 'first_name,last_name,profile_pic'),
   );
+  const profiles = instagram
+    ? await instagramMessageBatch(instagram, profilePaths)
+    : await graphBatch(context, profilePaths);
   for (let i = 0; i < people.length; i++) {
     const p = profiles[i].body;
     if (!p) continue;
@@ -325,6 +400,7 @@ export async function syncMessages(
   for (let start = 0; start < imported.length; start += 2000)
     await saveCommunity(owner, imported.slice(start, start + 2000));
   const detail =
+    (instagram ? 'Direct Instagram connection. ' : '') +
     conversationCount +
     ' accessible conversations checked. Up to 20 recent messages per conversation; older captured records are retained. Counts describe captured messages, not a complete inbox history.' +
     (inaccessible
@@ -344,7 +420,13 @@ export async function syncMessages(
     state: 'partial',
     detail,
     accountId: context.accountId,
-    cursor: after,
+    cursor:
+      after &&
+      !instagram &&
+      source === 'instagram' &&
+      conversationNode !== String(page.id)
+        ? 'ig-node:' + after
+        : after,
   });
   return {
     imported: imported.filter((r) => r.kind === 'message').length,
@@ -365,16 +447,28 @@ export async function syncInstagramTags(owner: string, continueImport = false) {
       : '';
   let count = 0;
   for (let page = 0; page < 10; page++) {
-    const body = await graphGet(
-      context,
-      encodeURIComponent(context.externalId) +
+    const tagResponse = await fetch(
+      'https://graph.facebook.com/' +
+        context.apiVersion +
+        '/' +
+        encodeURIComponent(context.externalId) +
         '/tags?' +
         new URLSearchParams({
           fields: 'id,caption,username,timestamp,permalink',
           limit: '50',
           ...(after ? { after } : {}),
         }),
+      {
+        headers: { Authorization: 'Bearer ' + context.accessToken },
+        signal: AbortSignal.timeout(30000),
+      },
     );
+    const body: any = await tagResponse.json();
+    if (!tagResponse.ok || body.error)
+      throw new Error(
+        'INPUT:Instagram tagged-post import: ' +
+          metaMessageError(body.error, context.accessToken),
+      );
     if (!Array.isArray(body.data))
       throw new Error(
         'INPUT:Meta did not return tagged posts. Check the Instagram reporting connection.',

@@ -361,6 +361,7 @@ export function parseMetaMessageJSON(
   source: CommunitySource,
   ownName: string,
   folder: string = 'unknown',
+  maximumMessages = 2000,
 ) {
   if (!['facebook', 'instagram'].includes(source))
     throw new Error('INPUT:Choose Facebook or Instagram.');
@@ -372,8 +373,12 @@ export function parseMetaMessageJSON(
     throw new Error(
       'INPUT:Choose a message_1.json (or another message part) from your Meta information download.',
     );
-  if (!document.messages.length || document.messages.length > 2000)
-    throw new Error('INPUT:Import a message part containing 1–2,000 messages.');
+  if (!document.messages.length || document.messages.length > maximumMessages)
+    throw new Error(
+      'INPUT:Import a message part containing 1–' +
+        maximumMessages.toLocaleString('en-US') +
+        ' messages.',
+    );
   const normalized = (v: string) => v.trim().normalize('NFKC').toLowerCase();
   const people = document.participants
     .map((p: any) => String(p.name || '').trim())
@@ -451,4 +456,48 @@ export function parseMetaMessageJSON(
         : 'unknown',
     };
   });
+}
+
+// Preview the original part before splitting it. Explicit stable IDs retain
+// repeated identical messages across upload boundaries and on re-import.
+export function prepareMetaMessageParts(
+  text: string,
+  source: CommunitySource,
+  ownName: string,
+  folder = 'unknown',
+) {
+  const records = parseMetaMessageJSON(text, source, ownName, folder, 100000);
+  const original = JSON.parse(text);
+  const parts: { csv: string; count: number; folder: string }[] = [];
+  let messages: any[] = [],
+    size = 0;
+  const flush = () => {
+    if (!messages.length) return;
+    parts.push({
+      csv: JSON.stringify({
+        participants: original.participants,
+        thread_path: original.thread_path,
+        messages,
+      }),
+      count: messages.length,
+      folder,
+    });
+    messages = [];
+    size = 0;
+  };
+  for (let i = 0; i < records.length; i++) {
+    const m = original.messages[i];
+    const safeMessage = {
+      message_id: records[i].id,
+      sender_name: m.sender_name,
+      timestamp_ms: m.timestamp_ms,
+      content: typeof m.content === 'string' ? m.content.slice(0, 12000) : '',
+    };
+    const length = JSON.stringify(safeMessage).length;
+    if (messages.length >= 1000 || size + length > 450000) flush();
+    messages.push(safeMessage);
+    size += length;
+  }
+  flush();
+  return { parts, count: records.length, preview: records.slice(0, 5) };
 }

@@ -37,6 +37,7 @@ import {
   reviewTopics,
   matchesProfile,
   followerTier,
+  prepareMetaMessageParts,
   type CommunityRecord,
   type CommunitySource,
   type CommunityStatus,
@@ -546,8 +547,8 @@ function MetaArchiveImport({
   const [source, setSource] = useState('instagram'),
     [ownName, setOwnName] = useState('Ysabel Society'),
     [folder, setFolder] = useState('Unknown'),
-    [file, setFile] = useState(''),
-    [filename, setFilename] = useState(''),
+    [archiveParts, setArchiveParts] = useState<File[]>([]),
+    [progress, setProgress] = useState(''),
     [preview, setPreview] = useState<any>(null),
     [error, setError] = useState(''),
     [busy, setBusy] = useState(false);
@@ -556,19 +557,69 @@ function MetaArchiveImport({
     setBusy(true);
     setError('');
     try {
-      const result = await communityAction({
-        op,
-        source,
-        kind: 'message',
-        format: 'meta-json',
-        csv: file,
-        ownName,
-        folder: folder.toLowerCase(),
-      });
-      if (op === 'preview') setPreview(result);
-      else {
+      if (op === 'preview') {
+        const ready: { csv: string; folder: string; count: number }[] = [],
+          skipped: string[] = [];
+        const sample: CommunityRecord[] = [];
+        let count = 0;
+        for (const part of archiveParts) {
+          const partFolder = /(?:^|\/)message_requests\//.test(
+            part.webkitRelativePath,
+          )
+            ? 'requests'
+            : folder.toLowerCase();
+          try {
+            const prepared = prepareMetaMessageParts(
+              await part.text(),
+              source as CommunitySource,
+              ownName,
+              partFolder,
+            );
+            count += prepared.count;
+            sample.push(
+              ...prepared.preview.slice(0, Math.max(0, 5 - sample.length)),
+            );
+            ready.push(...prepared.parts);
+          } catch (e) {
+            skipped.push(
+              (part.webkitRelativePath || part.name) +
+                ': ' +
+                (e as Error).message.replace(/^INPUT:/, ''),
+            );
+          }
+        }
+        setPreview({ count, preview: sample, ready, skipped });
+        setProgress('');
+      } else {
+        let imported = 0;
+        for (let index = 0; index < preview.ready.length; index++) {
+          const part = preview.ready[index];
+          setProgress(
+            'Importing part ' +
+              (index + 1) +
+              ' of ' +
+              preview.ready.length +
+              '…',
+          );
+          const result = await communityAction({
+            op: 'import',
+            source,
+            kind: 'message',
+            format: 'meta-json',
+            csv: part.csv,
+            ownName,
+            folder: part.folder,
+          });
+          imported += result.imported;
+        }
+        setProgress(
+          imported +
+            ' messages imported in ' +
+            preview.ready.length +
+            ' parts. Re-importing the same files updates existing records.',
+        );
+        setPreview(null);
         onSaved();
-        onClose();
       }
     } catch (e) {
       setError((e as Error).message);
@@ -598,9 +649,8 @@ function MetaArchiveImport({
             and JSON.
           </li>
           <li>
-            Extract the download and choose a <code>message_1.json</code> file
-            from a conversation folder. Additional message parts can be imported
-            separately.
+            Extract the download and choose the message JSON files, or select
+            the extracted folder to include multiple conversations together.
           </li>
           <li>
             Enter your own sender name exactly as it appears in the file, then
@@ -656,31 +706,69 @@ function MetaArchiveImport({
             </select>
           </label>
           <label>
-            Message JSON
+            Message JSON files
             <input
               type="file"
               accept=".json,application/json"
-              onChange={async (e) => {
+              multiple
+              onChange={(e) => {
                 reset();
                 setError('');
-                setFile('');
-                const f = e.target.files?.[0];
-                if (!f) return;
-                if (f.size > 1400000) {
-                  setError('Choose a message part under 1.4 MB.');
+                setProgress('');
+                const selected = Array.from(e.target.files || []);
+                if (
+                  selected.length > 1000 ||
+                  selected.some((f) => f.size > 20000000) ||
+                  selected.reduce((n, f) => n + f.size, 0) > 100000000
+                ) {
+                  setArchiveParts([]);
+                  setError(
+                    'Choose up to 1,000 message files, each under 20 MB, totalling under 100 MB.',
+                  );
                   return;
                 }
-                setFile(await f.text());
-                setFilename(f.name);
+                setArchiveParts(selected);
+              }}
+            />
+          </label>
+          <label>
+            Or select the extracted export folder
+            <input
+              type="file"
+              multiple
+              {...{ webkitdirectory: '' }}
+              onChange={(e) => {
+                reset();
+                setError('');
+                setProgress('');
+                const selected = Array.from(e.target.files || []).filter((f) =>
+                  /^message_\d+\.json$/i.test(f.name),
+                );
+                if (
+                  selected.length > 1000 ||
+                  selected.some((f) => f.size > 20000000) ||
+                  selected.reduce((n, f) => n + f.size, 0) > 100000000
+                ) {
+                  setArchiveParts([]);
+                  setError(
+                    'Select a smaller group of conversation folders: up to 1,000 files under 20 MB each and 100 MB total.',
+                  );
+                  return;
+                }
+                setArchiveParts(selected);
+                if (!selected.length)
+                  setError(
+                    'No message JSON files were found. Extract the Meta download first.',
+                  );
               }}
             />
           </label>
         </div>
         <p className="source-asof">
-          {filename} · One-to-one conversations only. Choose Unknown unless the
-          export identifies its folder. Downloads cannot restore messages Meta
-          has already deleted. File and API histories are separate; overlapping
-          dates may count twice.
+          {archiveParts.length} files selected · One-to-one conversations only.
+          Choose Unknown unless the export identifies its folder. Downloads
+          cannot restore messages Meta has already deleted. File and API
+          histories are separate; overlapping dates may count twice.
         </p>
         {error && (
           <p role="alert" className="save-error">
@@ -690,6 +778,21 @@ function MetaArchiveImport({
         {preview && (
           <div className="archive-preview">
             <strong>{number(preview.count)} messages ready</strong>
+            <p>
+              {preview.ready.length} upload parts ready. Large files are split
+              automatically. {preview.skipped.length} files need attention and
+              will not be imported.
+            </p>
+            {preview.skipped.length > 0 && (
+              <details>
+                <summary>Review skipped files</summary>
+                <ul>
+                  {preview.skipped.map((s: string) => (
+                    <li key={s}>{s}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
             {preview.preview.map((m: CommunityRecord) => (
               <p key={m.id}>
                 <b>{m.direction === 'out' ? 'Your reply' : m.name}</b> ·{' '}
@@ -700,9 +803,15 @@ function MetaArchiveImport({
             ))}
           </div>
         )}
+        {progress && <p role="status">{progress}</p>}
         <button
           className="primary"
-          disabled={busy || !file || !ownName.trim()}
+          disabled={
+            busy ||
+            !archiveParts.length ||
+            !ownName.trim() ||
+            (preview && !preview.ready.length)
+          }
           onClick={() => void act(preview ? 'import' : 'preview')}
         >
           {busy

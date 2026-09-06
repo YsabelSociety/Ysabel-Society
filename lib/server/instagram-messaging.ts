@@ -57,7 +57,8 @@ export async function readInstagramMessaging(owner: string) {
 export async function diagnoseInstagramMessaging(owner: string) {
   const grant = await readInstagramMessaging(owner);
   const target = await readVault<Resource>(owner, 'target', 'instagram');
-  const app = await getApp(owner, 'meta');
+  const app = await readVault<{ apiVersion?: string }>(owner, 'app', 'meta');
+  const setupChecks: { label: string; detail: string }[] = [];
   const probes: {
     label: string;
     host: string;
@@ -80,88 +81,82 @@ export async function diagnoseInstagramMessaging(owner: string) {
       token: grant.accessToken,
       version: grant.apiVersion,
     });
-    probes.push({
-      label: 'Direct Instagram · permissions',
-      host: 'graph.instagram.com',
-      path: 'me/permissions',
-      token: grant.accessToken,
-      version: grant.apiVersion,
-    });
   }
-  if (target?.pageToken && app.apiVersion) {
-    const page = await graphGet(
-      {
-        accessToken: target.pageToken,
-        apiVersion: app.apiVersion,
-        externalId: target.id,
-      },
-      'me?fields=id',
-    );
-    probes.push({
-      label: 'Facebook-linked · Page endpoint',
-      host: 'graph.facebook.com',
-      path:
-        encodeURIComponent(page.id) +
-        '/conversations?platform=instagram&limit=1',
-      token: target.pageToken,
-      version: app.apiVersion,
-    });
-    probes.push({
-      label: 'Facebook-linked · Instagram endpoint',
-      host: 'graph.facebook.com',
-      path:
-        encodeURIComponent(target.id) +
-        '/conversations?platform=instagram&limit=1',
-      token: target.pageToken,
-      version: app.apiVersion,
-    });
+  if (target?.pageToken && app?.apiVersion) {
+    try {
+      const page = await graphGet(
+        {
+          accessToken: target.pageToken,
+          apiVersion: app.apiVersion,
+          externalId: target.id,
+        },
+        'me?fields=id',
+      );
+      probes.push({
+        label: 'Facebook-linked · Page endpoint',
+        host: 'graph.facebook.com',
+        path:
+          encodeURIComponent(page.id) +
+          '/conversations?platform=instagram&limit=1',
+        token: target.pageToken,
+        version: app.apiVersion,
+      });
+      probes.push({
+        label: 'Facebook-linked · Instagram endpoint',
+        host: 'graph.facebook.com',
+        path:
+          encodeURIComponent(target.id) +
+          '/conversations?platform=instagram&limit=1',
+        token: target.pageToken,
+        version: app.apiVersion,
+      });
+    } catch {
+      setupChecks.push({
+        label: 'Facebook-linked connection',
+        detail:
+          'The existing Page grant could not be verified. Direct Instagram checks run independently.',
+      });
+    }
   }
   return {
-    results: await Promise.all(
-      probes.map(async (probe) => {
-        try {
-          const response = await fetch(
-            'https://' + probe.host + '/' + probe.version + '/' + probe.path,
-            {
-              headers: { Authorization: 'Bearer ' + probe.token },
-              signal: AbortSignal.timeout(45000),
-            },
-          );
-          const body: any = await response.json();
-          if (!response.ok || body.error)
+    results: [
+      ...setupChecks,
+      ...(await Promise.all(
+        probes.map(async (probe) => {
+          try {
+            const response = await fetch(
+              'https://' + probe.host + '/' + probe.version + '/' + probe.path,
+              {
+                headers: { Authorization: 'Bearer ' + probe.token },
+                signal: AbortSignal.timeout(45000),
+              },
+            );
+            const body: any = await response.json();
+            if (!response.ok || body.error)
+              return {
+                label: probe.label,
+                detail: metaMessageError(body.error, probe.token),
+              };
             return {
               label: probe.label,
-              detail: metaMessageError(body.error, probe.token),
+              detail: Array.isArray(body.data)
+                ? body.data.length +
+                  ' conversations returned in this page.' +
+                  (body.paging?.next ? ' More pages available.' : '')
+                : 'No readable conversation list returned.',
             };
-          if (probe.label.endsWith('permissions'))
+          } catch (e) {
             return {
               label: probe.label,
               detail:
-                (body.data || [])
-                  .map(
-                    (p: any) => String(p.permission) + ': ' + String(p.status),
-                  )
-                  .join('; ') || 'No permissions returned.',
+                e instanceof Error && e.name === 'TimeoutError'
+                  ? 'Meta timed out before returning this page.'
+                  : 'This access check could not complete.',
             };
-          return {
-            label: probe.label,
-            detail: Array.isArray(body.data)
-              ? body.data.length +
-                ' conversations returned in this page.' +
-                (body.paging?.next ? ' More pages available.' : '')
-              : 'No readable conversation list returned.',
-          };
-        } catch (e) {
-          return {
-            label: probe.label,
-            detail:
-              e instanceof Error && e.name === 'TimeoutError'
-                ? 'Meta timed out before returning this page.'
-                : 'This access check could not complete.',
-          };
-        }
-      }),
-    ),
+          }
+        }),
+      )),
+    ],
   };
 }
 
@@ -238,13 +233,16 @@ export async function connectInstagramMessaging(owner: string, input: any) {
   };
   await writeVault(owner, 'messaging', 'instagram', grant);
   const detail =
-    'Direct Instagram access verified for @' +
+    'Direct Instagram account verified for @' +
     grant.username +
-    '. Import messages to load the accessible inbox. Historical and request-folder limits still apply.';
+    (list.data.length
+      ? '. Conversation access responded; import messages to check message details.'
+      : '. Instagram returned an empty conversation page. This does not mean the inbox is empty. Use the connection checks and message import to investigate access.') +
+    ' Historical and request-folder limits still apply.';
   await saveCommunityStatus(owner, {
     source: 'instagram',
     kind: 'message',
-    state: 'partial',
+    state: list.data.length ? 'partial' : 'needs-attention',
     detail,
     accountId: grant.accountId,
   });

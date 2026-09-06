@@ -158,6 +158,56 @@ const exportMessages = community.parseMetaMessageJSON(
   'Ysabel Society',
   'requests',
 );
+const largeArchive = JSON.stringify({
+  participants: [{ name: 'Ysabel Society' }, { name: 'Visitor' }],
+  thread_path: 'messages/inbox/visitor_123',
+  messages: Array.from({ length: 2501 }, () => ({
+    sender_name: 'Visitor',
+    timestamp_ms: Date.parse('2026-09-01T10:00:00Z'),
+    content: 'Repeated message',
+  })),
+});
+const preparedArchive = community.prepareMetaMessageParts(
+  largeArchive,
+  'instagram',
+  'Ysabel Society',
+  'requests',
+);
+assert.equal(preparedArchive.parts.length, 3);
+const preparedRecords = preparedArchive.parts.flatMap((part) =>
+  community.parseMetaMessageJSON(
+    part.csv,
+    'instagram',
+    'Ysabel Society',
+    part.folder,
+  ),
+);
+assert.equal(
+  new Set(preparedRecords.map((r) => r.id)).size,
+  2501,
+  'identical messages keep separate IDs across chunk boundaries',
+);
+assert.ok(
+  preparedRecords.every((r) => r.folder === 'requests' && r.direction === 'in'),
+);
+assert.deepEqual(
+  preparedRecords.map((r) => r.id),
+  community
+    .parseMetaMessageJSON(
+      largeArchive,
+      'instagram',
+      'Ysabel Society',
+      'requests',
+      100000,
+    )
+    .map((r) => r.id),
+  'splitting and re-import preserve original record IDs',
+);
+assert.ok(
+  preparedArchive.parts.every(
+    (part) => JSON.stringify({ csv: part.csv }).length < 1400000,
+  ),
+);
 assert.deepEqual(
   exportMessages.map((m) => m.direction),
   ['in', 'out'],

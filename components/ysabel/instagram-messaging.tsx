@@ -61,7 +61,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
         );
       setToken('');
       setStatus(
-        'Access verified for @' + result.username + '. Loading messages…',
+        'Account linked for @' + result.username + '. Checking messages…',
       );
       onSaved();
       const imported = await fetch('/api/community', {

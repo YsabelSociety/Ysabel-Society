@@ -98,12 +98,14 @@ async function linkedContext(owner: string, source: string) {
       ...(await directContext(source, direct)),
       accountId: link.external_id,
     };
-  const grant = await accessGrant(owner, link.provider);
   const target = await readVault<Resource>(owner, 'target', source);
   if (!target || target.id !== link.external_id)
     throw new Error('INPUT:Select the connected account again.');
   return {
-    accessToken: target.pageToken || grant.accessToken,
+    // A selected Page grant has its own validity. Meta checks it on the actual
+    // request; an unrelated user-token expiry must not disable the Page inbox.
+    accessToken:
+      target.pageToken || (await accessGrant(owner, link.provider)).accessToken,
     externalId: target.id,
     accountId: target.id,
     apiVersion:

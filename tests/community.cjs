@@ -630,6 +630,11 @@ async function main() {
   );
   let requestedPages = [];
   let tagPages = [];
+  const existingGrant = await vault.readVault(owner, 'grant', 'meta');
+  await vault.writeVault(owner, 'grant', 'meta', {
+    ...existingGrant,
+    expiresAt: Date.now() - 1000,
+  });
   responder = async (url) => {
     if (!url.includes('/tags?')) throw new Error('Unexpected tag request');
     const after = new URL(url).searchParams.get('after');
@@ -650,6 +655,12 @@ async function main() {
     };
   };
   await sync.syncInstagramTags(owner);
+  assert.equal(
+    tagPages.length,
+    2,
+    'an expired user grant must not block a valid selected Page token',
+  );
+  await vault.writeVault(owner, 'grant', 'meta', existingGrant);
   assert.deepEqual(tagPages, [null, 'tag-next']);
   const tags = (await store.readCommunity(owner, 'mention')).records;
   assert.equal(tags.length, 2);

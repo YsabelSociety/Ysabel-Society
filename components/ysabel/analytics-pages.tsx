@@ -373,6 +373,9 @@ export function PerformancePage({
   data,
   unit,
   range,
+  live = false,
+  websiteConnection,
+  websiteRealtime,
 }: {
   rows: Daily[];
   previous: Daily[];
@@ -380,6 +383,9 @@ export function PerformancePage({
   data: WorkspaceData;
   unit: string;
   range: Range;
+  live?: boolean;
+  websiteConnection?: SourceStatus;
+  websiteRealtime?: WebsiteRealtime;
 }) {
   const [channel, setChannel] = useState(initialChannel),
     [metric, setMetric] = useState<Metric>('views'),
@@ -404,84 +410,99 @@ export function PerformancePage({
           </TabsList>
         </Tabs>
       </div>
-      <StatRow
-        items={METRICS.slice(0, 4).map((m) => ({
-          label: m.label,
-          value: metricAvailable(r, m.key) ? compact(total(r, m.key)) : '—',
-          note: total(p, m.key)
-            ? change(total(r, m.key), total(p, m.key)).toFixed(1) +
-              '% vs comparison'
-            : m.source,
-        }))}
-      />
-      <AnalyticsChart rows={r} previous={p} />
-      <div className="two-col">
-        <div>
-          <div className="section-head standalone">
-            <h2>Channel contribution</h2>
-            <Picker
-              label="Contribution metric"
-              value={metric}
-              onChange={(v) => setMetric(v as Metric)}
-              options={['views', 'engagements', 'users', 'actions']}
-            />
-          </div>
-          <AnalyticsChart
-            rows={rows}
-            metric={metric}
-            title="Share of the story"
-            stacked
+      {channel === 'Website' ? (
+        <WebsitePage
+          rows={r}
+          previous={p}
+          live={live}
+          status={websiteConnection}
+          realtime={websiteRealtime}
+        />
+      ) : (
+        <>
+          <StatRow
+            items={METRICS.slice(0, 4).map((m) => ({
+              label: m.label,
+              value: metricAvailable(r, m.key) ? compact(total(r, m.key)) : '—',
+              note: total(p, m.key)
+                ? change(total(r, m.key), total(p, m.key)).toFixed(1) +
+                  '% vs comparison'
+                : m.source,
+            }))}
           />
-        </div>
-        <Panel
-          title="Timeline annotations"
-          description="Connect a moment in the business to a movement in performance."
-        >
-          <form
-            className="edit-form"
-            onSubmit={(e) => {
-              e.preventDefault();
-              void data
-                .annotate(noteDate, note, unit)
-                .then(() => setNote(''))
-                .catch(() => {});
-            }}
-          >
-            <label>
-              Date
-              <input
-                type="date"
-                required
-                value={noteDate}
-                onChange={(e) => setNoteDate(e.target.value)}
+          <AnalyticsChart rows={r} previous={p} />
+          <div className="two-col">
+            <div>
+              <div className="section-head standalone">
+                <h2>Channel contribution</h2>
+                <Picker
+                  label="Contribution metric"
+                  value={metric}
+                  onChange={(v) => setMetric(v as Metric)}
+                  options={['views', 'engagements', 'users', 'actions']}
+                />
+              </div>
+              <AnalyticsChart
+                rows={rows}
+                metric={metric}
+                title="Share of the story"
+                stacked
               />
-            </label>
-            <label>
-              What happened?
-              <input
-                required
-                maxLength={300}
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder="A new menu. A collaboration. An evening."
-              />
-            </label>
-            <button className="secondary" disabled={data.busy || !data.ready}>
-              <Plus size={14} /> Add annotation
-            </button>
-          </form>
-          <div className="annotation-list">
-            {data.annotations
-              .filter((n) => n.date >= range.start && n.date <= range.end)
-              .map((n) => (
-                <div key={n.id}>
-                  <span>{n.date}</span>
-                  <p>{n.text}</p>
-                </div>
-              ))}
+            </div>
+            <Panel
+              title="Timeline annotations"
+              description="Connect a moment in the business to a movement in performance."
+            >
+              <form
+                className="edit-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void data
+                    .annotate(noteDate, note, unit)
+                    .then(() => setNote(''))
+                    .catch(() => {});
+                }}
+              >
+                <label>
+                  Date
+                  <input
+                    type="date"
+                    required
+                    value={noteDate}
+                    onChange={(e) => setNoteDate(e.target.value)}
+                  />
+                </label>
+                <label>
+                  What happened?
+                  <input
+                    required
+                    maxLength={300}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder="A new menu. A collaboration. An evening."
+                  />
+                </label>
+                <button
+                  className="secondary"
+                  disabled={data.busy || !data.ready}
+                >
+                  <Plus size={14} /> Add annotation
+                </button>
+              </form>
+              <div className="annotation-list">
+                {data.annotations
+                  .filter((n) => n.date >= range.start && n.date <= range.end)
+                  .map((n) => (
+                    <div key={n.id}>
+                      <span>{n.date}</span>
+                      <p>{n.text}</p>
+                    </div>
+                  ))}
+              </div>
+            </Panel>
           </div>
-        </Panel>
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -755,7 +776,7 @@ export function WebsitePage({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op: 'refresh', source: 'ga4' }),
       });
-      const result = await response.json() as { error?: string };
+      const result = (await response.json()) as { error?: string };
       if (!response.ok)
         throw new Error(result.error || 'Website refresh failed.');
     } catch (e) {

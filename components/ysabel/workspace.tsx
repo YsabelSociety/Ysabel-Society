@@ -650,6 +650,11 @@ export default function Workspace({
                   data={data}
                   range={range}
                   unit={unit}
+                  live={source.mode === 'live'}
+                  websiteConnection={source.sourceStatus.find(
+                    (s) => s.channel === 'Website',
+                  )}
+                  websiteRealtime={source.websiteRealtime}
                 />
               )}
               {page === 'Content Intelligence' && (

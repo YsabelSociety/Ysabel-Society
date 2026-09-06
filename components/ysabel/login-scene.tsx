@@ -4,77 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, Pause, Play } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
 
-const planeVertex = `
-  varying vec2 vUv;
-  void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-`;
-const surfaceFragment = `
-  uniform sampler2D uImage;
-  uniform float uProgress;
-  uniform float uSculpture;
-  uniform float uTime;
-  uniform vec2 uPointer;
-  varying vec2 vUv;
-  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-  float noise(vec2 p) {
-    vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
-    return mix(mix(hash(i),hash(i+vec2(1,0)),f.x),mix(hash(i+vec2(0,1)),hash(i+vec2(1,1)),f.x),f.y);
-  }
-  void main() {
-    vec4 pixel = texture2D(uImage, vUv);
-    float lightness = dot(pixel.rgb, vec3(.2126,.7152,.0722));
-    float mask = uSculpture > .5 ? smoothstep(.006,.055,lightness) : 1.0-smoothstep(.68,.97,lightness);
-    if (mask < .01 || pixel.a < .01) discard;
-    float grain = noise(vUv*23.0)*.65 + noise(vUv*81.0)*.25 + noise(vUv*173.0)*.1;
-    float threshold = uSculpture > .5 ? .34+grain*.47 : .1+grain*.5;
-    float reveal = smoothstep(threshold-.08,threshold+.08,uProgress);
-    float visibility = uSculpture > .5 ? reveal : 1.0-reveal;
-    float edge = (1.0-smoothstep(.0,.045,abs(uProgress-threshold))) * sin(uProgress*3.14159265);
-    vec3 colour = pixel.rgb;
-    // Light moves across the marble; texture coordinates never warp the emblem.
-    if(uSculpture > .5) {
-      float beam = exp(-pow((vUv.x - .5 - uPointer.x*.24 + sin(uTime*.13)*.08)*2.3,2.0));
-      colour *= .87 + .25*beam;
-    }
-    colour += vec3(.48,.40,.21)*edge*.5;
-    gl_FragColor = vec4(colour, pixel.a*mask*visibility);
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
-  }
-`;
-const particleVertex = `
-  attribute vec3 aEnd;
-  attribute vec3 aStone;
-  attribute float aSeed;
-  uniform float uProgress;
-  uniform float uTime;
-  uniform float uPixelRatio;
-  varying vec3 vColour;
-  varying float vAlpha;
-  void main() {
-    float p = smoothstep(.12,.9,uProgress);
-    float drift = max(0.0,sin(p*3.14159265));
-    vec3 target = mix(position,aEnd,p);
-    float angle = aSeed*62.83 + p*4.2;
-    target += vec3(cos(angle)*.8,sin(angle)*.7,sin(angle*.7)*1.5)*drift;
-    target.y += sin(aSeed*35.0+uTime*.35)*drift*.15;
-    vec4 viewPosition = modelViewMatrix*vec4(target,1.0);
-    gl_Position = projectionMatrix*viewPosition;
-    gl_PointSize = (1.0+aSeed*1.35)*uPixelRatio*(1.0+drift*.3);
-    vColour = mix(vec3(.27,.24,.12),aStone,p);
-    vAlpha = pow(drift,.75)*.88;
-  }
-`;
-const particleFragment = `
-  varying vec3 vColour;
-  varying float vAlpha;
-  void main() {
-    float circle = 1.0-smoothstep(.12,.5,length(gl_PointCoord-.5));
-    gl_FragColor = vec4(vColour,circle*vAlpha);
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
-  }
-`;
+const ease = (a: number, b: number, value: number) => {
+  const t = Math.max(0, Math.min(1, (value - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
 export function LoginScene() {
   const host = useRef<HTMLDivElement>(null);
@@ -83,305 +16,528 @@ export function LoginScene() {
     reduced: false,
     target: 0,
     progress: 0,
-    hover: false,
+    time: 0,
   });
   const [playing, setPlaying] = useState(false);
   const [ready, setReady] = useState(false);
+
   useEffect(() => {
-    const preference = matchMedia('(prefers-reduced-motion: reduce)');
-    const updatePreference = () => {
-      settings.current.reduced = preference.matches;
-      settings.current.automatic = !preference.matches;
-      if (preference.matches)
-        settings.current.target = settings.current.progress < 0.5 ? 0 : 1;
-      setPlaying(!preference.matches);
-    };
-    updatePreference();
-    preference.addEventListener('change', updatePreference);
+    const target = host.current;
+    if (!target) return;
     let disposed = false;
     let cleanup = () => {};
     const abort = new AbortController();
-    // The original files remain intact; smaller canvases are only GPU textures.
-    const loadCanvas = async (path: string, width: number, height: number) => {
-      const response = await fetch(appPath(path), { signal: abort.signal });
-      if (!response.ok) throw new Error('Artwork unavailable');
-      const bitmap = await createImageBitmap(await response.blob(), {
-        resizeWidth: width,
-        resizeHeight: height,
-        resizeQuality: 'high',
-      });
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext('2d', { willReadFrequently: true });
-      if (!context) {
-        bitmap.close();
-        throw new Error('Canvas unavailable');
-      }
-      context.drawImage(bitmap, 0, 0);
-      bitmap.close();
-      return { canvas, context };
+    const preference = matchMedia('(prefers-reduced-motion: reduce)');
+    const updatePreference = () => {
+      const state = settings.current;
+      state.reduced = preference.matches;
+      state.automatic = !preference.matches;
+      if (preference.matches) state.target = state.progress < 0.5 ? 0 : 1;
+      setPlaying(state.automatic);
     };
-    void Promise.all([
-      import('three'),
-      loadCanvas('/ysabel-emblem.png', 1536, 864),
-      loadCanvas('/ysabel-classical-sculptures.png', 1024, 1024),
-    ])
-      .then(([T, emblemImage, stoneImage]) => {
-        if (disposed || !host.current) return;
-        const target = host.current;
-        let renderer: InstanceType<typeof T.WebGLRenderer>;
-        try {
-          renderer = new T.WebGLRenderer({
-            alpha: true,
-            antialias: true,
-            powerPreference: 'low-power',
-          });
-        } catch {
-          return;
-        }
-        const ratio = Math.min(devicePixelRatio, 1.5);
-        renderer.setPixelRatio(ratio);
-        renderer.setClearColor(0x000000, 0);
-        renderer.outputColorSpace = T.SRGBColorSpace;
-        target.appendChild(renderer.domElement);
-        const scene = new T.Scene();
-        const camera = new T.OrthographicCamera(-4, 4, 3.3, -3.3, 0.1, 30);
-        camera.position.z = 10;
-        const group = new T.Group();
-        scene.add(group);
-        const pointer = new T.Vector2();
-        const progress = { value: 0 },
-          time = { value: 0 };
-        const textures = [emblemImage, stoneImage].map(({ canvas }) => {
-          const texture = new T.CanvasTexture(canvas);
-          texture.colorSpace = T.SRGBColorSpace;
-          texture.anisotropy = Math.min(
-            4,
-            renderer.capabilities.getMaxAnisotropy(),
-          );
-          return texture;
-        });
-        const geometries: InstanceType<typeof T.BufferGeometry>[] = [];
-        const materials: InstanceType<typeof T.Material>[] = [];
-        const makeSurface = (index: number, width: number, height: number) => {
-          const geometry = new T.PlaneGeometry(width, height);
-          const material = new T.ShaderMaterial({
-            uniforms: {
-              uImage: { value: textures[index] },
-              uProgress: progress,
-              uTime: time,
-              uPointer: { value: pointer },
-              uSculpture: { value: index },
-            },
-            vertexShader: planeVertex,
-            fragmentShader: surfaceFragment,
-            transparent: true,
-            depthWrite: false,
-            depthTest: false,
-          });
-          geometries.push(geometry);
-          materials.push(material);
-          const mesh = new T.Mesh(geometry, material);
-          mesh.renderOrder = index;
-          group.add(mesh);
-        };
-        makeSurface(0, 9.95, (9.95 * 4500) / 8000);
-        makeSurface(1, 5.65, 5.65);
-        // Sample the supplied silhouettes, never invent or redraw the brand mark.
-        const sample = (
-          image: typeof emblemImage,
-          width: number,
-          height: number,
-          invert: boolean,
-        ) => {
-          const { data } = image.context.getImageData(
-            0,
-            0,
-            image.canvas.width,
-            image.canvas.height,
-          );
-          const points: number[][] = [];
-          const step = invert ? 4 : 6;
-          const colour = new T.Color();
-          for (let y = 0; y < image.canvas.height; y += step)
-            for (let x = 0; x < image.canvas.width; x += step) {
-              const i = (y * image.canvas.width + x) * 4;
-              const l = (data[i] + data[i + 1] + data[i + 2]) / 765;
-              if (data[i + 3] < 128 || (invert ? l > 0.45 : l < 0.07)) continue;
-              colour.setRGB(
-                data[i] / 255,
-                data[i + 1] / 255,
-                data[i + 2] / 255,
-                T.SRGBColorSpace,
-              );
-              points.push([
-                (x / image.canvas.width - 0.5) * width,
-                (0.5 - y / image.canvas.height) * height,
-                invert ? 0 : l * 0.45,
-                colour.r,
-                colour.g,
-                colour.b,
-              ]);
-            }
-          return points;
-        };
-        const from = sample(emblemImage, 9.95, (9.95 * 4500) / 8000, true);
-        const to = sample(stoneImage, 5.65, 5.65, false);
-        const count = matchMedia('(max-width:800px)').matches ? 6500 : 13000;
-        const starts = new Float32Array(count * 3),
-          ends = new Float32Array(count * 3),
-          colours = new Float32Array(count * 3),
-          seeds = new Float32Array(count);
-        let randomSeed = 71421;
-        const random = () => {
-          randomSeed = (Math.imul(1664525, randomSeed) + 1013904223) >>> 0;
-          return randomSeed / 4294967296;
-        };
-        for (let i = 0; i < count; i++) {
-          const a = from[Math.floor(random() * from.length)] || [0, 0, 0];
-          const b = to[Math.floor(random() * to.length)] || [0, 0, 0, 1, 1, 1];
-          starts.set(a.slice(0, 3), i * 3);
-          ends.set(b.slice(0, 3), i * 3);
-          colours.set(b.slice(3, 6), i * 3);
-          seeds[i] = random();
-        }
-        const geometry = new T.BufferGeometry();
-        geometry.setAttribute('position', new T.BufferAttribute(starts, 3));
-        geometry.setAttribute('aEnd', new T.BufferAttribute(ends, 3));
-        geometry.setAttribute('aStone', new T.BufferAttribute(colours, 3));
-        geometry.setAttribute('aSeed', new T.BufferAttribute(seeds, 1));
-        const material = new T.ShaderMaterial({
-          uniforms: {
-            uProgress: progress,
-            uTime: time,
-            uPixelRatio: { value: ratio },
-          },
-          vertexShader: particleVertex,
-          fragmentShader: particleFragment,
-          transparent: true,
-          depthWrite: false,
-          depthTest: false,
-        });
-        geometries.push(geometry);
-        materials.push(material);
-        const particles = new T.Points(geometry, material);
-        particles.frustumCulled = false;
-        particles.renderOrder = 2;
-        group.add(particles);
-        let elapsed = 0,
-          previous = 0,
-          frame = 0;
-        const paint = () => renderer.render(scene, camera);
-        const resize = () => {
-          const box = target.getBoundingClientRect();
-          if (!box.width || !box.height) return;
-          renderer.setSize(box.width, box.height);
-          const aspect = box.width / box.height,
-            halfHeight = Math.max(3.3, 3.05 / aspect);
-          camera.left = -halfHeight * aspect;
-          camera.right = halfHeight * aspect;
-          camera.top = halfHeight;
-          camera.bottom = -halfHeight;
-          camera.updateProjectionMatrix();
-          paint();
-        };
-        const observer = new ResizeObserver(resize);
-        observer.observe(target);
-        resize();
-        const move = (event: PointerEvent) => {
-          if (event.pointerType === 'touch') return;
-          const box = target.getBoundingClientRect();
-          pointer.set(
-            (event.clientX - box.left) / box.width - 0.5,
-            (event.clientY - box.top) / box.height - 0.5,
-          );
-          settings.current.hover = true;
-          settings.current.target = Math.max(
-            0,
-            Math.min(1, (pointer.x + 0.5 - 0.15) / 0.7),
-          );
-        };
-        const leave = () => {
-          settings.current.hover = false;
-          pointer.set(0, 0);
-        };
-        target.addEventListener('pointermove', move);
-        target.addEventListener('pointerleave', leave);
-        const animate = (now: number) => {
-          frame = requestAnimationFrame(animate);
-          if (now - previous < 32) return;
-          const delta = Math.min((now - previous) / 1000, 0.06);
-          previous = now;
-          const s = settings.current;
-          if (s.automatic && !s.reduced) elapsed += delta;
-          time.value = elapsed;
-          if (s.automatic && !s.hover) {
-            // Hold each form, then make a slow, reversible cinematic dissolve.
-            const cycle = elapsed % 20;
-            s.target =
-              cycle < 3
-                ? 0
-                : cycle < 8
-                  ? (cycle - 3) / 5
-                  : cycle < 12
-                    ? 1
-                    : cycle < 17
-                      ? 1 - (cycle - 12) / 5
-                      : 0;
-          }
-          const difference = s.target - s.progress;
-          s.progress = s.reduced
-            ? s.target
-            : Math.abs(difference) < 0.0005
-              ? s.target
-              : s.progress + difference * 0.075;
-          progress.value = s.progress;
-          if (!s.reduced) {
-            group.rotation.y += (pointer.x * 0.14 - group.rotation.y) * 0.04;
-            group.rotation.x += (-pointer.y * 0.09 - group.rotation.x) * 0.04;
-            group.position.y = Math.sin(elapsed * 0.27) * 0.045;
-          } else {
-            group.rotation.set(0, 0, 0);
-            group.position.y = 0;
-          }
-          if (s.automatic || s.hover || Math.abs(difference) > 0.0001) paint();
-        };
-        const visibility = () => {
-          cancelAnimationFrame(frame);
-          if (!document.hidden) {
-            previous = performance.now();
-            frame = requestAnimationFrame(animate);
-          }
-        };
-        document.addEventListener('visibilitychange', visibility);
-        const lost = (event: Event) => {
-          event.preventDefault();
-          cancelAnimationFrame(frame);
-          setReady(false);
-        };
-        renderer.domElement.addEventListener('webglcontextlost', lost);
-        visibility();
-        setReady(true);
-        cleanup = () => {
-          cancelAnimationFrame(frame);
-          observer.disconnect();
-          document.removeEventListener('visibilitychange', visibility);
-          target.removeEventListener('pointermove', move);
-          target.removeEventListener('pointerleave', leave);
-          renderer.domElement.removeEventListener('webglcontextlost', lost);
-          geometries.forEach((g) => g.dispose());
-          materials.forEach((m) => m.dispose());
-          textures.forEach((t) => t.dispose());
-          renderer.dispose();
-          renderer.domElement.remove();
-          emblemImage.canvas.width = 0;
-          stoneImage.canvas.width = 0;
-        };
-      })
-      .catch(() => {
-        /* The unchanged emblem remains visible if 3D is unavailable. */
+    updatePreference();
+    preference.addEventListener('change', updatePreference);
+
+    async function start() {
+      const [
+        THREE,
+        { SVGLoader },
+        { RoomEnvironment },
+        svgResponse,
+        firstResponse,
+        secondResponse,
+      ] = await Promise.all([
+        import('three'),
+        import('three/examples/jsm/loaders/SVGLoader.js'),
+        import('three/examples/jsm/environments/RoomEnvironment.js'),
+        fetch(appPath('/ysabel-emblem-source.svg'), { signal: abort.signal }),
+        fetch(appPath('/sculptures/poseidon.bin'), { signal: abort.signal }),
+        fetch(appPath('/sculptures/kneeling.bin'), { signal: abort.signal }),
+      ]);
+      if (
+        ![svgResponse, firstResponse, secondResponse].every(
+          (response) => response.ok,
+        )
+      )
+        throw new Error('Sculpture unavailable');
+      const [svg, first, second] = await Promise.all([
+        svgResponse.text(),
+        firstResponse.arrayBuffer(),
+        secondResponse.arrayBuffer(),
+      ]);
+      if (disposed) return;
+
+      const geometries: InstanceType<typeof THREE.BufferGeometry>[] = [];
+      const materials: InstanceType<typeof THREE.Material>[] = [];
+      const textures: InstanceType<typeof THREE.Texture>[] = [];
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 60);
+      const renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        powerPreference: 'low-power',
       });
+      renderer.setPixelRatio(
+        Math.min(devicePixelRatio, innerWidth < 800 ? 1.25 : 1.75),
+      );
+      renderer.setClearColor(0x000000, 0);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.15;
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      renderer.domElement.setAttribute('aria-hidden', 'true');
+      target!.appendChild(renderer.domElement);
+      let frame = 0;
+      let environment: InstanceType<typeof THREE.WebGLRenderTarget> | undefined;
+      let observer: ResizeObserver | undefined;
+      const dispose = () => {
+        cancelAnimationFrame(frame);
+        observer?.disconnect();
+        geometries.forEach((item) => item.dispose());
+        materials.forEach((item) => item.dispose());
+        textures.forEach((item) => item.dispose());
+        environment?.dispose();
+        scene.traverse((item) => {
+          if (item instanceof THREE.Light && 'shadow' in item)
+            (
+              item as InstanceType<typeof THREE.DirectionalLight>
+            ).shadow?.map?.dispose();
+        });
+        renderer.dispose();
+        renderer.domElement.remove();
+      };
+      cleanup = dispose;
+
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const room = new RoomEnvironment();
+      environment = pmrem.fromScene(room, 0.045);
+      scene.environment = Array.isArray(environment.texture)
+        ? environment.texture[0]
+        : environment.texture;
+      room.dispose();
+      pmrem.dispose();
+      scene.add(new THREE.HemisphereLight(0xf5edcf, 0x20291b, 2.1));
+      const key = new THREE.DirectionalLight(0xffefd3, 5.5);
+      key.position.set(-3.8, 5.5, 5);
+      key.castShadow = true;
+      key.shadow.mapSize.set(1024, 1024);
+      key.shadow.camera.left = -5;
+      key.shadow.camera.right = 5;
+      key.shadow.camera.top = 5;
+      key.shadow.camera.bottom = -5;
+      key.shadow.normalBias = 0.025;
+      key.shadow.bias = -0.0001;
+      key.shadow.radius = 4;
+      scene.add(key);
+      const rim = new THREE.DirectionalLight(0xe5dcb0, 4);
+      rim.position.set(3, 2, -3);
+      scene.add(rim);
+      const fill = new THREE.DirectionalLight(0xd6e1ba, 0.85);
+      fill.position.set(2, -1, 4);
+      scene.add(fill);
+
+      const bronze = new THREE.MeshPhysicalMaterial({
+        color: 0xb6a376,
+        metalness: 0.86,
+        roughness: 0.27,
+        envMapIntensity: 1.3,
+        clearcoat: 0.25,
+        clearcoatRoughness: 0.32,
+      });
+      const marble = new THREE.MeshPhysicalMaterial({
+        color: 0xe1dac4,
+        roughness: 0.51,
+        metalness: 0.12,
+        envMapIntensity: 0.7,
+      });
+      materials.push(bronze, marble);
+      const world = new THREE.Group();
+      scene.add(world);
+
+      const paths = new SVGLoader().parse(svg).paths;
+      const sculptedPaths = paths
+        .flatMap((path) => SVGLoader.createShapes(path))
+        .map((shape) => {
+          const geometry = new THREE.ExtrudeGeometry(shape, {
+            depth: 35,
+            steps: 1,
+            bevelEnabled: true,
+            bevelThickness: 2.2,
+            bevelSize: 0.9,
+            bevelSegments: 3,
+            curveSegments: 18,
+          });
+          geometry.translate(-960, -540, -17.5);
+          geometry.rotateX(Math.PI);
+          geometry.scale(0.0051, 0.0051, 0.0051);
+          geometry.computeBoundingBox();
+          const center = geometry.boundingBox!.getCenter(new THREE.Vector3());
+          geometry.translate(-center.x, -center.y, -center.z);
+          const mesh = new THREE.Mesh(geometry, bronze);
+          mesh.position.copy(center);
+          mesh.castShadow = true;
+          mesh.receiveShadow = true;
+          world.add(mesh);
+          geometries.push(geometry);
+          return { mesh, center };
+        });
+
+      function readSculpture(buffer: ArrayBuffer, turn: number) {
+        const header = new Uint32Array(buffer, 0, 2);
+        if (buffer.byteLength !== 8 + header[0] * 12 + header[1] * 4)
+          throw new Error('Invalid sculpture');
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute(
+          'position',
+          new THREE.BufferAttribute(
+            new Float32Array(buffer, 8, header[0] * 3),
+            3,
+          ),
+        );
+        geometry.setIndex(
+          new THREE.BufferAttribute(
+            new Uint32Array(buffer, 8 + header[0] * 12, header[1]),
+            1,
+          ),
+        );
+        geometry.rotateY(turn);
+        geometry.computeVertexNormals();
+        geometry.computeBoundingSphere();
+        geometries.push(geometry);
+        return geometry;
+      }
+      const statueGeometries = [
+        readSculpture(first, 0),
+        readSculpture(second, Math.PI / 2),
+      ];
+      const count = 120;
+      const statues = statueGeometries.map((geometry, index) => {
+        const mesh = new THREE.InstancedMesh(
+          geometry,
+          index ? bronze : marble,
+          Math.ceil(count / 2),
+        );
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.frustumCulled = false;
+        mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+        world.add(mesh);
+        return mesh;
+      });
+      const dummy = new THREE.Object3D();
+      // Reuse two indexed museum scans across 120 real, solid miniature sculptures.
+      const destinations = Array.from({ length: count }, (_, i) => {
+        const angle = i * 2.39996323;
+        const radius = 0.12 + 2.18 * Math.sqrt(i / Math.max(1, count - 1));
+        return new THREE.Vector3(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius * 0.86 + 0.12,
+          Math.sin(i * 1.81) * 1.05,
+        );
+      });
+      // Inscribed tablets and abstract chart objects tie ancient records to digital data.
+      // These are decorative forms; no private reports or invented KPI values are shown.
+      const inscription = document.createElement('canvas');
+      inscription.width = 256;
+      inscription.height = 384;
+      const ink = inscription.getContext('2d')!;
+      ink.fillStyle = '#d4c6a4';
+      ink.fillRect(0, 0, 256, 384);
+      ink.fillStyle = '#786a4b';
+      ink.font = '35px Georgia';
+      ink.textAlign = 'center';
+      [
+        'Α · Β · Γ',
+        'ΙΙΙ  ΙΙ  Ι',
+        'Δ · Ε · Ζ',
+        'Ι  ΙΙΙ  ΙΙ',
+        'Η · Θ · Ι',
+      ].forEach((line, i) => ink.fillText(line, 128, 65 + i * 58));
+      const tabletMap = new THREE.CanvasTexture(inscription);
+      tabletMap.colorSpace = THREE.SRGBColorSpace;
+      textures.push(tabletMap);
+      const tabletMaterial = new THREE.MeshPhysicalMaterial({
+        color: 0xe7ddc6,
+        map: tabletMap,
+        bumpMap: tabletMap,
+        bumpScale: -0.018,
+        roughness: 0.72,
+        metalness: 0.08,
+      });
+      materials.push(tabletMaterial);
+      const tabletGeometry = new THREE.BoxGeometry(0.27, 0.39, 0.065);
+      const barGeometry = new THREE.BoxGeometry(0.055, 1, 0.055);
+      geometries.push(tabletGeometry, barGeometry);
+      const dataForms = Array.from({ length: 18 }, (_, i) => {
+        const group = new THREE.Group();
+        if (i % 2 === 0) {
+          const tablet = new THREE.Mesh(tabletGeometry, tabletMaterial);
+          tablet.castShadow = true;
+          group.add(tablet);
+        } else {
+          [0.13, 0.24, 0.18, 0.34].forEach((height, bar) => {
+            const mesh = new THREE.Mesh(barGeometry, bar % 2 ? marble : bronze);
+            mesh.scale.y = height;
+            mesh.position.set((bar - 1.5) * 0.085, height / 2 - 0.17, 0);
+            mesh.castShadow = true;
+            group.add(mesh);
+          });
+          const points = [
+            new THREE.Vector3(-0.16, -0.04, 0.06),
+            new THREE.Vector3(-0.05, 0.05, 0.06),
+            new THREE.Vector3(0.045, 0.015, 0.06),
+            new THREE.Vector3(0.15, 0.17, 0.06),
+          ];
+          const lineGeometry = new THREE.TubeGeometry(
+            new THREE.CatmullRomCurve3(points),
+            16,
+            0.009,
+            5,
+            false,
+          );
+          geometries.push(lineGeometry);
+          group.add(new THREE.Mesh(lineGeometry, bronze));
+        }
+        const angle = i * 2.39996323 + 1.2;
+        const radius = 0.6 + 1.55 * Math.sqrt(i / 17);
+        const destination = new THREE.Vector3(
+          Math.cos(angle) * radius,
+          Math.sin(angle) * radius * 0.86,
+          0.4 + Math.sin(i * 2.4) * 0.8,
+        );
+        world.add(group);
+        return { group, destination };
+      });
+      const groundGeometry = new THREE.PlaneGeometry(80, 80);
+      geometries.push(groundGeometry);
+      const groundMaterial = new THREE.ShadowMaterial({
+        color: 0x10170c,
+        opacity: 0.19,
+      });
+      materials.push(groundMaterial);
+      const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -2.6;
+      ground.receiveShadow = true;
+      scene.add(ground);
+
+      const pointer = new THREE.Vector2();
+      const rotation = new THREE.Vector2();
+      const dragRotation = new THREE.Vector2();
+      let dragging = false;
+      let previousX = 0;
+      let previousY = 0;
+      let visible = !document.hidden;
+      let last = 0;
+      let elapsed = 0;
+      const onMove = (event: PointerEvent) => {
+        const bounds = target!.getBoundingClientRect();
+        pointer.set(
+          ((event.clientX - bounds.left) / bounds.width) * 2 - 1,
+          ((event.clientY - bounds.top) / bounds.height) * 2 - 1,
+        );
+        if (dragging) {
+          dragRotation.x += (event.clientX - previousX) * 0.006;
+          dragRotation.y = THREE.MathUtils.clamp(
+            dragRotation.y + (event.clientY - previousY) * 0.004,
+            -0.6,
+            0.6,
+          );
+          previousX = event.clientX;
+          previousY = event.clientY;
+        }
+      };
+      const onDown = (event: PointerEvent) => {
+        if (event.pointerType !== 'mouse') return;
+        dragging = true;
+        previousX = event.clientX;
+        previousY = event.clientY;
+        target!.setPointerCapture(event.pointerId);
+        target!.classList.add('is-dragging');
+      };
+      const onUp = () => {
+        dragging = false;
+        target!.classList.remove('is-dragging');
+      };
+      const onLeave = () => {
+        if (!dragging) pointer.set(0, 0);
+      };
+      const onKey = (event: KeyboardEvent) => {
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          event.preventDefault();
+          dragRotation.x += event.key === 'ArrowLeft' ? -0.2 : 0.2;
+        }
+      };
+      const resize = () => {
+        const width = target!.clientWidth;
+        const height = target!.clientHeight;
+        renderer.setSize(width, height, false);
+        camera.aspect = width / Math.max(1, height);
+        camera.position.set(0, 0.25, Math.max(9.6, 8.8 / camera.aspect));
+        camera.lookAt(0, 0, 0);
+        camera.updateProjectionMatrix();
+      };
+      resize();
+      observer = new ResizeObserver(resize);
+      observer.observe(target!);
+
+      function render(now: number) {
+        if (disposed || !visible) return;
+        frame = requestAnimationFrame(render);
+        if (now - last < 1000 / 30) return;
+        const dt = Math.min((now - last) / 1000 || 0, 0.05);
+        last = now;
+        const state = settings.current;
+        if (state.automatic) {
+          elapsed += dt;
+          state.time += dt;
+          const cycle = state.time % 30;
+          state.target =
+            cycle < 6
+              ? 0
+              : cycle < 14
+                ? ease(6, 14, cycle)
+                : cycle < 21
+                  ? 1
+                  : ease(29, 21, cycle);
+        }
+        if (state.reduced) state.progress = state.target;
+        else if (state.automatic)
+          state.progress +=
+            (state.target - state.progress) * (1 - Math.exp(-dt * 3));
+        else
+          state.progress += THREE.MathUtils.clamp(
+            state.target - state.progress,
+            -dt / 7,
+            dt / 7,
+          );
+        const p = state.progress;
+        rotation.x +=
+          (dragRotation.x + pointer.x * 0.22 - rotation.x) *
+          (1 - Math.exp(-dt * 3));
+        rotation.y +=
+          (dragRotation.y + pointer.y * 0.12 - rotation.y) *
+          (1 - Math.exp(-dt * 3));
+        world.rotation.set(
+          rotation.y + 0.025 * Math.sin(elapsed * 0.3),
+          rotation.x - 0.14 + Math.sin(elapsed * 0.17) * 0.09,
+          0.02 * Math.sin(elapsed * 0.2),
+        );
+        world.position.y = Math.sin(elapsed * 0.4) * 0.04;
+        key.position.x = -3.8 + pointer.x * 0.8;
+        key.position.y = 5.5 - pointer.y * 0.5;
+
+        sculptedPaths.forEach(({ mesh, center }, i) => {
+          const stagger = (i / sculptedPaths.length) * 0.14;
+          const local = ease(stagger, 0.85 + stagger, p);
+          const travel = ease(0.02, 0.92, local);
+          const arc = Math.sin(travel * Math.PI);
+          const destination = destinations[i];
+          const angle = i * 2.39996323 + travel * 1.7;
+          dummy.position.copy(center).lerp(destination, travel);
+          dummy.position.x += Math.cos(angle) * arc * 0.34;
+          dummy.position.y += Math.sin(angle) * arc * 0.34;
+          dummy.position.z += arc * (0.7 + (i % 3) * 0.2);
+          mesh.position.copy(dummy.position);
+          const shrink = 1 - ease(0.12, 0.76, local);
+          mesh.scale.setScalar(Math.max(0.00001, shrink));
+          mesh.rotation.set(
+            arc * 0.3,
+            travel * Math.PI * 1.5,
+            arc * (i % 2 ? 0.65 : -0.65),
+          );
+          mesh.visible = shrink > 0.002;
+        });
+        destinations.forEach((destination, i) => {
+          const local = ease((i / count) * 0.16, 0.84 + (i / count) * 0.16, p);
+          const travel = ease(0.02, 0.92, local);
+          const arc = Math.sin(travel * Math.PI);
+          const angle = i * 2.39996323 + travel * 1.7;
+          dummy.position
+            .copy(sculptedPaths[i % sculptedPaths.length].center)
+            .lerp(destination, travel);
+          dummy.position.x += Math.cos(angle) * arc * 0.4;
+          dummy.position.y += Math.sin(angle) * arc * 0.4;
+          dummy.position.z += arc * (0.8 + (i % 3) * 0.2);
+          const grow = ease(0.35, 0.94, local);
+          const size =
+            (0.28 + 0.07 * Math.sin(i * 4.2) + (i < 5 ? 0.16 : 0)) * grow;
+          dummy.scale.setScalar(Math.max(0.00001, size));
+          dummy.rotation.set(
+            0.04 * Math.sin(i),
+            (1 - grow) * -Math.PI +
+              Math.sin(i * 3.7) * 0.42 +
+              Math.sin(elapsed * 0.15 + i) * 0.08,
+            0.025 * Math.sin(elapsed * 0.3 + i),
+          );
+          dummy.position.y += grow * Math.sin(elapsed * 0.5 + i) * 0.055;
+          dummy.updateMatrix();
+          statues[i % 2].setMatrixAt(Math.floor(i / 2), dummy.matrix);
+        });
+        statues.forEach((mesh) => {
+          mesh.instanceMatrix.needsUpdate = true;
+          mesh.visible = p > 0.08;
+        });
+        dataForms.forEach(({ group, destination }, i) => {
+          const appear = ease(0.32 + (i % 3) * 0.04, 0.94, p);
+          group.visible = appear > 0.001;
+          group.position.copy(destination).multiplyScalar(0.3 + appear * 0.7);
+          group.position.z += Math.sin(appear * Math.PI) * 0.7;
+          group.rotation.set(
+            0.12 * Math.sin(i),
+            Math.sin(i * 2.1) * 0.3 + (1 - appear) * 2,
+            Math.sin(elapsed * 0.16 + i) * 0.06,
+          );
+          group.scale.setScalar(Math.max(0.00001, appear));
+        });
+        renderer.render(scene, camera);
+      }
+      const onVisibility = () => {
+        visible = !document.hidden;
+        cancelAnimationFrame(frame);
+        if (visible) {
+          last = 0;
+          frame = requestAnimationFrame(render);
+        }
+      };
+      const onContextLost = (event: Event) => {
+        event.preventDefault();
+        visible = false;
+        cancelAnimationFrame(frame);
+        setReady(false);
+      };
+      target!.addEventListener('pointermove', onMove);
+      target!.addEventListener('pointerdown', onDown);
+      target!.addEventListener('pointerup', onUp);
+      target!.addEventListener('pointercancel', onUp);
+      target!.addEventListener('lostpointercapture', onUp);
+      target!.addEventListener('pointerleave', onLeave);
+      target!.addEventListener('keydown', onKey);
+      document.addEventListener('visibilitychange', onVisibility);
+      renderer.domElement.addEventListener('webglcontextlost', onContextLost);
+      cleanup = () => {
+        target!.removeEventListener('pointermove', onMove);
+        target!.removeEventListener('pointerdown', onDown);
+        target!.removeEventListener('pointerup', onUp);
+        target!.removeEventListener('pointercancel', onUp);
+        target!.removeEventListener('lostpointercapture', onUp);
+        target!.removeEventListener('pointerleave', onLeave);
+        target!.removeEventListener('keydown', onKey);
+        document.removeEventListener('visibilitychange', onVisibility);
+        renderer.domElement.removeEventListener(
+          'webglcontextlost',
+          onContextLost,
+        );
+        statues.forEach((mesh) => mesh.dispose());
+        dispose();
+      };
+      onVisibility();
+      setReady(true);
+    }
+    start().catch(() => {
+      cleanup();
+      if (!disposed) setReady(false);
+    });
     return () => {
       disposed = true;
       abort.abort();
@@ -389,6 +545,7 @@ export function LoginScene() {
       cleanup();
     };
   }, []);
+
   return (
     <section
       className="login-intro"
@@ -403,34 +560,34 @@ export function LoginScene() {
           className={'login-emblem-fallback' + (ready ? ' is-ready' : '')}
           src={appPath('/ysabel-emblem.png')}
           alt="Ysabel Society emblem"
+          aria-hidden={ready}
           width={8000}
           height={4500}
         />
-        <div ref={host} className="login-three" aria-hidden="true" />
-      </div>
-      <div className="login-intro-copy">
-        <p className="login-kicker">PAST MEETS POSSIBILITY</p>
-        <h2>
-          The art of <em>connection.</em>
-        </h2>
+        <div
+          ref={host}
+          className="login-three"
+          role="img"
+          tabIndex={ready ? 0 : -1}
+          aria-label="Interactive sculpted Ysabel emblem transforming into 120 miniature classical statues, inscribed tablets, and chart forms. Drag to rotate, or use the left and right arrow keys."
+        />
       </div>
       <div className="login-intro-bottom">
-        <span className="login-interaction-hint">Move across to transform</span>
         {ready && (
           <div className="login-scene-controls">
             <button
               className="login-transform"
               type="button"
+              aria-label="Transform emblem and sculptures"
+              title="Transform"
               onClick={() => {
-                const s = settings.current;
-                s.automatic = false;
-                s.hover = false;
-                s.target = s.progress < 0.5 ? 1 : 0;
+                const state = settings.current;
+                state.automatic = false;
+                state.target = state.progress < 0.5 ? 1 : 0;
                 setPlaying(false);
               }}
             >
               <ArrowLeftRight size={14} />
-              Transform
             </button>
             <button
               type="button"
@@ -442,9 +599,12 @@ export function LoginScene() {
               }
               aria-pressed={!playing}
               onClick={() => {
-                settings.current.automatic = !playing;
-                // Explicit playback is the visitor's motion preference.
-                if (!playing) settings.current.reduced = false;
+                const state = settings.current;
+                state.automatic = !playing;
+                if (!playing) {
+                  state.reduced = false;
+                  state.time = state.progress < 0.5 ? 0 : 15;
+                }
                 setPlaying(!playing);
               }}
             >

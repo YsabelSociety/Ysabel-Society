@@ -6522,12 +6522,12 @@ h1 {
   background:
     radial-gradient(
       ellipse at 48% 36%,
-      #a7a86c 0%,
-      #77804e 31%,
+      #737346 0%,
+      #535d36 31%,
       transparent 65%
     ),
-    radial-gradient(ellipse at 100% 5%, #6b7248 0, transparent 48%),
-    linear-gradient(160deg, #465033, #293522 87%);
+    radial-gradient(ellipse at 100% 5%, #515733 0, transparent 48%),
+    linear-gradient(160deg, #364024, #202b1b 87%);
 }
 .login-emblem-stage {
   position: relative;
@@ -6556,6 +6556,15 @@ h1 {
   inset: 0;
   z-index: 1;
   touch-action: pan-y;
+  cursor: grab;
+  border-radius: 20px;
+}
+.login-three.is-dragging {
+  cursor: grabbing;
+}
+.login-three:focus-visible {
+  outline: 1px solid #d9d0a077;
+  outline-offset: -8px;
 }
 .login-three canvas {
   width: 100%;
@@ -6571,6 +6580,10 @@ h1 {
 }
 .login-intro-top {
   pointer-events: none;
+}
+.login-intro-bottom {
+  justify-content: flex-end;
+  min-height: 38px;
 }
 .login-eyebrow {
   font-size: 14px;
@@ -6669,7 +6682,9 @@ h1 {
   align-items: center;
   gap: 8px;
   min-height: 38px;
-  padding: 8px 14px;
+  padding: 8px;
+  width: 38px;
+  justify-content: center;
   border: 1px solid #d1d6b84d;
   border-radius: 24px;
   background: #ffffff0c;

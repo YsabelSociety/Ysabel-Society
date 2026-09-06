@@ -1,0 +1,21 @@
+Ysabel Society — classical sculpture assets
+
+Source: SMK — National Gallery of Denmark, Royal Cast Collection.
+Both source records designate these works as public domain (Public Domain Mark 1.0):
+https://creativecommons.org/publicdomain/mark/1.0/
+
+Poseidon or Zeus from Artemision, KAS2100
+https://open.smk.dk/artwork/image/KAS2100
+Metadata: https://api.smk.dk/api/v1/art?object_number=KAS2100
+Original scan: https://api.smk.dk/api/v1/download-3d/7m01br55g_smk-poseidon.stl
+
+Man kneeling, Niobide or wrestler, KAS193
+https://open.smk.dk/artwork/image/KAS193
+Metadata: https://api.smk.dk/api/v1/art?object_number=KAS193
+Original scan: https://api.smk.dk/api/v1/download-3d/k3569913m_KAS193_small.stl
+
+Adaptations: simplified to 6,000 triangles per model, centered, normalized,
+converted from Z-up to Y-up, and stored as indexed geometry for real-time rendering.
+The museum does not endorse this application.
+
+The Ysabel Society emblem is a separate brand asset supplied by its owner.

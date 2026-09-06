@@ -82,6 +82,19 @@ export default function LoginForm() {
           <p className="login-private">
             <LockKeyhole size={13} /> Private workspace · Ysabel Society
           </p>
+          <nav
+            aria-label="Legal information"
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 20,
+              marginTop: 16,
+              fontSize: 12,
+            }}
+          >
+            <a href={appPath('/privacy')}>Privacy policy</a>
+            <a href={appPath('/terms')}>Terms of use</a>
+          </nav>
         </div>
       </section>
     </main>

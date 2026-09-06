@@ -210,25 +210,39 @@ export async function importMeta(
       const jobs = dateList(range).flatMap((date) =>
         specs.map(([metric, field]) => ({ date, metric, field })),
       );
-      const replies = await graphBatch(
+      const insightPath = (date: string, metric: string) =>
+        encodeURIComponent(context.externalId) +
+        '/insights?' +
+        query({
+          metric,
+          period: 'day',
+          metric_type: 'total_value',
+          since: String(Math.floor(Date.parse(date + 'T00:00:00Z') / 1000)),
+          until: String(
+            Math.floor(Date.parse(date + 'T00:00:00Z') / 1000) + 86400,
+          ),
+        });
+      const days = dateList(range);
+      const grouped = await graphBatch(
         context,
-        jobs.map(
-          (j) =>
-            encodeURIComponent(context.externalId) +
-            '/insights?' +
-            query({
-              metric: j.metric,
-              period: 'day',
-              metric_type: 'total_value',
-              since: String(
-                Math.floor(Date.parse(j.date + 'T00:00:00Z') / 1000),
-              ),
-              until: String(
-                Math.floor(Date.parse(j.date + 'T00:00:00Z') / 1000) + 86400,
-              ),
-            }),
+        days.map((date) =>
+          insightPath(date, specs.map(([metric]) => metric).join(',')),
         ),
       );
+      const replies = jobs.map((j) => grouped[days.indexOf(j.date)]);
+      // A rejected optional metric must never hide the other reports for that date.
+      const retry = jobs
+        .map((j, i) => ({ j, i }))
+        .filter(({ i }) => replies[i].error);
+      if (retry.length) {
+        const separate = await graphBatch(
+          context,
+          retry.map(({ j }) => insightPath(j.date, j.metric)),
+        );
+        retry.forEach(({ i }, n) => {
+          replies[i] = separate[n];
+        });
+      }
       for (let i = 0; i < jobs.length; i++) {
         const j = jobs[i],
           item = replies[i],
@@ -277,7 +291,10 @@ export async function importMeta(
               : ' Empty dates stay unavailable.'),
         });
       }
-      for (const breakdown of ['country', 'city', 'age', 'gender']) {
+      for (const breakdown of context.importMode === 'reports' &&
+      range.end < new Date(Date.now() - 86400000).toISOString().slice(0, 10)
+        ? []
+        : ['country', 'city', 'age', 'gender']) {
         const raw: any = await collect(
           result,
           'audience-' + breakdown,

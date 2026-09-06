@@ -118,6 +118,21 @@ assert.equal(
   'unavailable',
 );
 const google = await import(load('lib/server/report-google.ts'));
+const meta = await import(load('lib/server/report-meta.ts'));
+let combinedRejected=false, metaBatches=0;
+globalThis.providerFixture=async(url,options)=>{
+  if(options.method!=='POST')return {id:'owned',username:'fixture',followers_count:30};
+  metaBatches++;
+  const requests=JSON.parse(new URLSearchParams(options.body).get('batch'));
+  return requests.map(item=>{const q=new URL('https://fixture/'+item.relative_url).searchParams;const metrics=q.get('metric').split(',');
+    if((combinedRejected&&metrics.length>1)||metrics[0]==='reposts')return {code:400,body:JSON.stringify({error:{code:100}})};
+    return {code:200,body:JSON.stringify({data:metrics.map(name=>({name,total_value:{value:name==='likes'?0:12}}))})};
+  });
+};
+const metaContext={externalId:'owned',accessToken:'fixture',apiVersion:'v24.0',importMode:'reports'};
+const metaRange={start:'2026-04-01',end:'2026-04-02'};
+const combined=await meta.importMeta(metaContext,'instagram',metaRange);assert.equal(metaBatches,1);assert.equal(combined.daily.find(d=>d.date==='2026-04-01').likes,0);assert.equal(combined.daily.find(d=>d.date==='2026-04-02').views,12);
+combinedRejected=true;metaBatches=0;const fallback=await meta.importMeta(metaContext,'instagram',metaRange);assert.equal(metaBatches,2);assert.equal(fallback.daily.find(d=>d.date==='2026-04-01').views,12);assert(!fallback.daily.find(d=>d.date==='2026-04-01').available.includes('reposts'));assert(fallback.daily.find(d=>d.date==='2026-04-01').available.includes('likes'));
 let offsets = [];
 globalThis.providerFixture = async (url, options) => {
   const q = JSON.parse(options.body);

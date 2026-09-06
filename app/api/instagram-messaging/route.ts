@@ -2,6 +2,7 @@ import { identity, json, apiError } from '@/lib/server/db';
 import {
   connectInstagramMessaging,
   readInstagramMessaging,
+  diagnoseInstagramMessaging,
 } from '@/lib/server/instagram-messaging';
 
 export async function GET() {
@@ -26,7 +27,12 @@ export async function POST(req: Request) {
     const raw = await req.text();
     if (raw.length > 10000)
       throw new Error('INPUT:Connection details are too long.');
-    return json(await connectInstagramMessaging(owner, JSON.parse(raw)));
+    const body = JSON.parse(raw);
+    return json(
+      body.op === 'diagnose'
+        ? await diagnoseInstagramMessaging(owner)
+        : await connectInstagramMessaging(owner, body),
+    );
   } catch (e) {
     return apiError(e);
   }

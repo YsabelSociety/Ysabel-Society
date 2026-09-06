@@ -8,6 +8,26 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [checks, setChecks] = useState<{ label: string; detail: string }[]>([]);
+  async function diagnose() {
+    setBusy(true);
+    setError('');
+    try {
+      const response = await fetch('/api/instagram-messaging', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'diagnose' }),
+      });
+      const result: any = await response.json();
+      if (!response.ok)
+        throw new Error(result.error || 'Access checks did not complete.');
+      setChecks(result.results);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
   useEffect(() => {
     const controller = new AbortController();
     fetch('/api/instagram-messaging', { signal: controller.signal })
@@ -134,6 +154,24 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
       </form>
       {status && <p role="status">{status}</p>}
       {error && <p role="alert">{error}</p>}
+      <button
+        className="secondary"
+        type="button"
+        disabled={busy}
+        onClick={diagnose}
+      >
+        {busy ? 'Checking access…' : 'Check all Instagram connection routes'}
+      </button>
+      {checks.length > 0 && (
+        <ul aria-label="Instagram connection checks">
+          {checks.map((c) => (
+            <li key={c.label}>
+              <strong>{c.label}</strong>
+              <p>{c.detail}</p>
+            </li>
+          ))}
+        </ul>
+      )}
       <p>
         After connection, automatic refresh checks accessible messages while the
         workspace is open and auto-sync is enabled. Replace the token here if

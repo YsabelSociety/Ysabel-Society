@@ -400,6 +400,9 @@ export async function syncMessages(
   for (let start = 0; start < imported.length; start += 2000)
     await saveCommunity(owner, imported.slice(start, start + 2000));
   const detail =
+    (instagram && conversationCount === 0
+      ? 'Instagram returned empty conversation pages. This does not mean your inbox is empty; message access is not yet verified. Check all connection routes in Access & import. '
+      : '') +
     (instagram ? 'Direct Instagram connection. ' : '') +
     conversationCount +
     ' accessible conversations checked. Up to 20 recent messages per conversation; older captured records are retained. Counts describe captured messages, not a complete inbox history.' +
@@ -417,7 +420,7 @@ export async function syncMessages(
   await saveCommunityStatus(owner, {
     source,
     kind: 'message',
-    state: 'partial',
+    state: instagram && conversationCount === 0 ? 'needs-attention' : 'partial',
     detail,
     accountId: context.accountId,
     cursor:

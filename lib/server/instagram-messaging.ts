@@ -54,6 +54,117 @@ export async function readInstagramMessaging(owner: string) {
   return readVault<InstagramMessageGrant>(owner, 'messaging', 'instagram');
 }
 
+export async function diagnoseInstagramMessaging(owner: string) {
+  const grant = await readInstagramMessaging(owner);
+  const target = await readVault<Resource>(owner, 'target', 'instagram');
+  const app = await getApp(owner, 'meta');
+  const probes: {
+    label: string;
+    host: string;
+    path: string;
+    token: string;
+    version: string;
+  }[] = [];
+  if (grant) {
+    probes.push({
+      label: 'Direct Instagram · account endpoint',
+      host: 'graph.instagram.com',
+      path: grant.externalId + '/conversations?platform=instagram&limit=50',
+      token: grant.accessToken,
+      version: grant.apiVersion,
+    });
+    probes.push({
+      label: 'Direct Instagram · me endpoint',
+      host: 'graph.instagram.com',
+      path: 'me/conversations?limit=50',
+      token: grant.accessToken,
+      version: grant.apiVersion,
+    });
+    probes.push({
+      label: 'Direct Instagram · permissions',
+      host: 'graph.instagram.com',
+      path: 'me/permissions',
+      token: grant.accessToken,
+      version: grant.apiVersion,
+    });
+  }
+  if (target?.pageToken && app.apiVersion) {
+    const page = await graphGet(
+      {
+        accessToken: target.pageToken,
+        apiVersion: app.apiVersion,
+        externalId: target.id,
+      },
+      'me?fields=id',
+    );
+    probes.push({
+      label: 'Facebook-linked · Page endpoint',
+      host: 'graph.facebook.com',
+      path:
+        encodeURIComponent(page.id) +
+        '/conversations?platform=instagram&limit=1',
+      token: target.pageToken,
+      version: app.apiVersion,
+    });
+    probes.push({
+      label: 'Facebook-linked · Instagram endpoint',
+      host: 'graph.facebook.com',
+      path:
+        encodeURIComponent(target.id) +
+        '/conversations?platform=instagram&limit=1',
+      token: target.pageToken,
+      version: app.apiVersion,
+    });
+  }
+  return {
+    results: await Promise.all(
+      probes.map(async (probe) => {
+        try {
+          const response = await fetch(
+            'https://' + probe.host + '/' + probe.version + '/' + probe.path,
+            {
+              headers: { Authorization: 'Bearer ' + probe.token },
+              signal: AbortSignal.timeout(45000),
+            },
+          );
+          const body: any = await response.json();
+          if (!response.ok || body.error)
+            return {
+              label: probe.label,
+              detail: metaMessageError(body.error, probe.token),
+            };
+          if (probe.label.endsWith('permissions'))
+            return {
+              label: probe.label,
+              detail:
+                (body.data || [])
+                  .map(
+                    (p: any) => String(p.permission) + ': ' + String(p.status),
+                  )
+                  .join('; ') || 'No permissions returned.',
+            };
+          return {
+            label: probe.label,
+            detail: Array.isArray(body.data)
+              ? body.data.length +
+                ' conversations returned in this page.' +
+                (body.paging?.next ? ' More pages available.' : '')
+              : 'No readable conversation list returned.',
+          };
+        } catch (e) {
+          return {
+            label: probe.label,
+            detail:
+              e instanceof Error && e.name === 'TimeoutError'
+                ? 'Meta timed out before returning this page.'
+                : 'This access check could not complete.',
+          };
+        }
+      }),
+    ),
+  };
+}
+
 export async function connectInstagramMessaging(owner: string, input: any) {
   const accessToken = requireText(input.accessToken, 6000);
   const apiVersion = requireText(input.apiVersion, 12);

@@ -20,6 +20,10 @@ test('website page loads its own built preview, not an external app iframe', () 
   assert(!page.includes('chatgpt.site'));
 });
 
+test('preview build tools are installed even when the build environment is production', () => {
+  assert(read('scripts/build-contentpreview.mjs').includes("'--include=dev'"));
+});
+
 test('API routing is restricted to the preview and keeps the existing data server', () => {
   const config = read('next.config.ts');
   assert(config.includes('source: "/contentpreview/api/:path*"'));

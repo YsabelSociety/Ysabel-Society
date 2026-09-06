@@ -797,7 +797,7 @@ export function WebsitePage({
         </p>
       )}
       <div className="inline-controls">
-        <a className="secondary" href="/connections?connect=google">
+          <a className="secondary" href="/connections">
           Manage Google connection
         </a>
         {status && (

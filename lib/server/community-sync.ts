@@ -27,6 +27,7 @@ export async function readConversationList(
   source: 'facebook' | 'instagram',
   after = '',
   attempt = 0,
+  pageSize = 50,
 ) {
   if (!/^v\d{1,2}\.\d{1,2}$/.test(context.apiVersion || ''))
     throw new Error('INPUT:Check the configured Meta API version.');
@@ -51,7 +52,7 @@ export async function readConversationList(
               ? '2'
               : source === 'instagram'
                 ? '10'
-                : '50',
+                : String(Math.min(50, Math.max(1, pageSize))),
         ...(after ? { after } : {}),
       }),
     {
@@ -63,7 +64,14 @@ export async function readConversationList(
   if (!response.ok || body.error) {
     const error = body.error || {};
     if (error.code === 1 && attempt < 2)
-      return readConversationList(context, pageId, source, after, attempt + 1);
+      return readConversationList(
+        context,
+        pageId,
+        source,
+        after,
+        attempt + 1,
+        pageSize,
+      );
     const detail = String(
       error.error_user_msg ||
         error.message ||
@@ -148,6 +156,7 @@ export async function syncMessages(
   owner: string,
   source: 'facebook' | 'instagram',
   continueImport = false,
+  automatic = false,
 ) {
   const instagram =
     source === 'instagram' ? await readInstagramMessaging(owner) : null;
@@ -177,7 +186,8 @@ export async function syncMessages(
     conversationNode = context.externalId;
     after = after.slice(8);
   }
-  for (let batch = 0; batch < 10; batch++) {
+  const batches = automatic ? 1 : 10;
+  for (let batch = 0; batch < batches; batch++) {
     let list: any;
     try {
       list = await readConversationList(
@@ -185,6 +195,8 @@ export async function syncMessages(
         conversationNode,
         source,
         after,
+        0,
+        automatic ? 10 : 50,
       );
     } catch (e) {
       // Probe the linked Instagram node as well as the Page node. Both calls
@@ -342,7 +354,7 @@ export async function syncMessages(
       after = '';
       break;
     }
-    if (batch === 9) partial = true;
+    if (batch === batches - 1) partial = true;
     if (imported.length >= 1800) {
       partial = true;
       break;
@@ -663,7 +675,7 @@ export async function runCommunitySync(
       ? await syncInstagramTags(owner, continueImport || automatic)
       : source === 'gbp'
         ? await syncReviews(owner, continueImport || automatic)
-        : await syncMessages(owner, source, continueImport);
+        : await syncMessages(owner, source, continueImport, automatic);
   } catch (e) {
     const timedOut =
       !!e &&

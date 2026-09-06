@@ -6585,6 +6585,17 @@ h1 {
   justify-content: flex-end;
   min-height: 38px;
 }
+.login-marketing-caption {
+  max-width: 460px;
+  margin: 12px auto 24px;
+  padding: 0 10px;
+  color: #eeead9;
+  text-align: center;
+  font-size: clamp(16px, 1.45vw, 21px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0.25px;
+}
 .login-eyebrow {
   font-size: 14px;
   font-weight: 500;

@@ -43,6 +43,7 @@ export function LoginScene() {
         THREE,
         { SVGLoader },
         { RoomEnvironment },
+        { createLoginDataField },
         svgResponse,
         firstResponse,
         secondResponse,
@@ -50,6 +51,7 @@ export function LoginScene() {
         import('three'),
         import('three/examples/jsm/loaders/SVGLoader.js'),
         import('three/examples/jsm/environments/RoomEnvironment.js'),
+        import('./login-data-field'),
         fetch(appPath('/ysabel-emblem-source.svg'), { signal: abort.signal }),
         fetch(appPath('/sculptures/poseidon.bin'), { signal: abort.signal }),
         fetch(appPath('/sculptures/kneeling.bin'), { signal: abort.signal }),
@@ -90,9 +92,11 @@ export function LoginScene() {
       let frame = 0;
       let environment: InstanceType<typeof THREE.WebGLRenderTarget> | undefined;
       let observer: ResizeObserver | undefined;
+      let dataField: ReturnType<typeof createLoginDataField> | undefined;
       const dispose = () => {
         cancelAnimationFrame(frame);
         observer?.disconnect();
+        dataField?.dispose();
         geometries.forEach((item) => item.dispose());
         materials.forEach((item) => item.dispose());
         textures.forEach((item) => item.dispose());
@@ -181,6 +185,18 @@ export function LoginScene() {
           geometries.push(geometry);
           return { mesh, center };
         });
+      const numberOrigins = sculptedPaths.flatMap(({ mesh, center }) => {
+        const vertices = mesh.geometry.getAttribute('position');
+        return Array.from({ length: 36 }, (_, i) =>
+          new THREE.Vector3()
+            .fromBufferAttribute(
+              vertices,
+              Math.floor((i * vertices.count) / 36),
+            )
+            .add(center),
+        );
+      });
+      dataField = createLoginDataField(world, numberOrigins);
 
       function readSculpture(buffer: ArrayBuffer, turn: number) {
         const header = new Uint32Array(buffer, 0, 2);
@@ -330,6 +346,7 @@ export function LoginScene() {
       let visible = !document.hidden;
       let last = 0;
       let elapsed = 0;
+      let cameraDistance = 9.6;
       const onMove = (event: PointerEvent) => {
         const bounds = target!.getBoundingClientRect();
         pointer.set(
@@ -373,7 +390,8 @@ export function LoginScene() {
         const height = target!.clientHeight;
         renderer.setSize(width, height, false);
         camera.aspect = width / Math.max(1, height);
-        camera.position.set(0, 0.25, Math.max(9.6, 8.8 / camera.aspect));
+        cameraDistance = Math.max(9.6, 8.8 / camera.aspect);
+        camera.position.set(0, 0.25, cameraDistance);
         camera.lookAt(0, 0, 0);
         camera.updateProjectionMatrix();
       };
@@ -391,15 +409,15 @@ export function LoginScene() {
         if (state.automatic) {
           elapsed += dt;
           state.time += dt;
-          const cycle = state.time % 30;
+          const cycle = state.time % 38;
           state.target =
-            cycle < 6
+            cycle < 5
               ? 0
-              : cycle < 14
-                ? ease(6, 14, cycle)
-                : cycle < 21
+              : cycle < 17
+                ? ease(5, 17, cycle)
+                : cycle < 26
                   ? 1
-                  : ease(29, 21, cycle);
+                  : ease(37, 26, cycle);
         }
         if (state.reduced) state.progress = state.target;
         else if (state.automatic)
@@ -412,6 +430,8 @@ export function LoginScene() {
             dt / 7,
           );
         const p = state.progress;
+        camera.position.z = cameraDistance + ease(0.15, 0.9, p) * 1.35;
+        dataField?.update(p, elapsed);
         rotation.x +=
           (dragRotation.x + pointer.x * 0.22 - rotation.x) *
           (1 - Math.exp(-dt * 3));
@@ -569,9 +589,12 @@ export function LoginScene() {
           className="login-three"
           role="img"
           tabIndex={ready ? 0 : -1}
-          aria-label="Interactive sculpted Ysabel emblem transforming into 120 miniature classical statues, inscribed tablets, and chart forms. Drag to rotate, or use the left and right arrow keys."
+          aria-label="Interactive sculpted Ysabel emblem transforming into 3,120 digits, mathematical equations, diagrams, 120 classical sculptures, and ancient tablets. Drag to rotate, or use the left and right arrow keys."
         />
       </div>
+      <p className="login-marketing-caption">
+        Marketing Data of all Platforms of Ysabel
+      </p>
       <div className="login-intro-bottom">
         {ready && (
           <div className="login-scene-controls">
@@ -603,7 +626,7 @@ export function LoginScene() {
                 state.automatic = !playing;
                 if (!playing) {
                   state.reduced = false;
-                  state.time = state.progress < 0.5 ? 0 : 15;
+                  state.time = state.progress < 0.5 ? 0 : 20;
                 }
                 setPlaying(!playing);
               }}

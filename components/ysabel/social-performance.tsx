@@ -116,7 +116,7 @@ export function DeferredChart({
     </div>
   );
 }
-function MetricCard({
+export function MetricCard({
   metric,
   label,
   rows,
@@ -289,7 +289,20 @@ function MetricCard({
                 tick={{ fontSize: 12, fill: '#526174' }}
                 axisLine={false}
                 tickLine={false}
-                domain={[0, 'auto']}
+                domain={
+                  metric === 'followers' && channels.length === 1
+                    ? [
+                        (min: number) =>
+                          Math.max(
+                            0,
+                            Math.floor(min - Math.max(5, min * 0.005)),
+                          ),
+                        (max: number) =>
+                          Math.ceil(max + Math.max(5, max * 0.005)),
+                      ]
+                    : [0, 'auto']
+                }
+                allowDecimals={false}
               />
               <Tooltip
                 contentStyle={{
@@ -331,7 +344,7 @@ function MetricCard({
                       stroke={
                         COLORS[CHANNELS.indexOf(c as (typeof CHANNELS)[number])]
                       }
-                      type="linear"
+                      type={metric === 'followers' ? 'linear' : 'monotone'}
                       strokeWidth={2.3}
                       connectNulls={false}
                       dot={{ r: 3, strokeWidth: 1, stroke: '#fff' }}
@@ -359,9 +372,13 @@ function MetricCard({
                 : 'No ' + label.toLowerCase() + ' report supplied'}
             </strong>
             <p>
-              {channels.includes('TikTok') && !content && metric !== 'followers'
-                ? 'TikTok’s current connection supplies public-video lifetime counters. Select Published content for its video results.'
-                : 'This metric needs a supported platform report or an imported export.'}
+              {metric === 'profileViews' && channels.includes('TikTok')
+                ? 'Profile visits are not part of TikTok’s current connection. Import the profile-views column from a TikTok Studio daily report.'
+                : channels.includes('TikTok') &&
+                    !content &&
+                    metric !== 'followers'
+                  ? 'TikTok’s current connection supplies public-video lifetime counters. Select Published content for its video results.'
+                  : 'This metric needs a supported platform report or an imported export.'}
             </p>
             <a href="/marketingdata/connections">View connection coverage</a>
           </div>
@@ -548,29 +565,33 @@ export function SocialPerformance({
   );
   const groups =
     layout === 'Separate platforms' ? channels.map((c) => [c]) : [channels];
-  const summaries = ['views', 'reach', 'engagements', 'followers'].map(
-    (key) => {
-      const metric = key as SocialMetric,
-        points = performanceSeries(
-          rows,
-          selectedPosts,
-          channels,
-          range,
-          metric,
-          basis,
-        );
-      const values = channels
-        .map((c) => seriesTotal(points, c, metric))
-        .filter((v): v is number => v !== null);
-      return {
+  const summaries = [
+    'profileViews',
+    'views',
+    'reach',
+    'engagements',
+    'followers',
+  ].map((key) => {
+    const metric = key as SocialMetric,
+      points = performanceSeries(
+        rows,
+        selectedPosts,
+        channels,
+        range,
         metric,
-        value: values.length
-          ? number(values.reduce((a, b) => a + b, 0))
-          : 'Unavailable',
-        partial: values.length > 0 && values.length < channels.length,
-      };
-    },
-  );
+        basis,
+      );
+    const values = channels
+      .map((c) => seriesTotal(points, c, metric))
+      .filter((v): v is number => v !== null);
+    return {
+      metric,
+      value: values.length
+        ? number(values.reduce((a, b) => a + b, 0))
+        : 'Unavailable',
+      partial: values.length > 0 && values.length < channels.length,
+    };
+  });
   return (
     <div className="social-performance">
       <div className="performance-controls surface">
@@ -625,7 +646,7 @@ export function SocialPerformance({
             <small>
               {s.metric === 'followers'
                 ? 'Latest recorded snapshot'
-                : basis === 'Published content'
+                : metricBasis(s.metric, basis) === 'Published content'
                   ? 'Lifetime · imported content'
                   : 'Daily activity'}
               {s.partial ? ' · partial coverage' : ''}

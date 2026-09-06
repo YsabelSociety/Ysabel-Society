@@ -1,4 +1,5 @@
 import { CONNECTOR_GROUPS, connectorGroup } from '@/lib/connector-catalog';
+import { recentSyncWindow } from '@/lib/sync-window';
 import {
   database,
   identity,
@@ -41,6 +42,7 @@ export async function GET(req: Request) {
           apiVersion: app?.apiVersion || '',
           configId: app?.configId || '',
           authorized: !!grant,
+          grantedScopes: grant?.scopes?.split(/[ ,]+/).filter(Boolean) || [],
           callback: siteOrigin(req) + '/api/oauth/' + g.id + '/callback',
         };
       }),
@@ -70,24 +72,44 @@ export async function POST(req: Request) {
     if (!body || Array.isArray(body) || typeof body !== 'object')
       throw new Error('INPUT:Choose a valid connection action.');
     if (body.op === 'autoRefresh') {
+      const exclude = Array.isArray(body.exclude)
+        ? body.exclude
+            .filter(
+              (s): s is string =>
+                typeof s === 'string' && /^[a-z_]{1,30}$/.test(s),
+            )
+            .slice(0, 8)
+        : [];
       const due = await db
         .prepare(
-          "SELECT l.source FROM connector_links l JOIN platform_accounts a ON a.id=l.owner||':'||l.source||':'||l.external_id WHERE l.owner=? AND l.auto_sync=1 AND l.provider<>'file' AND a.enabled=1 AND (a.last_sync IS NULL OR a.last_sync<?) AND NOT EXISTS(SELECT 1 FROM sync_runs r WHERE r.owner=l.owner AND r.channel=a.channel AND r.started_at>?) ORDER BY a.last_sync LIMIT 1",
+          "SELECT l.source FROM connector_links l JOIN platform_accounts a ON a.id=l.owner||':'||l.source||':'||l.external_id WHERE l.owner=? AND l.auto_sync=1 AND l.provider<>'file' AND a.enabled=1 AND (?=1 OR a.last_sync IS NULL OR a.last_sync<?) AND NOT EXISTS(SELECT 1 FROM sync_runs r WHERE r.owner=l.owner AND r.channel=a.channel AND r.status='Syncing' AND r.started_at>?)" +
+            (exclude.length
+              ? ' AND l.source NOT IN (' +
+                exclude.map(() => '?').join(',') +
+                ')'
+              : '') +
+            ' ORDER BY a.last_sync LIMIT 1',
         )
         .bind(
           owner,
-          new Date(Date.now() - 3600000).toISOString(),
-          new Date(Date.now() - 900000).toISOString(),
+          body.force === true ? 1 : 0,
+          new Date(Date.now() - 5 * 60000).toISOString(),
+          new Date(Date.now() - 10 * 60000).toISOString(),
+          ...exclude,
         )
         .first<{ source: string }>();
       if (!due) return json({ refreshed: false });
-      const end = new Date(Date.now() - (due.source === 'ga4' ? 0 : 86400000))
-          .toISOString()
-          .slice(0, 10),
-        start = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+      const range = recentSyncWindow(
+        typeof body.timezone === 'string' ? body.timezone : undefined,
+      );
       try {
-        await syncLinkedSource(owner, due.source, { start, end });
-        return json({ refreshed: true, source: due.source, more: true });
+        const result = await syncLinkedSource(owner, due.source, range);
+        return json({
+          refreshed: !result.skipped,
+          source: due.source,
+          more: true,
+          range,
+        });
       } catch {
         return json({
           refreshed: false,

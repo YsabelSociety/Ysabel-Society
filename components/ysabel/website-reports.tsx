@@ -1,5 +1,5 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useId } from 'react';
 import {
   AreaChart,
   Area,
@@ -38,9 +38,15 @@ function WebsiteReport({
   index: number;
 }) {
   const [metric, setMetric] = useState(''),
-    [view, setView] = useState('Over time'),
+    [view, setView] = useState(
+      new Set(table.rows.map((r) => r.date).filter(Boolean)).size > 1
+        ? 'Over time'
+        : 'Breakdown',
+    ),
     [page, setPage] = useState(0),
     animate = useMinimalMotion();
+  const id = useId().replace(/:/g, '');
+  const palette = colors.map((_, i) => colors[(index + i) % colors.length]);
   const metrics = table.columns.filter(
     (c) =>
       !['conversions', 'conversionValue', 'keyEvents'].includes(c) &&
@@ -107,6 +113,29 @@ function WebsiteReport({
                   data={plot.series}
                   margin={{ left: 0, right: 15, bottom: 10 }}
                 >
+                  <defs>
+                    {plot.keys.map((k, i) => (
+                      <linearGradient
+                        key={k}
+                        id={id + i}
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor={palette[i % palette.length]}
+                          stopOpacity={0.32}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={palette[i % palette.length]}
+                          stopOpacity={0.02}
+                        />
+                      </linearGradient>
+                    ))}
+                  </defs>
                   <CartesianGrid
                     stroke="#d6dfe5"
                     strokeDasharray="3 6"
@@ -122,13 +151,18 @@ function WebsiteReport({
                   <Tooltip />
                   {plot.keys.map((k, i) => (
                     <Area
-                      key={k}
+                      key={k + active + table.observedAt}
                       dataKey={k}
                       type="monotone"
-                      stroke={colors[i % colors.length]}
-                      fill={colors[i % colors.length]}
-                      fillOpacity={0.08}
-                      strokeWidth={2}
+                      stroke={palette[i % palette.length]}
+                      fill={'url(#' + id + i + ')'}
+                      strokeWidth={2.5}
+                      dot={{
+                        r: plot.series.length < 10 ? 4 : 2,
+                        fill: palette[i % palette.length],
+                        stroke: '#fff',
+                      }}
+                      activeDot={{ r: 7 }}
                       connectNulls={false}
                       isAnimationActive={animate}
                       animationDuration={600}
@@ -165,7 +199,7 @@ function WebsiteReport({
                     animationDuration={600}
                   >
                     {plot.ranked.slice(0, 10).map((r, i) => (
-                      <Cell key={r.name} fill={colors[i % colors.length]} />
+                      <Cell key={r.name} fill={palette[i % palette.length]} />
                     ))}
                   </Bar>
                 </BarChart>
@@ -175,7 +209,7 @@ function WebsiteReport({
           <div className="chart-legend">
             {(view === 'Over time' ? plot.keys : []).map((k, i) => (
               <span key={k}>
-                <i style={{ background: colors[i % colors.length] }} />
+                <i style={{ background: palette[i % palette.length] }} />
                 {k}
               </span>
             ))}

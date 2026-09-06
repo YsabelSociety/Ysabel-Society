@@ -92,6 +92,7 @@ import { ReportsPage, ExportDialog } from './reports';
 import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
 import { AdminPanel } from './admin-panel';
 import { useAutoRefresh } from './use-auto-refresh';
+import { calendarDate } from '@/lib/sync-window';
 import { SourceReports } from './source-reports';
 import { CommunityPage, GoogleReviews } from './community';
 const groups = [
@@ -135,7 +136,11 @@ const names = groups.flatMap((g) => g.items.map((i) => String(i[0])));
 const dateOptions = [
   'Today',
   'Yesterday',
+  'Last 3 Days',
   'Last 7 Days',
+  'Previous 7 Days',
+  'This Week',
+  'Previous Week',
   'Last 30 Days',
   'This Month',
   'Previous Month',
@@ -212,14 +217,15 @@ export default function Workspace({
   initialPage?: string;
 }) {
   const data = useWorkspace();
-  useAutoRefresh(data.ready);
+  const syncState = useAutoRefresh(data.ready, data.settings.timezone);
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
+  const [today, setToday] = useState(ANCHOR);
   const liveInitialized = useRef(false);
   const [page, setPage] = useState(
       names.includes(initialPage) ? initialPage : 'Overview',
     ),
-    [date, setDate] = useState('Previous Month'),
+    [date, setDate] = useState('Last 7 Days'),
     [comparison, setComparison] = useState('Previous Period'),
     [custom, setCustom] = useState<Range>({
       start: '2026-08-01',
@@ -230,14 +236,20 @@ export default function Workspace({
     [post, setPost] = useState<Post | null>(null),
     [metric, setMetric] = useState<string | null>(null);
   const range = useMemo(
-    () => dateRange(date, custom, liveClock ? iso(new Date()) : ANCHOR),
-    [date, custom, liveClock],
+    () => dateRange(date, custom, liveClock ? today : ANCHOR),
+    [date, custom, liveClock, today],
   );
+  useEffect(() => {
+    const update = () => setToday(calendarDate(data.settings.timezone));
+    update();
+    const timer = setInterval(update, 60000);
+    return () => clearInterval(timer);
+  }, [data.settings.timezone]);
   const onLive = useCallback(() => {
     setLiveClock(true);
     if (!liveInitialized.current) {
       liveInitialized.current = true;
-      setDate('Last 30 Days');
+      setDate('Last 7 Days');
     }
   }, []);
   const source = useSourceAnalytics(unit, range, comparison, onLive),
@@ -388,6 +400,39 @@ export default function Workspace({
       },
     });
     register({
+      name: 'read_ysabel_connections',
+      title: 'Read connection and refresh status',
+      description:
+        'Read connected account labels, granted permission names, latest import times and report coverage. Does not return credentials or tokens.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: true },
+      execute: async () => {
+        const response = await fetch('/marketingdata/api/connectors', {
+          cache: 'no-store',
+        });
+        if (!response.ok) throw new Error('Connection status unavailable.');
+        const result: any = await response.json();
+        return {
+          groups: result.groups.map((g: any) => ({
+            id: g.id,
+            configured: g.configured,
+            authorized: g.authorized,
+            grantedScopes: g.grantedScopes,
+          })),
+          links: result.links.map((l: any) => ({
+            source: l.source,
+            label: l.label,
+            autoSync: l.autoSync,
+            snapshot: l.snapshot,
+          })),
+        };
+      },
+    });
+    register({
       name: 'import_ysabel_history_batch',
       title: 'Import an available-history batch',
       description:
@@ -526,6 +571,18 @@ export default function Workspace({
             </div>
             <div className="top-actions">
               <button
+                className="secondary sync-now"
+                disabled={!data.ready || syncState.running}
+                onClick={() => void syncState.sync()}
+                aria-label="Sync all connected platforms now"
+              >
+                <RefreshCw
+                  size={16}
+                  className={syncState.running ? 'sync-spinning' : ''}
+                />
+                {syncState.running ? 'Syncing…' : 'Sync now'}
+              </button>
+              <button
                 className="admin-launch"
                 onClick={async () => {
                   const response = await fetch('/marketingdata/api/session', {
@@ -637,11 +694,11 @@ export default function Workspace({
                     ]}
                     label="Comparison"
                   />
-                  {date !== 'Previous Month' && (
+                  {date !== 'Last 7 Days' && (
                     <button
                       className="clear-filters"
                       onClick={() => {
-                        setDate('Previous Month');
+                        setDate('Last 7 Days');
                         setComparison('Previous Period');
                       }}
                     >
@@ -701,15 +758,18 @@ export default function Workspace({
                 <button onClick={() => void data.load()}>Retry</button>
               </div>
             )}
-            {source.mode === 'live' && (
-              <div className="source-live-note">
-                {source.coverage.length
-                  ? 'Imported reports from ' + source.coverage.join(', ') + '.'
-                  : 'No source reports have been imported for this period.'}{' '}
-                Saved connections do not guarantee data access. Unavailable
-                values remain blank.
-                {source.comparisonLimited &&
-                  ' Comparison percentages need complete history for both selected periods.'}
+            {source.mode === 'live' && syncState.status && (
+              <div className="sync-feedback" role="status" aria-live="polite">
+                <span>{syncState.status}</span>
+                {syncState.lastChecked && (
+                  <small>
+                    Checked{' '}
+                    {new Date(syncState.lastChecked).toLocaleTimeString([], {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </small>
+                )}
               </div>
             )}
             {source.error && (
@@ -728,6 +788,7 @@ export default function Workspace({
               {page === 'Overview' && (
                 <Overview
                   live={source.mode === 'live'}
+                  range={range}
                   rows={rows}
                   previous={previous}
                   setPage={navigate}
@@ -762,6 +823,7 @@ export default function Workspace({
               )}
               {page === 'Audience' && (
                 <AudiencePage
+                  range={range}
                   rows={rows}
                   previous={previous}
                   live={source.mode === 'live'}

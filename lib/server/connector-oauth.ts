@@ -130,6 +130,7 @@ export async function beginOAuth(
     url.searchParams.set('override_default_response_type', 'true');
   }
   if (provider === 'google') {
+    url.searchParams.set('include_granted_scopes', 'true');
     url.searchParams.set('access_type', 'offline');
     url.searchParams.set('prompt', 'consent');
     url.searchParams.set('code_challenge', await digest(verifier));
@@ -183,6 +184,32 @@ export async function finishOAuth(
     throw new Error(
       'INPUT:Offline authorization was not granted. Revoke the old app grant in the provider account and connect again.',
     );
+  if (provider === 'google') {
+    const previous = await readVault<Grant>(owner, 'grant', provider);
+    const linked = await database()
+      .prepare(
+        "SELECT source FROM connector_links WHERE owner=? AND provider='google'",
+      )
+      .bind(owner)
+      .all<{ source: string }>();
+    const granted = String(result.scope || '').split(' ');
+    for (const link of linked.results) {
+      const needed =
+        link.source === 'ga4'
+          ? '/auth/analytics.readonly'
+          : link.source === 'gbp'
+            ? '/auth/business.manage'
+            : '';
+      if (
+        needed &&
+        previous?.scopes?.includes(needed) &&
+        !granted.some((s: string) => s.endsWith(needed))
+      )
+        throw new Error(
+          'INPUT:Your existing Google connection was preserved. Select Analytics and Business Profile and authorize both services to keep them connected.',
+        );
+    }
+  }
   await writeVault(owner, 'grant', provider, {
     accessToken: result.access_token,
     refreshToken: result.refresh_token,

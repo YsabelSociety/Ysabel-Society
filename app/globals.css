@@ -7540,3 +7540,31 @@ h1 {
   color: #8b3e45;
   line-height: 1.7;
 }
+
+/* Live activity cards retain the silver surfaces and distinct platform accents. */
+.profile-views-first, .channel-timeline-section, .audience-history { margin: 0 0 1.5rem; }
+.profile-views-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 1rem; }
+.profile-views-card { position: relative; overflow: hidden; padding: 1.3rem 1.5rem; border-radius: 1.6rem; background: linear-gradient(125deg,#f2f5f8 10%,#e0e7ed 55%,#c9def0); }
+.profile-views-card[data-platform="Instagram"] { background: linear-gradient(120deg,#f5f4f8,#dfd7f2,#eed1e4); }
+.profile-views-card[data-platform="Facebook"] { background: linear-gradient(120deg,#f3f6f9,#c9ddf5,#d8e6f0); }
+.profile-views-card[data-platform="TikTok"] { background: linear-gradient(120deg,#f2f6f7,#c6e5e5,#d6d3ec); }
+.profile-views-card > span, .profile-views-card > small { display: block; position: relative; z-index: 1; }
+.profile-views-card > span { font-weight: 600; font-size: .95rem; }
+.profile-views-card > strong { display:block; margin: .5rem 0; font-size: clamp(1.45rem,2.4vw,2.2rem); line-height:1.25; }
+.profile-views-card > small { font-size: .8rem; color:#475567; max-width:85%; }
+.profile-views-card .spark { position:absolute; right:.6rem; bottom:.4rem; width:90px; opacity:.4; }
+.profile-views-card:hover { box-shadow:0 12px 30px #283e5d13; transform:translateY(-2px); }
+.profile-views-card, .daily-metric-graph { transition:box-shadow .4s, transform .4s; }
+.sync-feedback { display:flex; flex-wrap:wrap; gap:.75rem; justify-content:space-between; padding:.35rem 0 .85rem; font-size:.875rem; color:#4b6275; }
+.sync-now { white-space:nowrap; }
+.sync-spinning { animation:sync-spin 1.4s linear infinite; }
+@keyframes sync-spin { to { transform:rotate(360deg); } }
+.platform-timeline > button, .platform-timeline > [role="combobox"] { margin:0 0 .65rem; }
+.daily-metric-graph, .website-report-card { border-top:3px solid var(--report-color); background:linear-gradient(135deg,#f7f9fbea 35%,color-mix(in srgb,var(--report-color) 16%,#e9eef3)); }
+.website-report-card .report-number { background:color-mix(in srgb,var(--report-color) 17%,#f2f5f8); color:var(--report-color); }
+.overview-intelligence { margin:1.5rem 0; }
+.overview-intelligence .intelligence { padding:1.5rem; }
+.performance-totals { grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); }
+.social-metric-card[data-metric="profileViews"] { background:linear-gradient(125deg,#f6f8f9,#d4e0ec,#e1dcef); }
+@media(max-width:750px) { .profile-views-grid { grid-template-columns:1fr; } .top-actions { flex-wrap:wrap; } .sync-now { padding:.55rem .7rem; } }
+@media(prefers-reduced-motion:reduce) { .sync-spinning { animation:none; } .profile-views-card:hover { transform:none; } }

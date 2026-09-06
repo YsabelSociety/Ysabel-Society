@@ -756,9 +756,9 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
               <p>
                 After you authorize and select an account, refresh is enabled
                 automatically. While the workspace is open and visible, it
-                checks all due accounts every 15 minutes. Each account refreshes
-                at most hourly, reconciling the latest three completed days and
-                observing current followers.
+                checks every five minutes, reconciling the latest seven days and
+                observing current followers. Reloading the page or selecting Sync now
+                starts a fresh check. Today’s totals can be incomplete while platforms process them.
               </p>
               <p>
                 Google and TikTok sign-in renew tokens where the provider allows

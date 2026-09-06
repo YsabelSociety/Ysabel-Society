@@ -19,12 +19,15 @@ import {
   series,
   type Daily,
   type Post,
+  type Range,
 } from '@/lib/analytics';
 import { Help } from './controls';
 import { AnalyticsChart, Spark } from './charts';
 import { MediaCards } from './content';
+import { ProfileViews, ChannelTimeline } from './activity-panels';
 export default function Overview({
   rows,
+  range,
   previous,
   setPage,
   posts,
@@ -33,6 +36,7 @@ export default function Overview({
   live = false,
 }: {
   rows: Daily[];
+  range: Range;
   previous: Daily[];
   setPage: (p: string) => void;
   posts: Post[];
@@ -40,10 +44,23 @@ export default function Overview({
   onMetric: (key: string) => void;
   live?: boolean;
 }) {
+  const tiktokPosts = posts.filter(
+    (p) =>
+      p.platform === 'TikTok' &&
+      p.status === 'Published' &&
+      (!p.available || p.available.includes('views')),
+  );
+  const tiktokViews = tiktokPosts.reduce((n, p) => n + p.views, 0);
+  const tiktokContent =
+    !metricAvailable(
+      rows.filter((r) => r.channel === 'TikTok'),
+      'views',
+    ) && tiktokPosts.length > 0;
   return (
     <>
+      <ProfileViews rows={rows} previous={previous} />
       <div className="metrics-strip">
-        {METRICS.map((m, i) => {
+        {METRICS.filter((m) => m.key !== 'profileViews').map((m, i) => {
           const value = total(rows, m.key),
             prior = total(previous, m.key),
             delta = change(value, prior),
@@ -92,8 +109,8 @@ export default function Overview({
           );
         })}
       </div>
-      <div className="overview-grid">
-        <AnalyticsChart rows={rows} previous={previous} />
+      <ChannelTimeline rows={rows} posts={posts} range={range} />
+      <div className="overview-intelligence">
         <section className="intelligence surface">
           <div className="section-head">
             <h2>
@@ -125,10 +142,14 @@ export default function Overview({
                       idx === 4 ? 'users' : 'views',
                     )
                       ? compact(v)
-                      : '—'}
+                      : idx === 2 && tiktokContent
+                        ? compact(tiktokViews)
+                        : '—'}
                   </strong>{' '}
-                  {idx === 4 ? 'daily active users' : 'content views'} this
-                  period.
+                  {idx === 2 && tiktokContent
+                    ? 'lifetime views on videos published in this period.'
+                    : (idx === 4 ? 'daily active users' : 'content views') +
+                      ' this period.'}
                 </p>
                 <span>
                   Explore the signal <ArrowUpRight size={13} />
@@ -154,11 +175,19 @@ export default function Overview({
         {CHANNELS.map((c, i) => {
           const Icon = [Instagram, Facebook, Music2, MapPin, Globe][i],
             cr = rows.filter((r) => r.channel === c),
-            prior = total(previous.filter(r => r.channel === c), i < 3 ? 'views' : i === 3 ? 'actions' : 'users'),
-            available = metricAvailable(
-              cr,
-              i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
-            );
+            prior =
+              c === 'TikTok' && tiktokContent
+                ? 0
+                : total(
+                    previous.filter((r) => r.channel === c),
+                    i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                  ),
+            available =
+              (c === 'TikTok' && tiktokContent) ||
+              metricAvailable(
+                cr,
+                i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+              );
           return (
             <button
               className="channel-card surface"
@@ -183,17 +212,21 @@ export default function Overview({
               </div>
               <strong>
                 {available
-                  ? compact(
-                      total(
-                        cr,
-                        i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
-                      ),
-                    )
+                  ? c === 'TikTok' && tiktokContent
+                    ? compact(tiktokViews)
+                    : compact(
+                        total(
+                          cr,
+                          i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                        ),
+                      )
                   : '—'}
               </strong>
               <span>
                 {i < 3
-                  ? 'Content views'
+                  ? c === 'TikTok' && tiktokContent
+                    ? 'Video views · lifetime'
+                    : 'Daily content views'
                   : i === 3
                     ? 'Customer actions'
                     : 'Daily active users'}
@@ -201,20 +234,29 @@ export default function Overview({
               <div className="channel-footer">
                 {available ? (
                   <>
-                    {prior ? <span className="positive">
-                      {total(cr, i < 3 ? 'views' : i === 3 ? 'actions' : 'users') >= prior ? '↗' : '↘'}{' '}
-                      {change(
-                        total(
+                    {prior ? (
+                      <span className="positive">
+                        {total(
                           cr,
                           i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
-                        ),
-                        total(
-                          previous.filter((r) => r.channel === c),
-                          i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
-                        ),
-                      ).toFixed(1)}
-                      %
-                    </span> : <span className="muted">No complete comparison</span>}
+                        ) >= prior
+                          ? '↗'
+                          : '↘'}{' '}
+                        {change(
+                          total(
+                            cr,
+                            i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                          ),
+                          total(
+                            previous.filter((r) => r.channel === c),
+                            i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                          ),
+                        ).toFixed(1)}
+                        %
+                      </span>
+                    ) : (
+                      <span className="muted">No complete comparison</span>
+                    )}
                     <Spark
                       values={series(
                         cr,

@@ -630,6 +630,7 @@ export async function runCommunitySync(
   continueImport = false,
   automatic = false,
   requestedKind?: 'mention',
+  force = false,
 ) {
   const kind = requestedKind || (source === 'gbp' ? 'review' : 'message'),
     db = database(),
@@ -652,8 +653,8 @@ export async function runCommunitySync(
       kind,
       now,
       new Date(Date.now() - 600000).toISOString(),
-      automatic ? 1 : 0,
-      new Date(Date.now() - 900000).toISOString(),
+      automatic && !force ? 1 : 0,
+      new Date(Date.now() - 300000).toISOString(),
     )
     .run();
   if (!lock.meta.changes) return { skipped: true };

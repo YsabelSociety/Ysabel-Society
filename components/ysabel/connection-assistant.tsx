@@ -369,9 +369,9 @@ export function ConnectionAssistant({
           </span>
         </div>
         <p className="assistant-refresh-note">
-          Automatic refresh checks every 15 minutes while this workspace is open
-          and visible. Each account refreshes at most hourly. It pauses when the
-          app is closed.
+          Opening or reloading the workspace checks the latest seven days.
+          Automatic checks continue every five minutes while it is open and visible.
+          Use Sync now to request the latest available reports. Updates pause when the app is closed.
         </p>
         <p className="assistant-refresh-note">
           Use the connection & import centre below for advertising accounts,

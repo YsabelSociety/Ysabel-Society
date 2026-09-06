@@ -3,6 +3,7 @@ import {
   type ConnectorProvider,
 } from '@/lib/connector-catalog';
 import { iso, type Range } from '@/lib/analytics';
+import { recentSyncWindow } from '@/lib/sync-window';
 import { database, requireDate } from './db';
 import { accessGrant, getApp, type Resource } from './connector-oauth';
 import { readVault, writeVault } from './connector-vault';
@@ -26,18 +27,14 @@ export function importRange(value?: unknown): Range {
     if (
       start > end ||
       Date.parse(end) - Date.parse(start) > 31 * 86400000 ||
-      end > iso(new Date())
+      end > iso(new Date(Date.now() + 14 * 3600000))
     )
       throw new Error(
         'INPUT:Choose an import window of up to 32 days, ending today or earlier.',
       );
     return { start, end };
   }
-  const end = new Date();
-  end.setUTCDate(end.getUTCDate() - 1);
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - 29);
-  return { start: iso(start), end: iso(end) };
+  return recentSyncWindow();
 }
 export async function syncLinkedSource(
   owner: string,
@@ -62,8 +59,7 @@ export async function syncLinkedSource(
       requestedRange ||
         (source === 'ga4'
           ? {
-              start: iso(new Date(Date.now() - 29 * 86400000)),
-              end: iso(new Date()),
+              ...recentSyncWindow(),
             }
           : undefined),
     );

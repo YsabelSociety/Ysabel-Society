@@ -66,6 +66,7 @@ export async function POST(req: Request) {
           false,
           true,
           body.kind === 'mention' ? 'mention' : undefined,
+          body.force === true,
         ),
       );
     }

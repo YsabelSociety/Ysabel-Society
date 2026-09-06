@@ -10,6 +10,7 @@ export const COLORS = ['#b83d83', '#3478ce', '#228d97', '#49916a', '#407b78'];
 export const BRAND_NAME = 'Ysabel Society';
 export const UNITS = [BRAND_NAME];
 export type Metric =
+  | 'profileViews'
   | 'views'
   | 'reach'
   | 'engagements'
@@ -23,6 +24,13 @@ export const METRICS: {
   source: string;
   definition: string;
 }[] = [
+  {
+    key: 'profileViews',
+    label: 'Profile views',
+    source: 'Instagram · Facebook · TikTok when supplied',
+    definition:
+      'Reported visits to the social account profile or Facebook Page during the selected dates. Content views are a separate measure.',
+  },
   {
     key: 'views',
     label: 'Total content views',
@@ -118,6 +126,20 @@ export function dateRange(
       break;
     case 'Last 7 Days':
       start.setUTCDate(start.getUTCDate() - 6);
+      break;
+    case 'Last 3 Days':
+      start.setUTCDate(start.getUTCDate() - 2);
+      break;
+    case 'Previous 7 Days':
+      start.setUTCDate(start.getUTCDate() - 13);
+      end.setUTCDate(end.getUTCDate() - 7);
+      break;
+    case 'This Week':
+      start.setUTCDate(start.getUTCDate() - ((start.getUTCDay() + 6) % 7));
+      break;
+    case 'Previous Week':
+      end.setUTCDate(end.getUTCDate() - ((end.getUTCDay() + 6) % 7) - 1);
+      start.setTime(end.getTime() - 6 * ms);
       break;
     case 'This Month':
       start.setUTCDate(1);
@@ -237,7 +259,12 @@ export function consolidateDaily(rows: Daily[]): Daily[] {
 }
 export const DAILY = demoDaily();
 export function metricAvailable(rows: Daily[], metric: string) {
-  return rows.some((row) => !row.available || row.available.includes(metric));
+  return rows.some(
+    (row) =>
+      (!row.available || row.available.includes(metric)) &&
+      typeof row[metric as keyof Daily] === 'number' &&
+      Number.isFinite(row[metric as keyof Daily]),
+  );
 }
 export function comparablePrevious(
   current: Daily[],
@@ -327,8 +354,8 @@ export function series(rows: Daily[], metric: Metric, granularity = 'Daily') {
       date = iso(d);
     }
     const item = buckets.get(date) ?? { date, total: 0 };
-    item[r.channel] = Number(item[r.channel] ?? 0) + r[metric];
-    item.total = Number(item.total) + r[metric];
+    item[r.channel] = Number(item[r.channel] ?? 0) + Number(r[metric] ?? 0);
+    item.total = Number(item.total) + Number(r[metric] ?? 0);
     buckets.set(date, item);
   });
   if (metric === 'followers') {

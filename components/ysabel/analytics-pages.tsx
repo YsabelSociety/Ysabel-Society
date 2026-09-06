@@ -58,6 +58,12 @@ import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
 import { HistoryImport } from './history-import';
+import {
+  AudienceHistory,
+  WebsiteMetricGraphs,
+  ChannelTimeline,
+  ProfileViews,
+} from './activity-panels';
 export function StatRow({
   items,
 }: {
@@ -418,7 +424,7 @@ export function PerformancePage({
           <TabsList className="page-tabs">
             {['All', ...CHANNELS].map((c) => (
               <TabsTrigger key={c} value={c} data-platform={c}>
-                {c === 'All' ? 'All social platforms' : c}
+                {c === 'All' ? 'All platforms' : c}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -454,15 +460,25 @@ export function PerformancePage({
           )}
         </>
       ) : (
-        <SocialPerformance
-          key={channel}
-          rows={r}
-          posts={data.posts}
-          tables={tables}
-          range={range}
-          channel={channel}
-          loading={loading}
-        />
+        <>
+          <ProfileViews
+            rows={r}
+            previous={p}
+            channels={channel === 'All' ? SOCIAL_PLATFORMS : [channel]}
+          />
+          {channel === 'All' && (
+            <ChannelTimeline rows={r} posts={data.posts} range={range} />
+          )}
+          <SocialPerformance
+            key={channel}
+            rows={r}
+            posts={data.posts}
+            tables={tables}
+            range={range}
+            channel={channel}
+            loading={loading}
+          />
+        </>
       )}
       <details className="surface performance-notes">
         <summary>Timeline annotations</summary>
@@ -514,12 +530,14 @@ export function PerformancePage({
 }
 export function AudiencePage({
   rows,
+  range,
   previous,
   live = false,
   tables = [],
   loading = false,
 }: {
   rows: Daily[];
+  range: Range;
   previous: Daily[];
   live?: boolean;
   tables?: ReportTable[];
@@ -560,6 +578,7 @@ export function AudiencePage({
         )}
         live={live}
       />
+      <AudienceHistory rows={selectedRows} range={range} channels={channels} />
       {live && (
         <>
           <AudienceBreakdown
@@ -640,12 +659,6 @@ function CommunitySummary({
               : '—',
           },
         ]}
-      />
-      <AnalyticsChart
-        rows={rows}
-        previous={previous}
-        metric="followers"
-        title="Community growth"
       />
       {live ? (
         <Panel
@@ -964,12 +977,7 @@ export function WebsitePage({
           },
         ]}
       />
-      <AnalyticsChart
-        rows={r}
-        previous={p}
-        metric="users"
-        title="Traffic over time"
-      />
+      <WebsiteMetricGraphs rows={r} />
       {live ? (
         <Panel
           title="From discovery to intent"

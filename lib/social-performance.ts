@@ -4,6 +4,7 @@ import { type ReportTable } from './reporting';
 export const SOCIAL_PLATFORMS = ['Instagram', 'Facebook', 'TikTok'] as const;
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
 export type SocialMetric =
+  | 'profileViews'
   | 'views'
   | 'reach'
   | 'engagements'
@@ -20,6 +21,7 @@ export type SocialMetric =
   | 'videos';
 export type PerformanceBasis = 'Published content' | 'Daily activity';
 export const SOCIAL_METRICS: { key: SocialMetric; label: string }[] = [
+  { key: 'profileViews', label: 'Profile views' },
   { key: 'views', label: 'Content views' },
   { key: 'reach', label: 'Reach' },
   { key: 'engagements', label: 'Engagements' },
@@ -88,7 +90,7 @@ export function selectContent(
   return [...selected.values()];
 }
 export function postValue(post: Post, metric: SocialMetric): number | null {
-  if (metric === 'followers') return null;
+  if (metric === 'followers' || metric === 'profileViews') return null;
   if (metric === 'posts') return contentKind(post) === 'Stories' ? 0 : 1;
   if (['stories', 'reels', 'videos'].includes(metric))
     return contentKind(post).toLowerCase() === metric ? 1 : 0;
@@ -109,7 +111,9 @@ export function dailyValue(row: Daily, metric: SocialMetric): number | null {
   return read(row, metric);
 }
 export function metricBasis(metric: SocialMetric, basis: PerformanceBasis) {
-  return metric === 'followers' || metric === 'users'
+  return metric === 'followers' ||
+    metric === 'users' ||
+    metric === 'profileViews'
     ? 'Daily activity'
     : ['posts', 'stories', 'reels', 'videos'].includes(metric)
       ? 'Published content'
@@ -205,6 +209,8 @@ export function metricExplanation(
   metric: SocialMetric,
   basis: PerformanceBasis,
 ) {
+  if (metric === 'profileViews')
+    return 'Visits to the account profile or Facebook Page on each date. TikTok profile visits require a TikTok Studio report; the current connection supplies public video totals only.';
   if (metric === 'followers')
     return 'Recorded follower snapshots. Missing dates stay blank; weekly and monthly points use the latest observation.';
   if (metric === 'users')

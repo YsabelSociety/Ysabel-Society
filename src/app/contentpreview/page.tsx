@@ -12,7 +12,7 @@ export default function ContentPreviewPage() {
     <main className={styles.previewShell}>
       <iframe
         className={styles.previewFrame}
-        src="https://ysabel-society-media-preview.arberhalili1.chatgpt.site/"
+        src="/contentpreview-app/index.html"
         title="Ysabel Society Content Media Preview"
         allow="fullscreen"
       />

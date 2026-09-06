@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/apps/contentpreview/node_modules/
+/public/contentpreview-app/
 /.pnp
 .pnp.*
 .yarn/*

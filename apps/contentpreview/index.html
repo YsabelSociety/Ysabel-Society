@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <meta name="theme-color" content="#e7e8e1" />
+    <title>Ysabel Society Content Media Preview</title>
+    <link rel="icon" href="/contentpreview-app/ysabel-logo-mark.png" />
+    <link rel="preload" as="image" href="/contentpreview-app/login-landscape.webp" />
+    <style>
+      html,body{margin:0;min-height:100%;background:#8a9781}
+      #boot-painting{position:fixed;inset:0;background:center/cover url('/contentpreview-app/login-landscape.webp');pointer-events:none}
+      #root{position:relative;min-height:100svh}
+    </style>
+  </head>
+  <body>
+    <div id="boot-painting" aria-hidden="true"></div>
+    <div id="root"></div>
+    <noscript>Please enable JavaScript to use the private Ysabel workspace.</noscript>
+    <script type="module" src="/main.tsx"></script>
+  </body>
+</html>

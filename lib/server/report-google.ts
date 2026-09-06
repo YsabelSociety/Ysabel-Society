@@ -234,8 +234,33 @@ export async function importGA4(context: ReportingContext, range: Range) {
     }
   }
   result.daily = [...map.values()];
+  const realtime = await collect(
+    result,
+    'website-realtime',
+    'Activity in the last 30 minutes',
+    () =>
+      requestJSON(endpoint.replace(':runReport', ':runRealtimeReport'), {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          metrics: ['activeUsers', 'screenPageViews', 'eventCount'].map(
+            (name) => ({ name }),
+          ),
+        }),
+      }),
+    (r) => r.rows?.length || 0,
+  );
+  if (realtime) {
+    const values = realtime.rows?.[0]?.metricValues;
+    result.profile.realtime = {
+      activeUsers: values ? finite(values[0]?.value) : 0,
+      pageViews: values ? finite(values[1]?.value) : 0,
+      events: values ? finite(values[2]?.value) : 0,
+      observedAt: new Date().toISOString(),
+    };
+  }
   result.scope =
-    'GA4 observed daily metrics, acquisition, content, devices, geography and configured events. Missing tracking remains unavailable.';
+    'GA4 observed daily metrics, acquisition, content, devices, geography and configured events. Today’s reports may be incomplete while Google processes visits. The 30-minute snapshot is separate from date-range totals. Missing tracking remains unavailable.';
   return result;
 }
 

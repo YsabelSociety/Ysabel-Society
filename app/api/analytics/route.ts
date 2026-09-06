@@ -11,6 +11,7 @@ import {
   BRAND_NAME,
   type Daily,
 } from '@/lib/analytics';
+import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 export async function GET(req: Request) {
   try {
     const user = await identity(),
@@ -118,7 +119,22 @@ export async function GET(req: Request) {
     return json({
       mode: 'live',
       rows,
-      coverage: accounts.results.map((a: any) => a.channel),
+      coverage: [
+        ...new Set(
+          [
+            ...rows.filter((r) => r.available?.length).map((r) => r.channel),
+            ...[...tableMap.values()]
+              .filter((r) => r.rows?.length)
+              .map((r) => SOURCE_CHANNELS[r.source]),
+            ...postRows.results.map((r) => JSON.parse(r.payload).channel),
+          ].filter(Boolean),
+        ),
+      ],
+      sourceStatus: accounts.results.map((a: any) => ({
+        channel: a.channel,
+        status: a.status,
+        lastSync: a.last_sync || null,
+      })),
       posts: postRows.results.map((r) => JSON.parse(r.payload)),
       tables: [...tableMap.values()],
       accounts: profiles.results.map((p) => ({
@@ -126,7 +142,7 @@ export async function GET(req: Request) {
         label: p.label,
         snapshot: p.snapshot ? JSON.parse(p.snapshot) : null,
       })),
-      label: 'Live data · connected sources only',
+      label: 'Imported source reports',
     });
   } catch (e) {
     return apiError(e);

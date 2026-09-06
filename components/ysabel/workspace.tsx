@@ -413,11 +413,15 @@ export default function Workspace({
             >
               <i />
               {source.mode === 'live'
-                ? 'Connected workspace'
+                ? source.sourceStatus.some(
+                    (s) => s.status === 'Needs Attention',
+                  )
+                  ? 'Connections need attention'
+                  : 'Source reports'
                 : 'Demo workspace'}
               <span>
                 {source.mode === 'live'
-                  ? 'Real sources · view connections'
+                  ? 'Check imports and access'
                   : 'Sample data · 5 Sep 2026'}
               </span>
             </button>
@@ -560,7 +564,9 @@ export default function Workspace({
                   {source.loading
                     ? 'Updating…'
                     : source.mode === 'live'
-                      ? 'Connected source data'
+                      ? source.coverage.length
+                        ? 'Imported source data'
+                        : 'No imported data yet'
                       : 'Preview data'}
                 </button>
               </div>
@@ -604,11 +610,18 @@ export default function Workspace({
             )}
             {source.mode === 'live' && (
               <div className="source-live-note">
-                Live analytics from{' '}
-                {source.coverage.join(', ') || 'connected sources'}. Reports use
-                imported observations; unavailable values remain blank.
+                {source.coverage.length
+                  ? 'Imported reports from ' + source.coverage.join(', ') + '.'
+                  : 'No source reports have been imported for this period.'}{' '}
+                Saved connections do not guarantee data access. Unavailable
+                values remain blank.
                 {source.comparisonLimited &&
                   ' Comparison percentages need complete history for both selected periods.'}
+              </div>
+            )}
+            {source.error && (
+              <div className="save-error" role="alert">
+                {source.error}
               </div>
             )}
             <div className="view-content" key={page}>
@@ -666,6 +679,10 @@ export default function Workspace({
                   rows={rows}
                   previous={previous}
                   live={source.mode === 'live'}
+                  status={source.sourceStatus.find(
+                    (s) => s.channel === 'Website',
+                  )}
+                  realtime={source.websiteRealtime}
                 />
               )}
               {page === 'Website' && source.mode === 'live' && (

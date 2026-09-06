@@ -58,7 +58,15 @@ export async function syncLinkedSource(
     channel = SOURCE_CHANNELS[source],
     now = new Date().toISOString(),
     runId = crypto.randomUUID(),
-    range = importRange(requestedRange);
+    range = importRange(
+      requestedRange ||
+        (source === 'ga4'
+          ? {
+              start: iso(new Date(Date.now() - 29 * 86400000)),
+              end: iso(new Date()),
+            }
+          : undefined),
+    );
   const lock = await db
     .prepare(
       "INSERT INTO sync_runs(id,owner,channel,status,started_at) SELECT ?,?,?,'Syncing',? WHERE NOT EXISTS(SELECT 1 FROM sync_runs WHERE owner=? AND channel=? AND status='Syncing' AND started_at>?)",
@@ -117,7 +125,9 @@ export async function syncLinkedSource(
       result.checks.every((c) => c.status === 'unavailable')
     )
       throw new Error(
-        'INPUT:No reports could be read. Check access and API approval, then reconnect.',
+        'INPUT:No reports could be read. ' +
+          (result.checks[0]?.detail ||
+            'Check access and API approval, then reconnect.'),
       );
     await persistImport(owner, source, link.external_id, result, range);
     const snapshot = {

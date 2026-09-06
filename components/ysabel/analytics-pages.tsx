@@ -2,6 +2,11 @@
 import { useMinimalMotion } from './use-motion';
 import { useState } from 'react';
 import {
+  websiteStatus,
+  type SourceStatus,
+  type WebsiteRealtime,
+} from '@/lib/source-status';
+import {
   AreaChart,
   Area,
   XAxis,
@@ -727,30 +732,105 @@ export function WebsitePage({
   rows,
   previous,
   live = false,
+  status,
+  realtime,
 }: {
   rows: Daily[];
   previous: Daily[];
   live?: boolean;
+  status?: SourceStatus;
+  realtime?: WebsiteRealtime;
 }) {
+  const [refreshing, setRefreshing] = useState(false),
+    [refreshError, setRefreshError] = useState('');
   const r = rows.filter((r) => r.channel === 'Website'),
     p = previous.filter((r) => r.channel === 'Website');
-  if (live && !metricAvailable(r, 'users'))
-    return (
-      <Panel
-        title="Website metrics are not available for this period"
-        description="Connect a Google Analytics property or choose a date range with imported observations."
-      >
-        <a className="secondary" href="/connections">
-          Open Connections
+  const connection = websiteStatus(status, metricAvailable(r, 'users'));
+  async function refreshWebsite() {
+    setRefreshing(true);
+    setRefreshError('');
+    try {
+      const response = await fetch('/api/connectors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'refresh', source: 'ga4' }),
+      });
+      const result = await response.json() as { error?: string };
+      if (!response.ok)
+        throw new Error(result.error || 'Website refresh failed.');
+    } catch (e) {
+      setRefreshError(
+        e instanceof Error ? e.message : 'Website refresh failed.',
+      );
+    } finally {
+      setRefreshing(false);
+      window.dispatchEvent(new Event('ysabel:sources-updated'));
+    }
+  }
+  const connectionPanel = live && (
+    <Panel title={connection.title} description={connection.detail}>
+      {status?.lastSync && (
+        <p className="footnote">
+          Last successful report check:{' '}
+          {new Date(status.lastSync).toLocaleString()}.
+        </p>
+      )}
+      <div className="inline-controls">
+        <a className="secondary" href="/connections?connect=google">
+          Manage Google connection
         </a>
-      </Panel>
-    );
+        {status && (
+          <button
+            className="secondary"
+            disabled={refreshing}
+            onClick={() => void refreshWebsite()}
+          >
+            {refreshing ? 'Refreshing website…' : 'Refresh website data'}
+          </button>
+        )}
+      </div>
+      {refreshError && <p role="alert">{refreshError}</p>}
+      {realtime && (
+        <>
+          <h3>Activity in the last 30 minutes</h3>
+          <p className="footnote">
+            Snapshot checked {new Date(realtime.observedAt).toLocaleString()}.
+            This is the 30-minute window before that check, separate from the
+            selected dates. Refresh to update it.
+          </p>
+          <StatRow
+            items={[
+              {
+                label: 'Active users · 30 min',
+                value:
+                  realtime.activeUsers == null
+                    ? '—'
+                    : number(realtime.activeUsers),
+              },
+              {
+                label: 'Page views · 30 min',
+                value:
+                  realtime.pageViews == null ? '—' : number(realtime.pageViews),
+              },
+              {
+                label: 'Events · 30 min',
+                value: realtime.events == null ? '—' : number(realtime.events),
+              },
+            ]}
+          />
+        </>
+      )}
+    </Panel>
+  );
+  if (live && !metricAvailable(r, 'users'))
+    return <div className="view-enter">{connectionPanel}</div>;
   const users = total(r, 'users'),
     sessions = total(r, 'sessions'),
     engaged = total(r, 'engaged'),
     pages = total(r, 'pageViews');
   return (
     <div className="view-enter">
+      {connectionPanel}
       <StatRow
         items={[
           {

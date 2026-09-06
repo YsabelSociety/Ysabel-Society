@@ -81,7 +81,9 @@ export async function POST(req: Request) {
         )
         .first<{ source: string }>();
       if (!due) return json({ refreshed: false });
-      const end = new Date(Date.now() - 86400000).toISOString().slice(0, 10),
+      const end = new Date(Date.now() - (due.source === 'ga4' ? 0 : 86400000))
+          .toISOString()
+          .slice(0, 10),
         start = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
       try {
         await syncLinkedSource(owner, due.source, { start, end });

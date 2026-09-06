@@ -61,6 +61,7 @@ export function ConnectionAssistant({
     [clientSecret, setClientSecret] = useState(''),
     [apiVersion, setApiVersion] = useState(''),
     [configId, setConfigId] = useState(''),
+    [googleSource, setGoogleSource] = useState('Website Analytics only'),
     [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
     [resources, setResources] = useState<Resource[]>([]),
@@ -205,7 +206,16 @@ export function ConnectionAssistant({
     setBusy('authorize');
     setError('');
     try {
-      const r = await fetch('/api/oauth/' + selected + '/start', {
+      const sourceQuery =
+        selected === 'google'
+          ? '?source=' +
+            (googleSource === 'Website Analytics only'
+              ? 'ga4'
+              : googleSource === 'Business Profile only'
+                ? 'gbp'
+                : 'both')
+          : '';
+      const r = await fetch('/api/oauth/' + selected + '/start' + sourceQuery, {
         method: 'POST',
       });
       const d = (await r.json()) as { url: string; error?: string };
@@ -252,17 +262,37 @@ export function ConnectionAssistant({
     }
   }
   async function connectChosen() {
-    setBusy('all');setError('');
-    const outcomes:string[]=[];
+    setBusy('all');
+    setError('');
+    const outcomes: string[] = [];
     try {
-      for(const source of group?.sources||[]) {
-        if(!choices[source])continue;
-        const result=await request<{needsAttention?:boolean;records?:number}>({op:'select',provider:selected,source,resourceId:choices[source]});
-        outcomes.push(SOURCE_CHANNELS[source]+(result.needsAttention?' needs attention':' imported'));
+      for (const source of group?.sources || []) {
+        if (!choices[source]) continue;
+        const result = await request<{
+          needsAttention?: boolean;
+          records?: number;
+        }>({
+          op: 'select',
+          provider: selected,
+          source,
+          resourceId: choices[source],
+        });
+        outcomes.push(
+          SOURCE_CHANNELS[source] +
+            (result.needsAttention ? ' needs attention' : ' imported'),
+        );
       }
-      await load();onChanged();window.dispatchEvent(new Event('ysabel:sources-updated'));notify(outcomes.join(' · '));
-    } catch(e){setError(e instanceof Error?e.message:'Account import needs attention.');}
-    finally{setBusy('');}
+      await load();
+      onChanged();
+      window.dispatchEvent(new Event('ysabel:sources-updated'));
+      notify(outcomes.join(' · '));
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Account import needs attention.',
+      );
+    } finally {
+      setBusy('');
+    }
   }
   return (
     <>
@@ -509,7 +539,27 @@ export function ConnectionAssistant({
                   Your password stays with the platform. Return here after
                   approval to choose which Ysabel Society accounts to import.
                 </p>
-                <p>{group?.capability}</p>
+                {selected === 'google' ? (
+                  <>
+                    <Picker
+                      label="Google data to connect"
+                      value={googleSource}
+                      onChange={setGoogleSource}
+                      options={[
+                        'Website Analytics only',
+                        'Business Profile only',
+                        'Analytics and Business Profile',
+                      ]}
+                    />
+                    <p>
+                      {googleSource === 'Website Analytics only'
+                        ? 'Read-only Analytics access. No permission to edit Analytics or manage Business Profile. Choose only the Ysabel Society property after sign-in.'
+                        : 'Business Profile requires Google’s business management permission. Choose the Ysabel Society locations after sign-in.'}
+                    </p>
+                  </>
+                ) : (
+                  <p>{group?.capability}</p>
+                )}
                 <button
                   className="primary"
                   disabled={!!busy}
@@ -539,7 +589,17 @@ export function ConnectionAssistant({
             </TabsContent>
             <TabsContent value="accounts">
               <p className="wizard-capability">{group?.capability}</p>
-              {group&&group.sources.length>1&&<button className="primary" disabled={!!busy||!Object.values(choices).some(Boolean)} onClick={()=>void connectChosen()}>{busy==='all'?'Connecting selected accounts…':'Connect selected accounts together'}</button>}
+              {group && group.sources.length > 1 && (
+                <button
+                  className="primary"
+                  disabled={!!busy || !Object.values(choices).some(Boolean)}
+                  onClick={() => void connectChosen()}
+                >
+                  {busy === 'all'
+                    ? 'Connecting selected accounts…'
+                    : 'Connect selected accounts together'}
+                </button>
+              )}
               <button
                 className="secondary"
                 onClick={() => void discover(selected!)}

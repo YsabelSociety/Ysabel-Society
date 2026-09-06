@@ -155,11 +155,13 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
               </strong>
               <span>Availability</span>
               <strong>
-                {c.snapshot?.partial
-                  ? 'Partial import · inspect coverage'
-                  : c.lastSync
-                    ? 'Source data imported'
-                    : 'Access and first import required'}
+                {c.id === 'ga4' && c.lastSync && !c.snapshot?.records
+                  ? 'Access verified · no daily activity returned'
+                  : c.snapshot?.partial
+                    ? 'Partial import · inspect coverage'
+                    : c.lastSync
+                      ? 'Source data imported'
+                      : 'Access and first import required'}
               </strong>
             </div>
             {typeof c.snapshot?.followers === 'number' && (

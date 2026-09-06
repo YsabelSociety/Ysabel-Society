@@ -9,6 +9,7 @@ import {
   type Post,
 } from '@/lib/analytics';
 import { type ReportTable } from '@/lib/reporting';
+import { type SourceStatus, type WebsiteRealtime } from '@/lib/source-status';
 export function useSourceAnalytics(
   unit: string,
   range: Range,
@@ -21,6 +22,8 @@ export function useSourceAnalytics(
     rows: Daily[];
     previous: Daily[];
     coverage: string[];
+    sourceStatus: SourceStatus[];
+    websiteRealtime?: WebsiteRealtime;
     posts: Post[];
     tables: ReportTable[];
     comparisonLimited: boolean;
@@ -56,17 +59,29 @@ export function useSourceAnalytics(
         ]);
         if (!abort.signal.aborted) {
           if (current.mode === 'live') onLive?.();
-          const safePrevious = current.mode === 'live'
-            ? comparablePrevious(current.rows, previous.rows, range, previousRange(range, comparison))
-            : previous.rows;
+          const safePrevious =
+            current.mode === 'live'
+              ? comparablePrevious(
+                  current.rows,
+                  previous.rows,
+                  range,
+                  previousRange(range, comparison),
+                )
+              : previous.rows;
           setResult({
             key,
             mode: current.mode,
             rows: current.rows,
             previous: safePrevious,
-            comparisonLimited: current.mode === 'live' && comparison !== 'No Comparison' &&
+            comparisonLimited:
+              current.mode === 'live' &&
+              comparison !== 'No Comparison' &&
               !safePrevious.some((r: Daily) => r.available?.length),
             coverage: current.coverage,
+            sourceStatus: current.sourceStatus || [],
+            websiteRealtime: current.accounts?.find(
+              (a: any) => a.source === 'ga4',
+            )?.snapshot?.realtime,
             posts: current.posts || [],
             tables: current.tables || [],
           });
@@ -95,6 +110,8 @@ export function useSourceAnalytics(
         ? []
         : filterDaily(unit, previousRange(range, comparison))),
     coverage: current?.coverage ?? [],
+    sourceStatus: current?.sourceStatus ?? [],
+    websiteRealtime: current?.websiteRealtime,
     posts: current?.posts ?? [],
     tables: current?.tables ?? [],
     comparisonLimited: current?.comparisonLimited ?? false,

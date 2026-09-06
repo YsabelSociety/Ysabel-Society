@@ -5,6 +5,7 @@ import {
 import { database, secrets } from './db';
 import { digest, randomToken, readVault, writeVault } from './connector-vault';
 import { requestJSON } from './providers';
+import { googleScopes } from '@/lib/source-status';
 export type AppCredentials = {
   clientId: string;
   clientSecret: string;
@@ -18,6 +19,7 @@ export type Resource = {
   pageToken?: string;
 };
 export type Grant = {
+  scopes?: string;
   accessToken: string;
   refreshToken?: string;
   expiresAt: number;
@@ -103,7 +105,10 @@ export async function beginOAuth(
     [provider === 'tiktok' ? 'client_key' : 'client_id']: app.clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: group.scopes.join(provider === 'google' ? ' ' : ','),
+    scope:
+      provider === 'google'
+        ? googleScopes(new URL(req.url).searchParams.get('source')).join(' ')
+        : group.scopes.join(','),
     state,
   }).toString();
   if (provider === 'meta') {
@@ -171,6 +176,7 @@ export async function finishOAuth(
     expiresAt: Date.now() + Number(result.expires_in || 3600) * 1000,
     openId: result.open_id,
     authorizedAt: new Date().toISOString(),
+    scopes: result.scope,
   } satisfies Grant);
 }
 export async function accessGrant(owner: string, provider: ConnectorProvider) {
@@ -207,73 +213,75 @@ export async function discoverResources(
   const resources: Resource[] = [],
     warnings: string[] = [];
   if (provider === 'google') {
-    try {
-      let next = '';
-      for (let page = 0; page < 10; page++) {
-        const r = await requestJSON(
-          'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200' +
-            (next ? '&pageToken=' + encodeURIComponent(next) : ''),
-          { headers },
-        );
-        for (const a of r.accountSummaries || [])
-          for (const p of a.propertySummaries || [])
-            resources.push({
-              source: 'ga4',
-              id: p.property.replace('properties/', ''),
-              label: p.displayName + ' · ' + a.displayName,
-            });
-        next = r.nextPageToken;
-        if (!next) break;
-        if (page === 9)
-          warnings.push(
-            'Only the first 2,000 Google Analytics accounts are listed.',
+    if (!grant.scopes || grant.scopes.includes('/auth/analytics.readonly'))
+      try {
+        let next = '';
+        for (let page = 0; page < 10; page++) {
+          const r = await requestJSON(
+            'https://analyticsadmin.googleapis.com/v1beta/accountSummaries?pageSize=200' +
+              (next ? '&pageToken=' + encodeURIComponent(next) : ''),
+            { headers },
           );
-      }
-    } catch {
-      warnings.push(
-        'Analytics properties could not be listed. Enable the Admin API and confirm account access.',
-      );
-    }
-    try {
-      let next = '';
-      for (let page = 0; page < 10; page++) {
-        const a = await requestJSON(
-          'https://mybusinessaccountmanagement.googleapis.com/v1/accounts?pageSize=20' +
-            (next ? '&pageToken=' + encodeURIComponent(next) : ''),
-          { headers },
-        );
-        for (const account of a.accounts || []) {
-          let locNext = '';
-          for (let lp = 0; lp < 10; lp++) {
-            const locations = await requestJSON(
-              'https://mybusinessbusinessinformation.googleapis.com/v1/' +
-                account.name +
-                '/locations?readMask=name,title&pageSize=100' +
-                (locNext ? '&pageToken=' + encodeURIComponent(locNext) : ''),
-              { headers },
-            );
-            for (const l of locations.locations || [])
+          for (const a of r.accountSummaries || [])
+            for (const p of a.propertySummaries || [])
               resources.push({
-                source: 'gbp',
-                id: l.name.replace('locations/', ''),
-                label: l.title,
+                source: 'ga4',
+                id: p.property.replace('properties/', ''),
+                label: p.displayName + ' · ' + a.displayName,
               });
-            locNext = locations.nextPageToken;
-            if (!locNext) break;
-            if (lp === 9)
-              warnings.push(
-                'Only the first 1,000 locations per business account are listed.',
-              );
-          }
+          next = r.nextPageToken;
+          if (!next) break;
+          if (page === 9)
+            warnings.push(
+              'Only the first 2,000 Google Analytics accounts are listed.',
+            );
         }
-        next = a.nextPageToken;
-        if (!next) break;
+      } catch {
+        warnings.push(
+          'Analytics properties could not be listed. Enable the Admin API and confirm account access.',
+        );
       }
-    } catch {
-      warnings.push(
-        'Business locations could not be listed. Google Business Profile API approval and quota may still be needed.',
-      );
-    }
+    if (!grant.scopes || grant.scopes.includes('/auth/business.manage'))
+      try {
+        let next = '';
+        for (let page = 0; page < 10; page++) {
+          const a = await requestJSON(
+            'https://mybusinessaccountmanagement.googleapis.com/v1/accounts?pageSize=20' +
+              (next ? '&pageToken=' + encodeURIComponent(next) : ''),
+            { headers },
+          );
+          for (const account of a.accounts || []) {
+            let locNext = '';
+            for (let lp = 0; lp < 10; lp++) {
+              const locations = await requestJSON(
+                'https://mybusinessbusinessinformation.googleapis.com/v1/' +
+                  account.name +
+                  '/locations?readMask=name,title&pageSize=100' +
+                  (locNext ? '&pageToken=' + encodeURIComponent(locNext) : ''),
+                { headers },
+              );
+              for (const l of locations.locations || [])
+                resources.push({
+                  source: 'gbp',
+                  id: l.name.replace('locations/', ''),
+                  label: l.title,
+                });
+              locNext = locations.nextPageToken;
+              if (!locNext) break;
+              if (lp === 9)
+                warnings.push(
+                  'Only the first 1,000 locations per business account are listed.',
+                );
+            }
+          }
+          next = a.nextPageToken;
+          if (!next) break;
+        }
+      } catch {
+        warnings.push(
+          'Business locations could not be listed. Google Business Profile API approval and quota may still be needed.',
+        );
+      }
   } else if (provider === 'meta') {
     const app = await getApp(owner, provider);
     let after = '';

@@ -52,6 +52,8 @@ import { Picker, Help } from './controls';
 import { AnalyticsChart, Bars } from './charts';
 import { type WorkspaceData } from './use-workspace';
 import { MediaCards, Empty } from './content';
+import { SourceReports } from './source-reports';
+import type { ReportTable } from '@/lib/reporting';
 export function StatRow({
   items,
 }: {
@@ -376,6 +378,7 @@ export function PerformancePage({
   live = false,
   websiteConnection,
   websiteRealtime,
+  tables = [],
 }: {
   rows: Daily[];
   previous: Daily[];
@@ -386,6 +389,7 @@ export function PerformancePage({
   live?: boolean;
   websiteConnection?: SourceStatus;
   websiteRealtime?: WebsiteRealtime;
+  tables?: ReportTable[];
 }) {
   const [channel, setChannel] = useState(initialChannel),
     [metric, setMetric] = useState<Metric>('views'),
@@ -502,6 +506,17 @@ export function PerformancePage({
             </Panel>
           </div>
         </>
+      )}
+      {live && (
+        <SourceReports
+          tables={tables}
+          group={channel === 'Website' ? 'website' : 'advertising'}
+          title={
+            channel === 'Website'
+              ? 'Website source reports'
+              : 'Advertising performance'
+          }
+        />
       )}
     </div>
   );

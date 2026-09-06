@@ -667,6 +667,7 @@ export default function Workspace({
                     (s) => s.channel === 'Website',
                   )}
                   websiteRealtime={source.websiteRealtime}
+                  tables={source.tables}
                 />
               )}
               {page === 'Content Intelligence' && (
@@ -723,13 +724,6 @@ export default function Workspace({
                   tables={source.tables}
                   group="google"
                   title="Google Business reports"
-                />
-              )}
-              {page === 'Performance' && source.mode === 'live' && (
-                <SourceReports
-                  tables={source.tables}
-                  group="advertising"
-                  title="Advertising performance"
                 />
               )}
               {(page === 'Inbox' || page === 'Mentions') && (

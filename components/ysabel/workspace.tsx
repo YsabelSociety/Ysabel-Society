@@ -659,7 +659,8 @@ export default function Workspace({
                 <PerformancePage
                   rows={rows}
                   previous={previous}
-                  data={data}
+                  data={analyticsData}
+                  loading={source.loading}
                   range={range}
                   unit={unit}
                   live={source.mode === 'live'}
@@ -683,13 +684,8 @@ export default function Workspace({
                   rows={rows}
                   previous={previous}
                   live={source.mode === 'live'}
-                />
-              )}
-              {page === 'Audience' && source.mode === 'live' && (
-                <SourceReports
                   tables={source.tables}
-                  group="audience"
-                  title="Audience detail"
+                  loading={source.loading}
                 />
               )}
               {page === 'Website' && (

@@ -35,6 +35,11 @@ export const DAILY_FIELDS = [
   'follows',
   'unfollows',
   'mediaViewers',
+  'likes',
+  'comments',
+  'shares',
+  'reshares',
+  'reposts',
 ];
 export const POST_FIELDS = [
   'views',
@@ -43,6 +48,10 @@ export const POST_FIELDS = [
   'comments',
   'saves',
   'shares',
+  'reshares',
+  'reposts',
+  'engagements',
+  'mediaViewers',
   'followers',
   'visits',
 ];

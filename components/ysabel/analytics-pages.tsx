@@ -54,6 +54,9 @@ import { type WorkspaceData } from './use-workspace';
 import { MediaCards, Empty } from './content';
 import { SourceReports } from './source-reports';
 import type { ReportTable } from '@/lib/reporting';
+import { SocialPerformance, AudienceBreakdown } from './social-performance';
+import { AudienceMap } from './audience-map';
+import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
 export function StatRow({
   items,
 }: {
@@ -376,6 +379,7 @@ export function PerformancePage({
   unit,
   range,
   live = false,
+  loading = false,
   websiteConnection,
   websiteRealtime,
   tables = [],
@@ -387,20 +391,24 @@ export function PerformancePage({
   unit: string;
   range: Range;
   live?: boolean;
+  loading?: boolean;
   websiteConnection?: SourceStatus;
   websiteRealtime?: WebsiteRealtime;
   tables?: ReportTable[];
 }) {
   const [channel, setChannel] = useState(initialChannel),
-    [metric, setMetric] = useState<Metric>('views'),
     [note, setNote] = useState(''),
     [noteDate, setNoteDate] = useState(range.end);
-  const r =
-      channel === 'All' ? rows : rows.filter((r) => r.channel === channel),
-    p =
-      channel === 'All'
-        ? previous
-        : previous.filter((r) => r.channel === channel);
+  const r = rows.filter((row) => channel === 'All' || row.channel === channel),
+    p = previous.filter((row) => channel === 'All' || row.channel === channel);
+  const websiteTables = tables
+    .filter((t) => t.source === 'ga4')
+    .map((t) => ({
+      ...t,
+      columns: t.columns.filter(
+        (c) => !['conversions', 'conversionValue', 'keyEvents'].includes(c),
+      ),
+    }));
   return (
     <div className="view-enter platform-workspace" data-platform={channel}>
       <div className="studio-toolbar">
@@ -408,120 +416,172 @@ export function PerformancePage({
           <TabsList className="page-tabs">
             {['All', ...CHANNELS].map((c) => (
               <TabsTrigger key={c} value={c} data-platform={c}>
-                {c}
+                {c === 'All' ? 'All social platforms' : c}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
       </div>
       {channel === 'Website' ? (
-        <WebsitePage
-          rows={r}
-          previous={p}
-          live={live}
-          status={websiteConnection}
-          realtime={websiteRealtime}
-        />
-      ) : (
         <>
-          <StatRow
-            items={METRICS.slice(0, 4).map((m) => ({
-              label: m.label,
-              value: metricAvailable(r, m.key) ? compact(total(r, m.key)) : '—',
-              note: total(p, m.key)
-                ? change(total(r, m.key), total(p, m.key)).toFixed(1) +
-                  '% vs comparison'
-                : m.source,
-            }))}
+          <WebsitePage
+            rows={r}
+            previous={p}
+            live={live}
+            status={websiteConnection}
+            realtime={websiteRealtime}
           />
-          <AnalyticsChart rows={r} previous={p} />
-          <div className="two-col">
-            <div>
-              <div className="section-head standalone">
-                <h2>Channel contribution</h2>
-                <Picker
-                  label="Contribution metric"
-                  value={metric}
-                  onChange={(v) => setMetric(v as Metric)}
-                  options={['views', 'engagements', 'users', 'actions']}
-                />
-              </div>
-              <AnalyticsChart
-                rows={rows}
-                metric={metric}
-                title="Share of the story"
-                stacked
-              />
-            </div>
-            <Panel
-              title="Timeline annotations"
-              description="Connect a moment in the business to a movement in performance."
-            >
-              <form
-                className="edit-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  void data
-                    .annotate(noteDate, note, unit)
-                    .then(() => setNote(''))
-                    .catch(() => {});
-                }}
-              >
-                <label>
-                  Date
-                  <input
-                    type="date"
-                    required
-                    value={noteDate}
-                    onChange={(e) => setNoteDate(e.target.value)}
-                  />
-                </label>
-                <label>
-                  What happened?
-                  <input
-                    required
-                    maxLength={300}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="A new menu. A collaboration. An evening."
-                  />
-                </label>
-                <button
-                  className="secondary"
-                  disabled={data.busy || !data.ready}
-                >
-                  <Plus size={14} /> Add annotation
-                </button>
-              </form>
-              <div className="annotation-list">
-                {data.annotations
-                  .filter((n) => n.date >= range.start && n.date <= range.end)
-                  .map((n) => (
-                    <div key={n.id}>
-                      <span>{n.date}</span>
-                      <p>{n.text}</p>
-                    </div>
-                  ))}
-              </div>
-            </Panel>
-          </div>
+          <AudienceMap tables={websiteTables} channels={['Website']} />
+          {live && (
+            <SourceReports
+              tables={websiteTables}
+              group="website"
+              title="Website source reports"
+            />
+          )}
         </>
-      )}
-      {live && (
-        <SourceReports
+      ) : channel === 'Google Business' ? (
+        <>
+          <GooglePage rows={r} live={live} />
+          {live && (
+            <SourceReports
+              tables={tables.filter((t) => t.source === 'gbp')}
+              group="google"
+              title="Google Business source reports"
+            />
+          )}
+        </>
+      ) : (
+        <SocialPerformance
+          key={channel}
+          rows={r}
+          posts={data.posts}
           tables={tables}
-          group={channel === 'Website' ? 'website' : 'advertising'}
-          title={
-            channel === 'Website'
-              ? 'Website source reports'
-              : 'Advertising performance'
-          }
+          range={range}
+          channel={channel}
+          loading={loading}
         />
       )}
+      <details className="surface performance-notes">
+        <summary>Timeline annotations</summary>
+        <form
+          className="performance-note-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void data
+              .annotate(noteDate, note, unit)
+              .then(() => setNote(''))
+              .catch(() => {});
+          }}
+        >
+          <label>
+            Date
+            <input
+              type="date"
+              required
+              value={noteDate}
+              onChange={(e) => setNoteDate(e.target.value)}
+            />
+          </label>
+          <label>
+            What happened?
+            <input
+              required
+              maxLength={300}
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+          </label>
+          <button className="secondary" disabled={data.busy || !data.ready}>
+            <Plus size={14} /> Add annotation
+          </button>
+        </form>
+        <div className="annotation-list">
+          {data.annotations
+            .filter((n) => n.date >= range.start && n.date <= range.end)
+            .map((n) => (
+              <div key={n.id}>
+                <span>{n.date}</span>
+                <p>{n.text}</p>
+              </div>
+            ))}
+        </div>
+      </details>
     </div>
   );
 }
 export function AudiencePage({
+  rows,
+  previous,
+  live = false,
+  tables = [],
+  loading = false,
+}: {
+  rows: Daily[];
+  previous: Daily[];
+  live?: boolean;
+  tables?: ReportTable[];
+  loading?: boolean;
+}) {
+  const [channel, setChannel] = useState('All'),
+    [layout, setLayout] = useState('Together');
+  const channels = channel === 'All' ? [...SOCIAL_PLATFORMS] : [channel];
+  const selectedRows = rows.filter((r) =>
+    channels.includes(r.channel as (typeof SOCIAL_PLATFORMS)[number]),
+  );
+  return (
+    <div className="view-enter platform-workspace" data-platform={channel}>
+      <div className="studio-toolbar">
+        <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
+          <TabsList className="page-tabs">
+            {['All', ...SOCIAL_PLATFORMS].map((c) => (
+              <TabsTrigger value={c} key={c} data-platform={c}>
+                {c === 'All' ? 'All social platforms' : c}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+        {channel === 'All' && (
+          <Picker
+            label="Audience map layout"
+            value={layout}
+            onChange={setLayout}
+            options={['Together', 'Separate platforms']}
+          />
+        )}
+      </div>
+      <CommunitySummary
+        key={channel}
+        rows={selectedRows}
+        previous={previous.filter((r) =>
+          channels.includes(r.channel as (typeof SOCIAL_PLATFORMS)[number]),
+        )}
+        live={live}
+      />
+      {live && (
+        <>
+          <AudienceBreakdown
+            tables={tables}
+            channels={channels}
+            loading={loading}
+            separate={layout === 'Separate platforms'}
+          />
+          <SourceReports
+            key={channel}
+            tables={tables.filter((t) =>
+              channels.includes(
+                SOURCE_PLATFORM[t.source] as (typeof SOCIAL_PLATFORMS)[number],
+              ),
+            )}
+            group="audience"
+            title="Audience detail"
+          />
+        </>
+      )}
+    </div>
+  );
+}
+function CommunitySummary({
   rows,
   previous,
   live = false,
@@ -900,11 +960,6 @@ export function WebsitePage({
             label: 'Page views',
             value: metricAvailable(r, 'pageViews') ? number(pages) : '—',
           },
-          {
-            label: 'Conversions',
-            value: 'Unavailable',
-            note: 'No verified reservation event',
-          },
         ]}
       />
       <AnalyticsChart
@@ -1039,7 +1094,6 @@ export function WebsitePage({
                 <span>Page</span>
                 <span>Views</span>
                 <span>Share</span>
-                <span>Conversions</span>
               </div>
               {[
                 'Menu',
@@ -1059,7 +1113,6 @@ export function WebsitePage({
                     )}
                   </span>
                   <span>{[32, 20, 18, 17, 8, 5][i]}%</span>
-                  <span className="muted">Unavailable</span>
                 </div>
               ))}
             </div>

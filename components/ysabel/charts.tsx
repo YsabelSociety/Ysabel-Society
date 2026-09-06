@@ -131,7 +131,6 @@ export function AnalyticsChart({
                 'followers',
                 'users',
                 'actions',
-                'conversions',
               ]}
             />
           )}

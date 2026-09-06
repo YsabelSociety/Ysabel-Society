@@ -126,7 +126,7 @@ export async function GET(req: Request) {
             ...[...tableMap.values()]
               .filter((r) => r.rows?.length)
               .map((r) => SOURCE_CHANNELS[r.source]),
-            ...postRows.results.map((r) => JSON.parse(r.payload).channel),
+            ...postRows.results.map((r) => JSON.parse(r.payload).platform),
           ].filter(Boolean),
         ),
       ],

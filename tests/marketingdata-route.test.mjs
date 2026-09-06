@@ -17,8 +17,11 @@ test('the dashboard proxy cannot forward forged identity or unrelated website co
   assert.equal(response.headers.get('cache-control'), 'private, no-store');
 });
 
-test('login redirects remain on the website and retain secure cookies', async t => {
-  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 303, headers: { Location: 'https://ysabel-society-intelligence.arberhalili1.chatgpt.site/marketingdata/login?returnTo=%2Fmarketingdata', 'Set-Cookie': 'ys_marketing_session=sample; HttpOnly; Secure; SameSite=Lax; Path=/marketingdata' } }));
+test('the root mount gains a slash and login redirects retain secure cookies', async t => {
+  t.mock.method(globalThis, 'fetch', async (target) => {
+    assert.equal(target.pathname, '/marketingdata/');
+    return new Response(null, { status: 303, headers: { Location: 'https://ysabel-society-intelligence.arberhalili1.chatgpt.site/marketingdata/login?returnTo=%2Fmarketingdata', 'Set-Cookie': 'ys_marketing_session=sample; HttpOnly; Secure; SameSite=Lax; Path=/marketingdata' } });
+  });
   const response = await GET(new Request('https://ysabelsociety.com/marketingdata'));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get('location'), '/marketingdata/login?returnTo=%2Fmarketingdata');

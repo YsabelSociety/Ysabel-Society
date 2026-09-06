@@ -12,7 +12,7 @@ async function proxy(request: Request) {
   const incoming = new URL(request.url);
   if (incoming.pathname !== "/marketingdata" && !incoming.pathname.startsWith("/marketingdata/")) return new Response(null, { status: 404 });
   const upstream = new URL(upstreamOrigin);
-  upstream.pathname = incoming.pathname;
+  upstream.pathname = incoming.pathname === "/marketingdata" ? "/marketingdata/" : incoming.pathname;
   upstream.search = incoming.search;
   const headers = new Headers();
   for (const key of forwardedHeaders) {

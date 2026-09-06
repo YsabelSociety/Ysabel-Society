@@ -15,6 +15,7 @@ import { csvRows, DAILY_FIELDS, POST_FIELDS } from '@/lib/import-file';
 import { type DataCheck } from '@/lib/reporting';
 import { iso } from '@/lib/analytics';
 import { Picker } from './controls';
+import { HistoryImport } from './history-import';
 const GUIDES: Record<
   string,
   { console: string; guide: string; steps: string[] }
@@ -164,7 +165,9 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
       completedReservationEvent: '',
     });
     if (source === 'ga4') {
-      void fetch('/marketingdata/api/connection-options?source=ga4', { signal: abort.signal })
+      void fetch('/marketingdata/api/connection-options?source=ga4', {
+        signal: abort.signal,
+      })
         .then(async (response) => {
           if (!response.ok) return;
           const data = (await response.json()) as {
@@ -705,6 +708,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
           <div className="automation-grid">
             <div>
               <span className="pill">Available now</span>
+              <HistoryImport source={source} />
               <h3>Automatic refresh in this workspace</h3>
               <p>
                 After you authorize and select an account, refresh is enabled

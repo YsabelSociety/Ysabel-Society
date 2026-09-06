@@ -57,6 +57,7 @@ import type { ReportTable } from '@/lib/reporting';
 import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
+import { HistoryImport } from './history-import';
 export function StatRow({
   items,
 }: {
@@ -411,6 +412,7 @@ export function PerformancePage({
     }));
   return (
     <div className="view-enter platform-workspace" data-platform={channel}>
+      {live && <HistoryImport />}
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
           <TabsList className="page-tabs">

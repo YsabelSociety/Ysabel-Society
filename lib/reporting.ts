@@ -25,6 +25,7 @@ export type DataCheck = {
   detail: string;
 };
 export type ImportResult = {
+  nextCursor?: string | null;
   daily: Daily[];
   posts: Post[];
   tables: ReportTable[];
@@ -102,6 +103,33 @@ export function mergeDaily(old: Daily | undefined, current: Daily): Daily {
   merged.available = [
     ...new Set([...(old.available || []), ...(current.available || [])]),
   ];
+  return merged;
+}
+export function mergePost(old: Post | undefined, current: Post): Post {
+  if (!old) return current;
+  const merged = {
+    ...old,
+    ...current,
+    sourceMetrics: { ...old.sourceMetrics, ...current.sourceMetrics },
+  };
+  for (const key of old.available || []) {
+    if (!current.available?.includes(key))
+      (merged as unknown as Record<string, unknown>)[key] = (
+        old as unknown as Record<string, unknown>
+      )[key];
+  }
+  merged.available = [
+    ...new Set([...(old.available || []), ...(current.available || [])]),
+  ];
+  merged.sourceMetrics.metricObservedAt = {
+    ...((old.sourceMetrics?.metricObservedAt || {}) as Record<string, string>),
+    ...Object.fromEntries(
+      (current.available || []).map((k) => [
+        k,
+        current.observedAt || new Date().toISOString(),
+      ]),
+    ),
+  };
   return merged;
 }
 export function importedPost(

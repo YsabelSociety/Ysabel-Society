@@ -19,6 +19,16 @@ const normalize = (name: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+const mapColors = [
+  '#b8dfdb',
+  '#64bfba',
+  '#319fbd',
+  '#4271b8',
+  '#7954a6',
+  '#ab467e',
+];
+const countryColor = (value: number, max: number) =>
+  mapColors[Math.min(5, Math.floor(Math.sqrt(value / max) * 6))];
 export function AudienceMap({
   tables,
   channels,
@@ -276,10 +286,8 @@ export function AudienceMap({
                 <path
                   key={country.code}
                   d={country.path}
-                  fill={value ? (isActive ? color : color) : '#f8fafc'}
-                  fillOpacity={
-                    value ? 0.2 + 0.8 * Math.sqrt(value.total / maximum) : 1
-                  }
+                  fill={value ? countryColor(value.total, maximum) : '#f1f3f5'}
+                  fillOpacity={1}
                   stroke={isActive ? '#24384d' : '#b4c4d5'}
                   strokeWidth={isActive ? 1.6 : 0.6}
                   vectorEffect="non-scaling-stroke"
@@ -377,9 +385,18 @@ export function AudienceMap({
           />
         </label>
         <p>
-          Colour intensity shows the reported count. Pale countries have no
+          Teal to plum shows increasing audience counts. Grey countries have no
           supplied value.
         </p>
+      </div>
+      <div className="map-color-legend" aria-label="Audience count color scale">
+        {mapColors.map((c, i) => (
+          <span key={c}>
+            <i style={{ background: c }} />
+            {number(Math.ceil(maximum * (i / 6) ** 2))}
+            {i === 5 ? '–' + number(maximum) : '+'}
+          </span>
+        ))}
       </div>
       <div className="map-country-table">
         <table>

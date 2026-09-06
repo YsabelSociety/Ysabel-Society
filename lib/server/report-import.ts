@@ -1,6 +1,7 @@
-import { type Daily, type Range } from '@/lib/analytics';
+import { type Daily, type Range, type Post } from '@/lib/analytics';
 import {
   mergeDaily,
+  mergePost,
   validateImportSize,
   type ImportResult,
 } from '@/lib/reporting';
@@ -46,6 +47,20 @@ export async function persistImport(
   );
   const guard =
     ' EXISTS(SELECT 1 FROM connector_links WHERE owner=? AND source=? AND external_id=?)';
+  const oldPosts = new Map<string, Post>();
+  for (let offset = 0; offset < result.posts.length; offset += 50) {
+    const ids = result.posts.slice(offset, offset + 50).map((p) => p.id);
+    const saved = await db
+      .prepare(
+        'SELECT post_id,payload FROM source_posts WHERE account_id=? AND post_id IN (' +
+          ids.map(() => '?').join(',') +
+          ')',
+      )
+      .bind(account, ...ids)
+      .all<{ post_id: string; payload: string }>();
+    for (const row of saved.results)
+      oldPosts.set(row.post_id, JSON.parse(row.payload) as Post);
+  }
   const statements = [
     ...result.daily.map((current) => {
       const row = mergeDaily(old.get(current.date), current);
@@ -86,7 +101,7 @@ export async function persistImport(
           account,
           post.id,
           post.date,
-          JSON.stringify(post),
+          JSON.stringify(mergePost(oldPosts.get(post.id), post)),
           now,
           owner,
           source,

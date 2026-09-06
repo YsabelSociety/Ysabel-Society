@@ -53,7 +53,7 @@ export async function GET(req: Request) {
       .all<{ payload: string }>();
     const tableRows = await db
       .prepare(
-        'SELECT r.payload,r.period_start,r.period_end,r.updated_at,a.channel FROM source_reports r JOIN platform_accounts a ON a.id=r.account_id WHERE a.owner=? AND a.enabled=1 AND r.period_start<=? AND r.period_end>=? ORDER BY r.updated_at DESC LIMIT 120',
+        'SELECT r.payload,r.period_start,r.period_end,r.updated_at,a.channel FROM source_reports r JOIN platform_accounts a ON a.id=r.account_id WHERE a.owner=? AND a.enabled=1 AND r.period_start<=? AND r.period_end>=? ORDER BY r.updated_at DESC',
       )
       .bind(user.userId, end, start)
       .all<{

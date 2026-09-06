@@ -45,6 +45,7 @@ import type { ReportTable } from '@/lib/reporting';
 import { Picker } from './controls';
 import { useMinimalMotion } from './use-motion';
 import { AudienceMap } from './audience-map';
+import { PostPerformance } from './post-performance';
 
 export class ChartBoundary extends Component<
   { children: ReactNode },
@@ -70,7 +71,7 @@ export class ChartBoundary extends Component<
     );
   }
 }
-function DeferredChart({
+export function DeferredChart({
   children,
   loading,
   title,
@@ -632,6 +633,11 @@ export function SocialPerformance({
           </div>
         ))}
       </div>
+      <PostPerformance
+        posts={selectedPosts}
+        channels={channels}
+        loading={loading}
+      />
       <div className="performance-chart-grid">
         {SOCIAL_METRICS.flatMap((metric) =>
           groups.map((group) => (

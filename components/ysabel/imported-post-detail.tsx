@@ -22,6 +22,8 @@ export function ImportedPostDetail({
     ['comments', 'Comments'],
     ['saves', 'Saves'],
     ['shares', 'Shares'],
+    ['reshares', 'Reshares'],
+    ['reposts', 'Reposts'],
     ['followers', 'Followers gained'],
     ['visits', 'Website visits'],
     ['profileVisits', 'Profile visits'],

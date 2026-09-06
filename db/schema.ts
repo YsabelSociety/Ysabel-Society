@@ -55,6 +55,18 @@ export const settings = sqliteTable('workspace_settings', {
   owner: text('owner').primaryKey(),
   payload: text('payload').notNull(),
 });
+export const historyImports = sqliteTable(
+  'history_imports',
+  {
+    owner: text('owner').notNull(),
+    source: text('source').notNull(),
+    externalId: text('external_id').notNull(),
+    payload: text('payload').notNull(),
+    lease: text('lease'),
+    leaseUntil: integer('lease_until').notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.owner, t.source] })],
+);
 export const media = sqliteTable(
   'media_assets',
   {

@@ -15,6 +15,8 @@ import {
 } from '@/lib/website-source';
 
 export type ReportingContext = {
+  importMode?: 'content' | 'reports';
+  pageCursor?: string;
   accessToken: string;
   externalId: string;
   apiVersion?: string;
@@ -49,7 +51,7 @@ export async function importGA4(context: ReportingContext, range: Range) {
   ) {
     const rows: Record<string, string | number | null>[] = [];
     let raw: any;
-    for (let offset = 0; offset < 2000; offset += 2000) {
+    for (let offset = 0; offset < 10000; offset += 2000) {
       raw = await requestJSON(endpoint, {
         method: 'POST',
         headers,
@@ -60,6 +62,9 @@ export async function importGA4(context: ReportingContext, range: Range) {
           dimensionFilter: websiteReportFilter(filter),
           offset,
           limit: 2000,
+          orderBys: dimensions.map((dimensionName) => ({
+            dimension: { dimensionName },
+          })),
         }),
       });
       for (const row of raw.rows || []) {

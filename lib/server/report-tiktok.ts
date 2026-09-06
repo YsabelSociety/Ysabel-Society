@@ -53,8 +53,14 @@ export async function importTikTok(context: ReportingContext, range: Range) {
     'TikTok published videos',
     async () => {
       const items: any[] = [];
-      let cursor: number | undefined;
-      for (let page = 0; page < 50; page++) {
+      let cursor: number | undefined = context.pageCursor
+        ? Number(context.pageCursor)
+        : undefined;
+      for (
+        let page = 0;
+        page < (context.importMode === 'content' ? 1 : 50);
+        page++
+      ) {
         const r = await requestJSON(
           'https://open.tiktokapis.com/v2/video/list/?fields=id,create_time,cover_image_url,share_url,title,video_description,duration,like_count,comment_count,share_count,view_count',
           {
@@ -77,6 +83,13 @@ export async function importTikTok(context: ReportingContext, range: Range) {
           if (date >= range.start && date <= range.end) items.push(v);
         }
         cursor = r.data?.cursor;
+        if (context.importMode === 'content') {
+          if (r.data?.has_more && !cursor)
+            throw new Error(
+              'INPUT:TikTok did not return a continuation cursor. Retry this page.',
+            );
+          result.nextCursor = r.data?.has_more ? String(cursor) : null;
+        }
         if (
           !r.data?.has_more ||
           !cursor ||

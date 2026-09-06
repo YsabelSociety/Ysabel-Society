@@ -245,6 +245,24 @@ export default function Workspace({
     previous = source.previous;
   const analyticsData =
     source.mode === 'live' ? { ...data, posts: source.posts } : data;
+  useEffect(() => {
+    const showHistory = (event: Event) => {
+      const value = (event as CustomEvent<Range>).detail;
+      if (
+        !value ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(value.start) ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(value.end) ||
+        value.start > value.end
+      )
+        return;
+      setCustom(value);
+      setDate('Custom Range');
+      setComparison('No Comparison');
+    };
+    window.addEventListener('ysabel:history-range', showHistory);
+    return () =>
+      window.removeEventListener('ysabel:history-range', showHistory);
+  }, []);
   const visiblePosts = analyticsData.posts.filter(
     (p) => p.date >= range.start && p.date <= range.end,
   );
@@ -345,6 +363,65 @@ export default function Workspace({
           definition: m.definition,
         })),
       }),
+    });
+    register({
+      name: 'read_ysabel_history',
+      title: 'Read imported history coverage',
+      description:
+        'Read saved history-import progress and earliest and latest available records for the connected accounts.',
+      inputSchema: {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: true },
+      execute: async () => {
+        const r = await fetch('/marketingdata/api/history', {
+          cache: 'no-store',
+        });
+        if (!r.ok) throw new Error('History status unavailable.');
+        return r.json();
+      },
+    });
+    register({
+      name: 'import_ysabel_history_batch',
+      title: 'Import an available-history batch',
+      description:
+        'Start or continue a saved history import for an already connected account. Imports one bounded batch and saves progress; call again until done. Does not change permissions or connect new accounts.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          source: {
+            type: 'string',
+            enum: ['instagram', 'facebook', 'tiktok', 'ga4', 'gbp'],
+          },
+        },
+        required: ['source'],
+        additionalProperties: false,
+      },
+      annotations: { readOnlyHint: false },
+      execute: async (input: any) => {
+        if (
+          !['instagram', 'facebook', 'tiktok', 'ga4', 'gbp'].includes(
+            input?.source,
+          )
+        )
+          throw new Error('Choose a connected reporting source.');
+        const call = async (op: string) => {
+          const r = await fetch('/marketingdata/api/history', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source: input.source, op }),
+            }),
+            body: any = await r.json();
+          if (!r.ok) throw new Error(body.error || 'Import unavailable.');
+          return body;
+        };
+        const job = await call('start');
+        const result = job.phase === 'done' ? job : await call('step');
+        window.dispatchEvent(new Event('ysabel:sources-updated'));
+        return result;
+      },
     });
     return () => lifecycle.abort();
   }, [unit, range, rows]);

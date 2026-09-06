@@ -7,6 +7,7 @@ import { digest, randomToken, readVault, writeVault } from './connector-vault';
 import { requestJSON } from './providers';
 import { googleScopes } from '@/lib/source-status';
 import { APP_BASE } from '@/lib/app-path';
+import { verifiedMetaExpiry } from '@/lib/meta-token-status';
 export type AppCredentials = {
   clientId: string;
   clientSecret: string;
@@ -39,6 +40,17 @@ export async function getApp(owner: string, provider: string) {
       'INPUT:Complete the first-time app setup before connecting.',
     );
   return app;
+}
+async function metaExpiry(app: AppCredentials, token: string) {
+  const result = await requestJSON(
+    `https://graph.facebook.com/${app.apiVersion}/debug_token?input_token=${encodeURIComponent(token)}`,
+    {
+      headers: {
+        Authorization: 'Bearer ' + app.clientId + '|' + app.clientSecret,
+      },
+    },
+  );
+  return verifiedMetaExpiry(result.data || {}, app.clientId);
 }
 async function tokenRequest(
   provider: ConnectorProvider,
@@ -174,7 +186,10 @@ export async function finishOAuth(
   await writeVault(owner, 'grant', provider, {
     accessToken: result.access_token,
     refreshToken: result.refresh_token,
-    expiresAt: Date.now() + Number(result.expires_in || 3600) * 1000,
+    expiresAt:
+      provider === 'meta'
+        ? await metaExpiry(app, result.access_token)
+        : Date.now() + Number(result.expires_in || 3600) * 1000,
     openId: result.open_id,
     authorizedAt: new Date().toISOString(),
     scopes: result.scope,
@@ -187,7 +202,18 @@ export async function accessGrant(owner: string, provider: ConnectorProvider) {
       'INPUT:Authorize this platform before selecting an account.',
     );
   if (grant.expiresAt < Date.now() + 90000) {
-    if (provider === 'meta' || !grant.refreshToken)
+    if (provider === 'meta') {
+      grant = {
+        ...grant,
+        expiresAt: await metaExpiry(
+          await getApp(owner, provider),
+          grant.accessToken,
+        ),
+      };
+      await writeVault(owner, 'grant', provider, grant);
+      return grant;
+    }
+    if (!grant.refreshToken)
       throw new Error(
         'INPUT:Your authorization expired. Connect this platform again.',
       );

@@ -204,6 +204,15 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
       let d: any;
       if (op === 'history' && body.range) {
         const range = body.range as { start: string; end: string };
+        if (
+          !Number.isFinite(Date.parse(range.start)) ||
+          !Number.isFinite(Date.parse(range.end)) ||
+          range.start > range.end ||
+          Date.parse(range.end) - Date.parse(range.start) > 31 * 86400000
+        )
+          throw new Error(
+            'Choose a valid date window of up to 32 days. Use available history for the full import.',
+          );
         for (
           let end = Date.parse(range.end);
           end >= Date.parse(range.start);

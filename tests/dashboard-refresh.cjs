@@ -151,6 +151,7 @@ function verifyIntro() {
       'styles',
       'RefreshCw',
       'INTRO_KEY',
+      'LoadingLogo',
       compiled,
     )(
       require,
@@ -161,13 +162,17 @@ function verifyIntro() {
       new Proxy({}, { get: (_, name) => String(name) }),
       () => null,
       'test-intro',
+      () => React.createElement('div', { 'data-loading-logo': 'animated' }),
     );
     return {
       h,
       m,
-      render: (value) =>
+      render: (value, sceneReady = true) =>
         h.render(() =>
-          m.exports.useWorkspaceIntro(value === undefined ? ready : value),
+          m.exports.useWorkspaceIntro(
+            value === undefined ? ready : value,
+            sceneReady,
+          ),
         ),
     };
   }
@@ -191,6 +196,26 @@ function verifyIntro() {
       'Background refresh does not reopen the intro',
     );
     fast.h.cleanup();
+    const preparingLogo = setup(true);
+    preparingLogo.render(true, false);
+    advance(10000);
+    assert.equal(
+      preparingLogo.render(true, false).visible,
+      true,
+      'Ready data waits for the animated logo to render or its supported fallback',
+    );
+    preparingLogo.render(true, true);
+    advance(timing.minimum);
+    preparingLogo.render(true, true);
+    advance(timing.settle);
+    preparingLogo.render(true, true);
+    advance(timing.exit);
+    assert.equal(
+      preparingLogo.render(true, true).visible,
+      false,
+      'The cinematic minimum starts when the logo is ready',
+    );
+    preparingLogo.h.cleanup();
     const slow = setup(false);
     slow.render();
     advance(30000);
@@ -221,8 +246,8 @@ function verifyIntro() {
       }),
     );
     assert(
-      !html.includes('<img'),
-      'No static logo appears in the loading overlay',
+      html.includes('data-loading-logo="animated"'),
+      'The loading overlay uses the shared animated emblem',
     );
     assert(
       html.includes('Retry loading') && html.includes('role="alert"'),

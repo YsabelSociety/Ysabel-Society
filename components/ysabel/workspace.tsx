@@ -48,6 +48,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
 import { SyncSettings } from './sync-details';
 import { AdminGate } from './admin-gate';
+import { LoadingLogo } from './loading-logo';
 import {
   Command,
   CommandDialog,
@@ -510,8 +511,10 @@ export default function Workspace({
     (!data.ready ? data.error : '') ||
     (!source.ready ? source.error : '') ||
     (communityKind === communityLoad.kind ? communityLoad.error : '');
+  const [introSceneReady, setIntroSceneReady] = useState(false);
   const intro = useWorkspaceIntro(
     data.ready && source.ready && communityReady && !initialError,
+    introSceneReady,
   );
   const retryInitialLoad = () => {
     void data.load();
@@ -525,6 +528,7 @@ export default function Workspace({
           leaving={intro.leaving}
           error={initialError}
           onRetry={retryInitialLoad}
+          onSceneReady={() => setIntroSceneReady(true)}
         />
       )}
       <div inert={intro.visible} aria-hidden={intro.visible || undefined}>
@@ -618,10 +622,11 @@ export default function Workspace({
                     onClick={() => void syncState.sync()}
                     aria-label="Sync all connected platforms now"
                   >
-                    <RefreshCw
-                      size={16}
-                      className={syncState.running ? 'sync-spinning' : ''}
-                    />
+                    {syncState.running && !intro.visible ? (
+                      <LoadingLogo compact />
+                    ) : (
+                      <RefreshCw size={16} />
+                    )}
                     {syncState.running ? 'Syncing…' : 'Sync now'}
                   </button>
                   <button

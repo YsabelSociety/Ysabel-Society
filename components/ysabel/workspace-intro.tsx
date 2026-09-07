@@ -2,19 +2,22 @@
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import styles from './workspace-intro.module.css';
+import { LoadingLogo } from './loading-logo';
 
 export const INTRO_KEY = 'ysabel:login-intro';
-export const INTRO_TIMING = { minimum: 900, settle: 300, exit: 450 };
+export const INTRO_TIMING = { minimum: 1200, settle: 300, exit: 650 };
 export function WorkspaceIntro({
   leaving = false,
   signingIn = false,
   error = '',
   onRetry,
+  onSceneReady,
 }: {
   leaving?: boolean;
   signingIn?: boolean;
   error?: string;
   onRetry?: () => void;
+  onSceneReady?: () => void;
 }) {
   return (
     <div
@@ -29,14 +32,7 @@ export function WorkspaceIntro({
     >
       <div className={styles.light} aria-hidden="true" />
       <div className={styles.identity}>
-        <div className={styles.visual} aria-hidden="true">
-          {[38, 62, 46, 88, 71, 100, 58].map((height, i) => (
-            <span
-              key={i}
-              style={{ height: height + '%', animationDelay: i * -0.17 + 's' }}
-            />
-          ))}
-        </div>
+        <LoadingLogo onReady={onSceneReady} />
         <p>YSABEL SOCIETY</p>
         <span className={styles.caption}>
           {signingIn
@@ -58,7 +54,7 @@ export function WorkspaceIntro({
   );
 }
 
-export function useWorkspaceIntro(ready: boolean) {
+export function useWorkspaceIntro(ready: boolean, sceneReady = true) {
   const [visible, setVisible] = useState(true);
   const [minimum, setMinimum] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -69,15 +65,18 @@ export function useWorkspaceIntro(ready: boolean) {
     } catch {}
     const lessMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     setReduced(lessMotion);
-    const timer = setTimeout(
-      () => setMinimum(true),
-      lessMotion ? 0 : INTRO_TIMING.minimum,
-    );
-    return () => clearTimeout(timer);
   }, []);
   useEffect(() => {
+    if (!sceneReady) return;
+    const timer = setTimeout(
+      () => setMinimum(true),
+      reduced ? 0 : INTRO_TIMING.minimum,
+    );
+    return () => clearTimeout(timer);
+  }, [sceneReady, reduced]);
+  useEffect(() => {
     if (!visible) return;
-    if (!ready || !minimum) {
+    if (!ready || !sceneReady || !minimum) {
       setLeaving(false);
       return;
     }
@@ -96,6 +95,6 @@ export function useWorkspaceIntro(ready: boolean) {
       clearTimeout(settle);
       if (exit) clearTimeout(exit);
     };
-  }, [ready, minimum, reduced, visible]);
-  return { visible, leaving: leaving && ready };
+  }, [ready, sceneReady, minimum, reduced, visible]);
+  return { visible, leaving: leaving && ready && sceneReady };
 }

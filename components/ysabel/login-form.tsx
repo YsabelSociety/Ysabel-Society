@@ -11,7 +11,7 @@ export default function LoginForm() {
   return (
     <main className="login-shell">
       {busy && <WorkspaceIntro signingIn />}
-      <LoginScene />
+      {!busy && <LoginScene />}
       <section className="login-access">
         <div className="login-card">
           <BrandLogo />

@@ -15,8 +15,8 @@
   );
   color: #263222;
   transition:
-    opacity 450ms ease,
-    visibility 450ms;
+    opacity 650ms ease,
+    visibility 650ms;
 }
 .leaving {
   opacity: 0;
@@ -42,24 +42,8 @@
   text-align: center;
   animation: arrive 0.6s ease-out both;
 }
-.visual {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 8px;
-  height: 68px;
-  margin: 0 auto 30px;
-}
-.visual span {
-  width: 5px;
-  border-radius: 8px;
-  background: linear-gradient(#ffffffde, #526642);
-  box-shadow: 0 6px 20px #41542c15;
-  transform-origin: bottom;
-  animation: signal 1.8s ease-in-out infinite alternate;
-}
 .identity > p {
-  margin: 0 0 18px;
+  margin: 8px 0 18px;
   font-size: 0.875rem;
   letter-spacing: 0.22em;
   font-weight: 500;
@@ -94,20 +78,9 @@
     transform: rotate(360deg);
   }
 }
-@keyframes signal {
-  from {
-    transform: scaleY(0.4);
-    opacity: 0.6;
-  }
-  to {
-    transform: scaleY(1);
-    opacity: 1;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .identity,
-  .light,
-  .visual span {
+  .light {
     animation: none;
   }
   .intro {

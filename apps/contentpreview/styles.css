@@ -84,8 +84,18 @@ button:focus-visible { outline: 2px solid #1d3428; outline-offset: 2px; }
 .workspace-loading i { width: 100%; height: 1px; position: relative; overflow: hidden; background: #d2d1cc; }
 .workspace-loading i::after { content: ''; position: absolute; inset: 0; background: #263a2e; transform: translateX(-100%); animation: workspace-progress 1.2s ease-in-out infinite; }
 .workspace-loading .brand-avatar { animation: workspace-pulse 1.35s ease-in-out infinite; }
+.workspace-startup { min-height: 100dvh; display: grid; place-items: center; background: linear-gradient(180deg,#f3f2ee,#edece8); color: #5e625d; }
+.workspace-startup > div { width: 200px; display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.workspace-startup > div > span { text-transform: uppercase; letter-spacing: .13em; font-size: 9px; font-weight: 600; }
+.workspace-startup > div > i { width: 100%; height: 2px; border-radius: 999px; position: relative; overflow: hidden; background: #d5d4cf; }
+.workspace-startup > div > i::after { content: ''; position: absolute; inset: 0; background: #263a2e; transform: translateX(-100%); animation: startup-progress 1.3s ease-in-out infinite; }
+.workspace-startup .brand-avatar { animation: workspace-pulse 1.5s ease-in-out infinite; }
+.workspace-startup .startup-dots { min-height: 0; position: relative; letter-spacing: 0.25em; font-size: 14px; color: #3a3e3a; opacity: .75; animation: startup-dots 1.5s infinite; }
+.workspace-startup .startup-dots::after { content: ''; }
 @keyframes workspace-progress { 50% { transform: translateX(0); } 100% { transform: translateX(100%); } }
 @keyframes workspace-pulse { 50% { opacity: .64; } }
+@keyframes startup-progress { 0% { transform: translateX(-100%); } 50% { transform: translateX(0%); } 100% { transform: translateX(100%); } }
+@keyframes startup-dots { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 
 .app-shell { min-height: 100vh; display: grid; grid-template-columns: 68px 1fr; background: #f1f0ec; overflow: hidden; }
 .app-shell--published .canvas { background-color: #eeede9; background-image: none; }

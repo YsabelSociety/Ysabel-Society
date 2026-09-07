@@ -67,6 +67,8 @@ type WorkspaceData = {
 const FEED_SIZE = 15;
 const emptyFeed = () => Array<string | null>(FEED_SIZE).fill(null);
 const COMMUNITY_CAPTION_STORAGE_KEY = 'ysabel_community_captions_v1';
+const SESSION_TOKEN_KEY = 'ysabel_session_token';
+const SESSION_TOKEN_PERSISTENT_KEY = 'ysabel_session_token_persistent';
 const COMMUNITY_CAPTIONS_TEXTS = [
   'Monday night. Who did you think of when you saw Kipey’s name? Bring them. — Ysabel Garden · 21:00',
   'Tuesday night. Don’t just forward this. Add “come with me.” — Lab Sadiku · Ysabel Garden · 21:00',
@@ -212,6 +214,28 @@ function mergeCaptionStore(raw: unknown, boardIds: string[]) {
 
 function cloneCaptionPool(pool: CaptionPool): CaptionPool {
   return { available: [...pool.available], used: [...pool.used] };
+}
+
+function readSessionToken() {
+  let token = '';
+  try { token = window.localStorage.getItem(SESSION_TOKEN_PERSISTENT_KEY) || ''; } catch { /* no-op */ }
+  if (token) return token;
+  try { token = window.sessionStorage.getItem(SESSION_TOKEN_KEY) || ''; } catch { /* no-op */ }
+  return token;
+}
+
+function storeSessionToken(token: string) {
+  try { window.localStorage.setItem(SESSION_TOKEN_PERSISTENT_KEY, token); } catch { /* no-op */ }
+  try { window.sessionStorage.setItem(SESSION_TOKEN_KEY, token); } catch { /* no-op */ }
+}
+
+function clearSessionToken() {
+  try { window.localStorage.removeItem(SESSION_TOKEN_PERSISTENT_KEY); } catch { /* no-op */ }
+  try { window.sessionStorage.removeItem(SESSION_TOKEN_KEY); } catch { /* no-op */ }
+}
+
+function StartupScreen({ loadingText }: { loadingText: string }) {
+  return <main className="workspace-startup" aria-busy="true" aria-live="polite"><div><BrandAvatar size="lg" /><span>{loadingText}</span><i /><span className="startup-dots" aria-hidden="true">•••</span></div></main>;
 }
 
 function moveCaptionBetweenPools(pool: CaptionPool, captionId: string, target: 'used' | 'available') {
@@ -1080,15 +1104,21 @@ export default function YsabelWorkspace() {
   };
 
   useEffect(() => {
-    let storedToken = '';
-    try { storedToken = window.sessionStorage.getItem('ysabel_session_token') || ''; }
-    catch { /* Some mobile browsers restrict framed storage; in-memory login still works. */ }
+    const storedToken = readSessionToken();
     if (storedToken) setAuthToken(storedToken);
     const headers = new Headers();
     if (storedToken) headers.set('authorization', `Bearer ${storedToken}`);
     fetch('/contentpreview/api/auth/session', { cache: 'no-store', headers })
       .then((response) => response.ok ? response.json() as Promise<{ authenticated: boolean }> : Promise.reject())
-      .then((data) => setAuthState(data.authenticated ? 'ready' : 'login'))
+      .then((data) => {
+        if (data.authenticated) {
+          setAuthState('ready');
+        } else {
+          setAuthToken('');
+          clearSessionToken();
+          setAuthState('login');
+        }
+      })
       .catch(() => setAuthState('login'));
   }, []);
 
@@ -1119,9 +1149,14 @@ export default function YsabelWorkspace() {
       } catch {
         setCaptionStore((current) => current);
       }
-      setWorkspaceReady(true);
+    setWorkspaceReady(true);
     }).catch(() => {
-      if (!cancelled) { setWorkspaceReady(false); setAuthState('login'); }
+      if (!cancelled) {
+        setWorkspaceReady(false);
+        setAuthToken('');
+        clearSessionToken();
+        setAuthState('login');
+      }
     });
     return () => { cancelled = true; };
   }, [authState, authToken]);
@@ -1197,7 +1232,12 @@ export default function YsabelWorkspace() {
     // Preserve gesture order even if the connection completes requests out of order.
     const saved = persistenceQueue.current.catch(() => undefined).then(async () => {
       const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-      if (response.status === 401) setAuthState('login');
+      if (response.status === 401) {
+        setWorkspaceReady(false);
+        setAuthToken('');
+        clearSessionToken();
+        setAuthState('login');
+      }
       if (!response.ok) throw new Error('Save failed');
     });
     persistenceQueue.current = saved;
@@ -1222,8 +1262,7 @@ export default function YsabelWorkspace() {
       if (data.authenticated !== true || typeof data.token !== 'string' || !data.token) throw new Error('Invalid sign-in response');
       const token = data.token;
       setAuthToken(token);
-      try { if (token) window.sessionStorage.setItem('ysabel_session_token', token); }
-      catch { /* The active page keeps the token in memory when framed storage is unavailable. */ }
+      if (token) storeSessionToken(token);
       setLoginPassword(''); setLoginEntering(true); setAuthState('ready');
     } catch { setLoginError('Sign in is temporarily unavailable. Please try again.'); }
     finally { loginRequestInFlight.current = false; setLoginBusy(false); }
@@ -1234,7 +1273,7 @@ export default function YsabelWorkspace() {
     assetSaveTimers.current.clear();
     await authFetch('/contentpreview/api/auth/logout', { method: 'POST' }).catch(() => undefined);
     setAuthToken('');
-    try { window.sessionStorage.removeItem('ysabel_session_token'); } catch { /* no-op */ }
+    clearSessionToken();
     setLoginPassword(''); setLoginError(''); setLoginFocused(false); setLoginEntering(false); setWorkspaceReady(false); setAuthState('login'); setPresentation(false);
     setAssets([]); setBoards([]); setFeeds({}); setVersions([]); setNotes([]); setPublications([]);
   };
@@ -1833,7 +1872,11 @@ export default function YsabelWorkspace() {
     .map((id) => COMMUNITY_CAPTION_BY_ID.get(id))
     .filter(Boolean) as CommunityCaption[], [activeCaptionPool.used, activeBoardId]);
 
-  if (authState !== 'ready' || loginEntering) {
+  if (authState === 'checking') {
+    return <StartupScreen loadingText="Opening your private workspace…" />;
+  }
+
+  if (authState === 'login' || loginEntering) {
     return (
       <main className={`login-screen${loginEntering && workspaceReady ? ' is-entering' : ''}`} style={{ '--entry-duration': `${LOGIN_SCENE.entry.durationMs}ms` } as CSSProperties}>
         <YsabelLoginBackground focused={loginFocused} entering={loginEntering} />
@@ -1857,11 +1900,7 @@ export default function YsabelWorkspace() {
   }
 
   if (!workspaceReady) {
-    return (
-      <main className="workspace-loading" aria-busy="true" aria-live="polite">
-        <div><BrandAvatar size="lg" /><span>Preparing current direction</span><i /></div>
-      </main>
-    );
+    return <StartupScreen loadingText="Preparing your current direction" />;
   }
 
   if (presentation) {
@@ -1883,7 +1922,7 @@ export default function YsabelWorkspace() {
   ];
 
   return (
-    <main className={'app-shell ' + (!edit ? 'app-shell--published' : 'app-shell--editing')}>
+    <main className="app-shell">
       <input ref={fileInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadFiles(event.target.files)} />
       <input ref={carouselInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadCarouselFiles(event.target.files, selectedId)} />
       <aside className="rail">

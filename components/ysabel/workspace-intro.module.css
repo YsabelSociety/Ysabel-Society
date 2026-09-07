@@ -24,10 +24,64 @@
   white-space: nowrap;
 }
 .fallback {
-  position: relative;
-  font-size: 0.95rem;
+  --unit: min(14.2857svh, 20vw);
+  position: absolute;
+  inset: 0;
+  perspective: 1000px;
+  pointer-events: none;
+}
+.gpu {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+.intro[data-rendered='true'] .gpu {
+  opacity: 1;
+  pointer-events: auto;
+}
+.fallbackGroup {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: identity-breathe 5.8s ease-in-out infinite;
+}
+.fallbackEmblem,
+.fallbackWordmark,
+.fallbackCaption {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.fallbackEmblem {
+  top: calc(50% - var(--unit) * 0.72);
+  width: calc(var(--unit) * 2.45);
+  height: calc(var(--unit) * 2.45);
+}
+.fallback .fallbackWordmark {
+  top: calc(50% + var(--unit) * 1.28);
+  width: calc(var(--unit) * 2.95);
+  height: auto;
+  mix-blend-mode: normal;
+}
+.fallbackCaption {
+  top: calc(50% + var(--unit) * 2.22);
+  width: min(90vw, 480px);
   text-align: center;
-  padding: 24px;
+  font-size: max(14px, calc(var(--unit) * 0.18));
+  letter-spacing: 0.07em;
+  line-height: 1.5;
+}
+@keyframes identity-breathe {
+  0%,
+  100% {
+    transform: translateY(0) rotateY(-3deg);
+    opacity: 0.86;
+  }
+  50% {
+    transform: translateY(-3px) rotateY(3deg);
+    opacity: 1;
+  }
 }
 .failure {
   position: absolute;
@@ -50,6 +104,9 @@
   margin: 14px auto 0;
 }
 @media (prefers-reduced-motion: reduce) {
+  .fallbackGroup {
+    animation: none;
+  }
   .intro {
     transition-duration: 150ms;
   }

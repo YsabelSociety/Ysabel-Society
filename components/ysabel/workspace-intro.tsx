@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import styles from './workspace-intro.module.css';
 import { LoadingLogo } from './loading-logo';
+import { LoadingIdentity } from './loading-identity';
 import { INTRO_BACKGROUND, INTRO_TEXT_COLOR } from './brand-appearance';
 
 export const INTRO_KEY = 'ysabel:login-intro';
@@ -36,6 +37,7 @@ export function WorkspaceIntro({
   return (
     <div
       className={styles.intro + (leaving ? ' ' + styles.leaving : '')}
+      data-rendered={rendered}
       style={{ color: INTRO_TEXT_COLOR, background: INTRO_BACKGROUND }}
       role="status"
       aria-live="polite"
@@ -45,18 +47,19 @@ export function WorkspaceIntro({
           : 'Loading Ysabel Society data'
       }
     >
-      <LoadingLogo
-        progress={progress}
-        complete={complete}
-        caption={caption}
-        onReady={(available) => {
-          setRendered(available);
-          onSceneReady?.();
-        }}
-      />
-      <span className={rendered ? styles.accessible : styles.fallback}>
-        {caption}
-      </span>
+      <div className={styles.gpu} aria-hidden="true">
+        <LoadingLogo
+          progress={progress}
+          complete={complete}
+          caption={caption}
+          onReady={(available) => {
+            setRendered(available);
+            onSceneReady?.();
+          }}
+        />
+      </div>
+      {!rendered && <LoadingIdentity caption={caption} />}
+      <span className={styles.accessible}>{caption}</span>
       {error && (
         <div className={styles.failure}>
           <p role="alert">{error}</p>

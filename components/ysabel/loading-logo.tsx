@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import styles from './loading-logo.module.css';
+import emblemPaths from './emblem-paths.json';
 import {
   INTRO_LIGHT_COLORS,
   INTRO_LOGO_MATERIAL,
@@ -54,17 +55,12 @@ export function LoadingLogo({
         { SVGLoader },
         { RoomEnvironment },
         { createIntroBackdrop },
-        svg,
         bitmap,
       ] = await Promise.all([
         import('three'),
         import('three/examples/jsm/loaders/SVGLoader.js'),
         import('three/examples/jsm/environments/RoomEnvironment.js'),
         import('./intro-backdrop'),
-        fetch(appPath('/ysabel-emblem-source.svg'), { signal }).then((r) => {
-          if (!r.ok) throw new Error('Logo unavailable');
-          return r.text();
-        }),
         compact
           ? Promise.resolve(null)
           : fetch(appPath('/ysabel-society-logo.png'), { signal }).then((r) => {
@@ -72,6 +68,10 @@ export function LoadingLogo({
               return r.blob();
             }),
       ]);
+      const svg =
+        '<svg xmlns="http://www.w3.org/2000/svg">' +
+        emblemPaths.map((d) => `<path d="${d}"/>`).join('') +
+        '</svg>';
       if (disposed) return;
       const renderer = new THREE.WebGLRenderer({
         alpha: compact,
@@ -185,9 +185,12 @@ export function LoadingLogo({
       const material = new THREE.MeshPhysicalMaterial(INTRO_LOGO_MATERIAL);
       resources.push(material);
       const logo = new THREE.Mesh(geometry, material);
-      scene.add(logo);
+      const identity = new THREE.Group();
+      scene.add(identity);
+      identity.add(logo);
       const lettering = new THREE.Group();
-      scene.add(lettering);
+      identity.add(lettering);
+      const letteringPhase = { value: 0 };
 
       function canvasPlane(
         canvas: HTMLCanvasElement,
@@ -208,6 +211,18 @@ export function LoadingLogo({
           toneMapped: false,
           side: THREE.DoubleSide,
         });
+        material.onBeforeCompile = (shader) => {
+          shader.uniforms.uLetteringPhase = letteringPhase;
+          shader.fragmentShader =
+            'uniform float uLetteringPhase;\n' + shader.fragmentShader;
+          shader.fragmentShader = shader.fragmentShader.replace(
+            '#include <color_fragment>',
+            '#include <color_fragment>\n' +
+              'float lightSweep = .5 + .5 * sin(vMapUv.x * 4.0 - uLetteringPhase);\n' +
+              'diffuseColor.rgb *= mix(.82, 1.12, lightSweep);',
+          );
+        };
+        material.customProgramCacheKey = () => 'ysabel-cinematic-lettering-v1';
         resources.push(texture, geometry, material);
         const mesh = new THREE.Mesh(geometry, material);
         lettering.add(mesh);
@@ -272,7 +287,7 @@ export function LoadingLogo({
       const ring = new THREE.Line(ringGeometry, ringMaterial);
       ring.visible = !compact;
       ring.position.y = 0.72;
-      scene.add(ring);
+      identity.add(ring);
       scene.add(
         new THREE.HemisphereLight(
           INTRO_LIGHT_COLORS.sky,
@@ -308,7 +323,8 @@ export function LoadingLogo({
           previousCaption = current.caption;
           const { width, height } = captionContext.canvas;
           captionContext.clearRect(0, 0, width, height);
-          captionContext.font = '400 48px Arial, sans-serif';
+          captionContext.font = '400 62px Arial, sans-serif';
+          captionContext.letterSpacing = '3px';
           captionContext.textAlign = 'center';
           captionContext.textBaseline = 'middle';
           captionContext.fillStyle = INTRO_TEXT_COLOR;
@@ -325,20 +341,21 @@ export function LoadingLogo({
           if (current.complete) {
             const nearest = Math.round(yaw / (Math.PI * 2)) * Math.PI * 2;
             yaw += (nearest - yaw) * ease;
-          } else yaw += delta * (0.36 + shownProgress * 0.36);
+          } else if (compact) yaw += delta * (0.36 + shownProgress * 0.36);
+          else yaw = 0.08 + Math.sin(t * 0.58) * 0.3;
         }
         logo.rotation.set(
           still ? -0.04 : -0.08 + Math.sin(t * 0.42) * 0.04 - pointer.y * 0.07,
           still ? 0.08 : yaw + pointer.x * 0.12,
           still ? 0 : Math.sin(t * 0.31) * 0.014,
         );
-        logo.position.y =
-          (compact ? 0 : 0.72) + (still ? 0 : Math.sin(t * 0.8) * 0.035);
-        lettering.rotation.x = still
-          ? 0
-          : Math.sin(t * 0.3) * 0.006 - pointer.y * 0.008;
-        lettering.rotation.y = still ? 0 : pointer.x * 0.012;
-        lettering.position.y = still ? 0 : Math.sin(t * 0.65) * 0.012;
+        logo.position.y = compact ? 0 : 0.72;
+        identity.position.y = still ? 0 : Math.sin(t * 0.8) * 0.035;
+        identity.rotation.x = still ? 0 : -pointer.y * 0.018;
+        identity.rotation.y = still ? 0 : pointer.x * 0.022;
+        letteringPhase.value = still ? 0 : t * 0.8;
+        lettering.rotation.x = still ? 0 : Math.sin(t * 0.8) * 0.008;
+        key.intensity = still ? 3.4 : 3.4 + Math.sin(t * 0.8) * 0.25;
         background?.update(t, pointer.x, pointer.y);
         key.position.x = -3 + (still ? 0 : Math.sin(t * 0.6) * 1.6);
         renderer.render(scene, camera);

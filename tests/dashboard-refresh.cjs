@@ -155,6 +155,7 @@ function verifyIntro() {
       'appPath',
       'INTRO_BACKGROUND',
       'INTRO_TEXT_COLOR',
+      'LoadingIdentity',
       compiled,
     )(
       require,
@@ -169,6 +170,12 @@ function verifyIntro() {
       (path) => '/marketingdata' + path,
       'linear-gradient(#ffffff, #e1e8e3)',
       '#2d2c2c',
+      ({ caption }) =>
+        React.createElement(
+          'div',
+          { 'data-loading-identity': 'fallback' },
+          caption,
+        ),
     );
     return {
       h,

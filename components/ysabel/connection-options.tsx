@@ -795,13 +795,14 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
               </p>
             </div>
             <div>
-              <span className="pill">Hosting requirement</span>
+              <span className="pill">Daily server import</span>
               <h3>Refresh while the app is closed</h3>
               <p>
-                This private Sites deployment does not have a configured
-                background scheduler. Closing the app pauses refresh. Always-on
-                imports require a server scheduler with authenticated access;
-                this is not enabled by the connection form.
+                The server checks connected online sources every day at 02:17
+                UTC, even when nobody is signed in. Reports, accessible
+                messages, mentions and reviews import independently. Check Sync
+                details in the header for each source’s result, or select Sync
+                now to import again. Paused automatic connections remain paused.
               </p>
               <p>
                 File imports update when you upload a new export. Registering

@@ -13,21 +13,6 @@
   height: 100%;
   animation: reveal 0.8s ease-out both;
 }
-.fallback {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 0.8;
-  filter: drop-shadow(0 14px 16px #26352225);
-  animation: float 3s ease-in-out infinite;
-  transition: opacity 0.25s ease;
-}
-.scene[data-rendered='true'] .fallback {
-  opacity: 0;
-  visibility: hidden;
-}
 .compact {
   display: inline-block;
   width: 36px;
@@ -45,20 +30,8 @@
     opacity: 1;
   }
 }
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(3px) rotate(-2deg);
-    opacity: 0.65;
-  }
-  50% {
-    transform: translateY(-3px) rotate(2deg);
-    opacity: 1;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .scene canvas,
-  .fallback {
+  .scene canvas {
     animation: none;
   }
 }

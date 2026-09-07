@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
+import { appPath } from '@/lib/app-path';
 import styles from './workspace-intro.module.css';
 import { LoadingLogo } from './loading-logo';
 
@@ -33,7 +34,21 @@ export function WorkspaceIntro({
       <div className={styles.light} aria-hidden="true" />
       <div className={styles.identity}>
         <LoadingLogo onReady={onSceneReady} />
-        <p>YSABEL SOCIETY</p>
+        {/* Frame only the original lettering; its emblem is rendered in Three.js. */}
+        <svg
+          className={styles.wordmark}
+          viewBox="1502 2158 4996 1916"
+          width={4996}
+          height={1916}
+          role="img"
+          aria-label="Ysabel Society"
+        >
+          <image
+            href={appPath('/ysabel-society-logo.png')}
+            width={8000}
+            height={4500}
+          />
+        </svg>
         <span className={styles.caption}>
           {signingIn
             ? 'Signing in…'

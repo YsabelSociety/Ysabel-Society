@@ -42,11 +42,12 @@
   text-align: center;
   animation: arrive 0.6s ease-out both;
 }
-.identity > p {
-  margin: 8px 0 18px;
-  font-size: 0.875rem;
-  letter-spacing: 0.22em;
-  font-weight: 500;
+.wordmark {
+  display: block;
+  width: min(280px, 66vw);
+  height: auto;
+  margin: 0 auto 18px;
+  overflow: hidden;
 }
 .caption {
   font-size: 0.875rem;

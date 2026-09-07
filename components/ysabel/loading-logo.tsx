@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import styles from './loading-logo.module.css';
 
@@ -14,7 +14,6 @@ export function LoadingLogo({
   const host = useRef<HTMLDivElement>(null);
   const ready = useRef(onReady);
   ready.current = onReady;
-  const [rendered, setRendered] = useState(false);
   useEffect(() => {
     const target = host.current;
     if (!target) return;
@@ -87,7 +86,6 @@ export function LoadingLogo({
         event.preventDefault();
         lost = true;
         stop();
-        if (!disposed) setRendered(false);
         announce();
       };
       let resume = () => {};
@@ -126,7 +124,7 @@ export function LoadingLogo({
       }
       const shapes = new SVGLoader()
         .parse(svg)
-        .paths.flatMap((path) => SVGLoader.createShapes(path));
+        .paths.flatMap((path) => path.toShapes());
       geometry = new THREE.ExtrudeGeometry(shapes, {
         depth: 32,
         steps: 1,
@@ -177,9 +175,7 @@ export function LoadingLogo({
             logo.rotation.x) *
           0.07;
         logo.rotation.y +=
-          ((still
-            ? 0.12
-            : 0.12 + Math.sin(t * 0.64) * 0.28 + pointer.x * 0.22) -
+          ((still ? 0.12 : 0.12 + t * 0.42 + pointer.x * 0.22) -
             logo.rotation.y) *
           0.07;
         logo.rotation.z = still ? 0 : Math.sin(t * 0.31) * 0.018;
@@ -189,7 +185,6 @@ export function LoadingLogo({
         renderer.render(scene, camera);
         if (!firstFrame) {
           firstFrame = true;
-          setRendered(true);
           clearTimeout(fallbackDeadline);
           announce();
         }
@@ -234,10 +229,7 @@ export function LoadingLogo({
     }
     void start().catch(() => {
       cleanup();
-      if (!disposed) {
-        setRendered(false);
-        announce();
-      }
+      if (!disposed) announce();
     });
     return () => {
       disposed = true;
@@ -250,16 +242,7 @@ export function LoadingLogo({
     <div
       ref={host}
       className={styles.scene + (compact ? ' ' + styles.compact : '')}
-      data-rendered={rendered}
       aria-hidden="true"
-    >
-      <img
-        className={styles.fallback}
-        src={appPath('/ysabel-emblem-source.svg')}
-        alt=""
-        width={1920}
-        height={1080}
-      />
-    </div>
+    />
   );
 }

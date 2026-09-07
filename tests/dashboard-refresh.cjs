@@ -152,6 +152,7 @@ function verifyIntro() {
       'RefreshCw',
       'INTRO_KEY',
       'LoadingLogo',
+      'appPath',
       compiled,
     )(
       require,
@@ -163,6 +164,7 @@ function verifyIntro() {
       () => null,
       'test-intro',
       () => React.createElement('div', { 'data-loading-logo': 'animated' }),
+      (path) => '/marketingdata' + path,
     );
     return {
       h,
@@ -202,7 +204,7 @@ function verifyIntro() {
     assert.equal(
       preparingLogo.render(true, false).visible,
       true,
-      'Ready data waits for the animated logo to render or its supported fallback',
+      'Ready data waits for the animated logo to render or its availability deadline',
     );
     preparingLogo.render(true, true);
     advance(timing.minimum);

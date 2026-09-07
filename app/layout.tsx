@@ -26,9 +26,9 @@ export const metadata: Metadata = {
     description: 'All platforms. One private workspace.',
     images: [
       {
-        url: 'https://ysabelsociety.com/marketingdata/og.png?v=65',
-        width: 1730,
-        height: 909,
+        url: 'https://ysabelsociety.com/marketingdata/og.png?v=66',
+        width: 1727,
+        height: 911,
         type: 'image/png',
         alt: 'Ysabel Society — Marketing Data. All platforms. One private workspace.',
       },
@@ -40,7 +40,7 @@ export const metadata: Metadata = {
     description: 'All platforms. One private workspace.',
     images: [
       {
-        url: 'https://ysabelsociety.com/marketingdata/og.png?v=65',
+        url: 'https://ysabelsociety.com/marketingdata/og.png?v=66',
         alt: 'Ysabel Society — Marketing Data. All platforms. One private workspace.',
       },
     ],

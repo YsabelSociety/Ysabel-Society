@@ -417,7 +417,12 @@ async function main() {
   const originalInterval = global.setInterval;
   global.setInterval = () => 1;
   try {
-    auto.render(() => useAutoRefresh(true));
+    const automatic = auto.render(() => useAutoRefresh(true));
+    assert.equal(
+      automatic.foreground,
+      false,
+      'The automatic post-login import never holds the dashboard behind the refresh overlay',
+    );
     await settle();
     await settle();
     auto.render(() => useAutoRefresh(true));

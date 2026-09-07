@@ -546,7 +546,7 @@ export default function Workspace({
   const initialProgress =
     initialStages.filter(Boolean).length / initialStages.length;
   const syncBusy = syncState.running || source.refreshing;
-  const refreshingScene = syncState.running;
+  const refreshingScene = syncState.foreground;
   const syncProgress = syncState.job?.tasks.length
     ? syncState.job.completed / syncState.job.tasks.length
     : 0;
@@ -562,10 +562,15 @@ export default function Workspace({
     <>
       {showLoadingScene && (
         <WorkspaceIntro
-          leaving={intro.leaving && !refreshingScene}
+          leaving={
+            (intro.leaving && !refreshingScene) || syncState.foregroundLeaving
+          }
           progress={introProgress}
-          complete={!!initialReady && !refreshingScene}
-          refreshing={refreshingScene}
+          complete={
+            !!initialReady &&
+            (!refreshingScene || syncState.foregroundLeaving)
+          }
+          refreshing={refreshingScene && !syncState.foregroundLeaving}
           error={initialError}
           onRetry={retryInitialLoad}
           onSceneReady={() => setIntroSceneReady(true)}

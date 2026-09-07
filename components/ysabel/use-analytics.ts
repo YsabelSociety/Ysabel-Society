@@ -87,6 +87,7 @@ export function useSourceAnalytics(
             tables: current.tables || [],
           });
           setError('');
+          window.dispatchEvent(new Event('ysabel:sources-rendered'));
         }
       } catch (e) {
         if (!abort.signal.aborted)

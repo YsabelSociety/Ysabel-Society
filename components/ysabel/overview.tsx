@@ -25,6 +25,7 @@ import { Help } from './controls';
 import { AnalyticsChart, Spark } from './charts';
 import { MediaCards } from './content';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
+import { DataIcon } from './data-icons';
 export default function Overview({
   rows,
   range,
@@ -84,6 +85,7 @@ export default function Overview({
               key={m.key}
             >
               <div className="metric-label">
+                <DataIcon name={m.key} badge />
                 {m.label}
                 <Help text={m.definition} />
               </div>

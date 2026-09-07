@@ -32,6 +32,7 @@ import { PROVIDER_CONFIG } from '@/lib/provider-metadata';
 import { ConnectionAssistant } from './connection-assistant';
 import { ConnectionOptions } from './connection-options';
 import { Switch } from '@/components/ui/switch';
+import { DataIcon } from './data-icons';
 export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   const requestProvider = (id: string) =>
     window.dispatchEvent(
@@ -367,7 +368,10 @@ export function DataSourcesPage() {
         {METRICS.map((m) => (
           <section key={m.key} className="surface padded">
             <span className="eyebrow">{m.source}</span>
-            <h2>{m.label}</h2>
+            <h2>
+              <DataIcon name={m.key} badge />
+              {m.label}
+            </h2>
             <p>{m.definition}</p>
             <span className="status-chip">Source definition</span>
           </section>

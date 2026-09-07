@@ -47,6 +47,7 @@ import { useMinimalMotion } from './use-motion';
 import { AudienceMap } from './audience-map';
 import { PostPerformance } from './post-performance';
 import { Spark } from './charts';
+import { DataIcon } from './data-icons';
 
 export class ChartBoundary extends Component<
   { children: ReactNode },
@@ -159,7 +160,10 @@ export function MetricCard({
       <div className="section-head">
         <div>
           <span className="metric-eyebrow">{channels.join(' · ')}</span>
-          <h2>{label}</h2>
+          <h2>
+            <DataIcon name={metric} />
+            {label}
+          </h2>
           <strong className="metric-total">
             {known.length ? number(sum) : 'Unavailable'}
           </strong>
@@ -447,7 +451,10 @@ export function AudienceBreakdown({
               <div className="section-head">
                 <div>
                   <span className="metric-eyebrow">{channels.join(' · ')}</span>
-                  <h2>{group.label}</h2>
+                  <h2>
+                    <DataIcon name={String(group.label)} />
+                    {group.label}
+                  </h2>
                   <p>
                     Reported follower demographics · counts or platform
                     percentages
@@ -662,6 +669,7 @@ export const SocialPerformance = memo(function SocialPerformance({
           <div key={s.metric} data-metric={s.metric}>
             <Spark values={s.spark} />
             <span>
+              <DataIcon name={s.metric} badge />
               {s.metric === 'views'
                 ? 'Total content views'
                 : s.metric === 'followers'

@@ -30,7 +30,8 @@ import {
   Plus,
   Info,
 } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList } from '@/components/ui/tabs';
+import { DataIcon, DataTab as TabsTrigger } from './data-icons';
 import {
   CHANNELS,
   COLORS,
@@ -82,7 +83,10 @@ export function StatRow({
           key={item.label}
           data-metric={METRICS.find((m) => m.label === item.label)?.key}
         >
-          <span>{item.label}</span>
+          <span>
+            <DataIcon name={item.label} badge />
+            {item.label}
+          </span>
           <strong>{item.value}</strong>
           {item.note && <small>{item.note}</small>}
           {item.values && <Spark values={item.values} />}

@@ -47,7 +47,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList } from '@/components/ui/tabs';
+import { DataIcon, DataTab as TabsTrigger } from './data-icons';
 import {
   Table,
   TableHeader,
@@ -634,7 +635,10 @@ export function PostDetail({
     try {
       const form = new FormData();
       form.set('file', f);
-      const r = await fetch('/marketingdata/api/media', { method: 'POST', body: form });
+      const r = await fetch('/marketingdata/api/media', {
+        method: 'POST',
+        body: form,
+      });
       const d: any = await r.json();
       if (!r.ok) throw new Error(d.error);
       setDraft({ ...shown, image: d.url, mediaType: d.mediaType });
@@ -717,7 +721,10 @@ export function PostDetail({
                   ],
                 ].map(([label, v]) => (
                   <div key={label}>
-                    <span>{label}</span>
+                    <span>
+                      <DataIcon name={String(label)} />
+                      {label}
+                    </span>
                     <strong>{typeof v === 'number' ? number(v) : v}</strong>
                   </div>
                 ))}
@@ -925,7 +932,10 @@ export function Studio({
       for (const f of Array.from(files)) {
         const form = new FormData();
         form.set('file', f);
-        const r = await fetch('/marketingdata/api/media', { method: 'POST', body: form });
+        const r = await fetch('/marketingdata/api/media', {
+          method: 'POST',
+          body: form,
+        });
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
         await data.save({

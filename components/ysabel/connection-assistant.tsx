@@ -17,7 +17,8 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { DataTab as TabsTrigger } from './data-icons';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { CONNECTION_VIEWS, connectionView } from '@/lib/connection-views';
 import { Picker } from './controls';

@@ -1,0 +1,27 @@
+.icon,
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+  color: inherit;
+}
+.icon {
+  margin-right: 7px;
+}
+.icon.icon > svg,
+.badge.badge > svg {
+  display: block;
+  position: static;
+  flex-shrink: 0;
+}
+.badge {
+  width: 30px;
+  height: 30px;
+  margin-right: 9px;
+  border-radius: 10px;
+  border: 1px solid #ffffffbd;
+  background: linear-gradient(145deg, #ffffffda, #d5dfe978);
+  box-shadow: 0 2px 8px #4d62680a;
+}

@@ -18,7 +18,10 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsContent } from '@/components/ui/tabs';
+import { DataIcon, DataTab as TabsTrigger } from './data-icons';
+import { MiniHistory } from './mini-history';
+import { reviewMonthHistory } from '@/lib/review-history';
 import {
   Dialog,
   DialogContent,
@@ -191,14 +194,25 @@ function Activity({
 function CountCards({
   items,
 }: {
-  items: { label: string; value: number | null; detail: string }[];
+  items: {
+    label: string;
+    value: number | null;
+    detail: string;
+    history?: number[];
+  }[];
 }) {
   return (
     <div className="community-counts">
       {items.map((m, i) => (
         <div className={'metric-card metric-' + i} key={m.label}>
-          <span className="metric-label">{m.label}</span>
+          <span className="metric-label">
+            <DataIcon name={m.label} badge />
+            {m.label}
+          </span>
           <strong>{m.value === null ? '—' : number(m.value)}</strong>
+          {m.history && (
+            <MiniHistory values={m.history} label="Captured reviews by month" />
+          )}
           <p>{m.detail}</p>
         </div>
       ))}
@@ -1824,10 +1838,19 @@ export function GoogleReviews({
           {
             label: 'Imported reviews',
             value: ready ? dated.length : null,
+            history: ready ? reviewMonthHistory(dated, dated) : [],
             detail: reviewPeriodLabel(dates, range),
           },
           {
             label: 'Food-related reviews',
+            history: ready
+              ? reviewMonthHistory(
+                  dated,
+                  dated.filter((r) =>
+                    reviewTopics(r).categories.includes('Food'),
+                  ),
+                )
+              : [],
             value: ready
               ? dated.filter((r) => reviewTopics(r).categories.includes('Food'))
                   .length
@@ -1837,6 +1860,12 @@ export function GoogleReviews({
           {
             label: 'Reviews without a reply',
             value: ready ? dated.filter((r) => !r.reply).length : null,
+            history: ready
+              ? reviewMonthHistory(
+                  dated,
+                  dated.filter((r) => !r.reply),
+                )
+              : [],
             detail: 'No owner reply supplied by Google or the import',
           },
         ]}
@@ -1854,6 +1883,7 @@ export function GoogleReviews({
             {ranked.map(([topic, v]) => (
               <button key={topic} onClick={() => setCategory(topic)}>
                 <span>
+                  <DataIcon name={topic} />
                   {topic}
                   <b>{v.count} reviews</b>
                 </span>

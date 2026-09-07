@@ -1,5 +1,6 @@
 'use client';
 import { type Post, postAvailable, number } from '@/lib/analytics';
+import { DataIcon } from './data-icons';
 import {
   Sheet,
   SheetContent,
@@ -68,7 +69,10 @@ export function ImportedPostDetail({
           <div className="detail-stats">
             {fields.map(([key, label]) => (
               <div key={key}>
-                <span>{label}</span>
+                <span>
+                  <DataIcon name={label} />
+                  {label}
+                </span>
                 <strong>
                   {postAvailable(post, key) ? number(Number(extra[key])) : '—'}
                 </strong>

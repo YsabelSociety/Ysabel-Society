@@ -29,6 +29,7 @@ import { Picker } from './controls';
 import { Spark } from './charts';
 import { useMinimalMotion } from './use-motion';
 import { activitySeries } from '@/lib/activity-series';
+import { DataIcon } from './data-icons';
 
 export function ProfileViews({
   rows,
@@ -65,7 +66,10 @@ export function ProfileViews({
               className="surface profile-views-card"
               data-platform={channel}
             >
-              <span>{channel}</span>
+              <span>
+                <DataIcon name={channel} badge />
+                {channel}
+              </span>
               <strong>{has ? number(value) : 'Unavailable'}</strong>
               <small>
                 {!has
@@ -216,7 +220,10 @@ export function DailyMetricGraph({
       style={{ '--report-color': color } as React.CSSProperties}
     >
       <span className="metric-eyebrow">{channel} · Daily activity</span>
-      <h3>{label}</h3>
+      <h3>
+        <DataIcon name={metric} />
+        {label}
+      </h3>
       <strong className="metric-total">
         {supplied.length
           ? number(supplied.reduce((n, d) => n + Number(d.value), 0))

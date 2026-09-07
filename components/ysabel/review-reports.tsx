@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { Download, FileText, ExternalLink, Star } from 'lucide-react';
+import { Download, FileText, ExternalLink } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,9 @@ import { Picker } from './controls';
 import { type CommunityRecord } from '@/lib/community';
 import { type Range } from '@/lib/analytics';
 import { ReviewDateControls } from './review-date-controls';
+import { DataIcon } from './data-icons';
+import { MiniHistory } from './mini-history';
+import { reviewMonthHistory } from '@/lib/review-history';
 import {
   reviewPeriodRange,
   reviewPeriodLabel,
@@ -120,6 +123,20 @@ export function ReviewReports({
   );
   const patch = (values: Partial<ReviewReportFilters>) =>
     setFilters((v) => ({ ...v, ...values }));
+  const ratingReports = useMemo(
+    () =>
+      [1, 2, 3].map((star) => ({
+        star,
+        rows: makeReviewReport(
+          records,
+          { ...filters, stars: [star] },
+          reportRange,
+          timezone,
+        ).rows,
+      })),
+    [records, localFilters, dates, range.start, range.end, timezone],
+  );
+  const ratingBasis = ratingReports.flatMap((report) => report.rows);
   const filename =
     'Ysabel-Society-Review-Report-' +
     (snapshot?.generatedAt || selection.generatedAt).slice(0, 10);
@@ -184,7 +201,7 @@ export function ReviewReports({
         role="group"
         aria-label="Report star ratings"
       >
-        {[1, 2, 3].map((star) => (
+        {ratingReports.map(({ star, rows }) => (
           <button
             key={star}
             aria-pressed={filters.stars.includes(star)}
@@ -197,19 +214,14 @@ export function ReviewReports({
             }
           >
             <span>
-              <Star size={16} />
+              <DataIcon name="reviews" />
               {star}-star reviews
             </span>
-            <strong>
-              {loading
-                ? '—'
-                : makeReviewReport(
-                    records,
-                    { ...filters, stars: [star] },
-                    reportRange,
-                    timezone,
-                  ).rows.length}
-            </strong>
+            <strong>{loading ? '—' : rows.length}</strong>
+            <MiniHistory
+              values={loading ? [] : reviewMonthHistory(ratingBasis, rows)}
+              label="Captured reviews by month"
+            />
             <small>
               {filters.stars.includes(star)
                 ? 'Included in report'
@@ -279,19 +291,60 @@ export function ReviewReports({
       <div className="review-report-summary">
         <div>
           <strong>{loading ? '—' : selection.rows.length}</strong>
-          <span>reviews in this report</span>
+          <span>
+            <DataIcon name="reviews" />
+            reviews in this report
+          </span>
+          <MiniHistory
+            values={
+              loading ? [] : reviewMonthHistory(selection.rows, selection.rows)
+            }
+            label="Captured reviews by month"
+          />
         </div>
         <div>
           <strong>
             {selection.issues.find((v) => v.topic === 'Food')?.count || 0}
           </strong>
-          <span>with food criticism</span>
+          <span>
+            <DataIcon name="food" />
+            with food criticism
+          </span>
+          <MiniHistory
+            values={
+              loading
+                ? []
+                : reviewMonthHistory(
+                    selection.rows,
+                    selection.rows.filter((r) =>
+                      r.criticisms.some((c) => c.topic === 'Food'),
+                    ),
+                  )
+            }
+            label="Food criticism by month"
+          />
         </div>
         <div>
           <strong>
             {selection.issues.find((v) => v.topic === 'Drinks')?.count || 0}
           </strong>
-          <span>with drink criticism</span>
+          <span>
+            <DataIcon name="drinks" />
+            with drink criticism
+          </span>
+          <MiniHistory
+            values={
+              loading
+                ? []
+                : reviewMonthHistory(
+                    selection.rows,
+                    selection.rows.filter((r) =>
+                      r.criticisms.some((c) => c.topic === 'Drinks'),
+                    ),
+                  )
+            }
+            label="Drink criticism by month"
+          />
         </div>
       </div>
       {!!selection.rows.length && (
@@ -302,6 +355,7 @@ export function ReviewReports({
           {selection.issues.slice(0, 6).map((issue) => (
             <div key={issue.topic}>
               <span>
+                <DataIcon name={issue.topic} />
                 {issue.topic}
                 <b>{issue.count}</b>
               </span>

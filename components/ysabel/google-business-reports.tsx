@@ -34,7 +34,7 @@ import {
 } from '@/lib/google-business';
 import { compact, number } from '@/lib/analytics';
 import { type ReportTable, finite } from '@/lib/reporting';
-import { Spark } from './charts';
+import { MiniHistory } from './mini-history';
 import { useMinimalMotion } from './use-motion';
 import { DeferredChart } from './social-performance';
 import styles from './google-business.module.css';
@@ -123,11 +123,13 @@ function MetricCard({
   value,
   points,
   note,
+  historyLabel,
 }: {
   metric: Definition;
   value: number | null;
   points: Point[];
   note?: string;
+  historyLabel: string;
 }) {
   const Icon = metricIcons[metric.key];
   return (
@@ -142,7 +144,7 @@ function MetricCard({
         <span>{metric.label}</span>
       </div>
       <strong>{value === null ? '—' : number(value)}</strong>
-      {points.length > 0 && <Spark values={points.map((p) => p.value)} />}
+      <MiniHistory values={points.map((p) => p.value)} label={historyLabel} />
       <small>{note || metric.description}</small>
     </article>
   );
@@ -237,14 +239,38 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
             dashboard filter.
           </p>
           <div className={styles.cards}>
-            {GBP_METRICS.map((metric) => (
-              <MetricCard
-                key={metric.key}
-                metric={metric}
-                value={finite(active.rows[0]?.[metric.key])}
-                points={[]}
-              />
-            ))}
+            {GBP_METRICS.map((metric) => {
+              const points = gbpMonthlyPoints(
+                summaries.filter((t) => t.period.end <= active.period.end),
+                metric.key,
+              );
+              const hasHistory = points.some((p) => p.value !== null);
+              return (
+                <MetricCard
+                  key={metric.key}
+                  metric={metric}
+                  value={finite(active.rows[0]?.[metric.key])}
+                  points={
+                    hasHistory
+                      ? points
+                      : [
+                          {
+                            date: active.period.start,
+                            value: finite(active.rows[0]?.[metric.key]),
+                          },
+                        ]
+                  }
+                  historyLabel={
+                    hasHistory
+                      ? 'Monthly history · ' +
+                        points[0].date +
+                        ' – ' +
+                        points.at(-1)!.date
+                      : 'Selected period · ' + active.period.start
+                  }
+                />
+              );
+            })}
           </div>
           <div className={styles.grid}>
             {[

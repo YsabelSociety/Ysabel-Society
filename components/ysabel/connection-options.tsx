@@ -9,7 +9,8 @@ import {
   Upload,
   ShieldCheck,
 } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList } from '@/components/ui/tabs';
+import { DataTab as TabsTrigger } from './data-icons';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { csvRows, DAILY_FIELDS, POST_FIELDS } from '@/lib/import-file';
 import { gbpFileRange, isGBPExport } from '@/lib/google-business';

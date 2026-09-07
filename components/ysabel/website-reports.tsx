@@ -22,6 +22,7 @@ import {
 import { DeferredChart } from './social-performance';
 import { Picker } from './controls';
 import { useMinimalMotion } from './use-motion';
+import { DataIcon } from './data-icons';
 const colors = [
   '#297b98',
   '#8167ba',
@@ -67,7 +68,10 @@ function WebsiteReport({
       <div className="section-head">
         <div>
           <span className="metric-eyebrow">Website · ysabelsociety.com</span>
-          <h3>{table.title}</h3>
+          <h3>
+            <DataIcon name={table.key} />
+            {table.title}
+          </h3>
         </div>
         <span className="report-number">
           {String(index + 1).padStart(2, '0')}
@@ -99,7 +103,10 @@ function WebsiteReport({
         <div className="website-report-summary">
           {metrics.map((m) => (
             <div key={m}>
-              <span>{reportLabel(m)}</span>
+              <span>
+                <DataIcon name={m} badge />
+                {reportLabel(m)}
+              </span>
               <strong>{number(Number(table.rows[0][m]))}</strong>
             </div>
           ))}

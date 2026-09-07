@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import facebookMark from 'simple-icons/icons/facebook.svg';
+import googleAnalyticsMark from 'simple-icons/icons/googleanalytics.svg';
 import googleMapsMark from 'simple-icons/icons/googlemaps.svg';
 import instagramMark from 'simple-icons/icons/instagram.svg';
 import tiktokMark from 'simple-icons/icons/tiktok.svg';
@@ -230,13 +231,19 @@ const icons = new Map(
     names.map((name) => [normalize(name), icon] as const),
   ),
 );
-const brandIcons = new Map<string, string>([
-  ['instagram', instagramMark],
-  ['direct instagram', instagramMark],
-  ['facebook', facebookMark],
-  ['tiktok', tiktokMark],
-  ['google business', googleMapsMark],
-  ['gbp', googleMapsMark],
+const socialCluster = [instagramMark, facebookMark, tiktokMark];
+const brandIcons = new Map<string, string[]>([
+  ['all', socialCluster],
+  ['all platforms', socialCluster],
+  ['all social platforms', socialCluster],
+  ['instagram', [instagramMark]],
+  ['direct instagram', [instagramMark]],
+  ['facebook', [facebookMark]],
+  ['tiktok', [tiktokMark]],
+  ['google business', [googleMapsMark]],
+  ['gbp', [googleMapsMark]],
+  ['website', [googleAnalyticsMark]],
+  ['ga4', [googleAnalyticsMark]],
 ]);
 const contextualIcons = [...icons.entries()].sort(
   (a, b) => b[0].length - a[0].length,
@@ -262,10 +269,13 @@ export function DataIcon({
   if (brand)
     return (
       <span
-        className={`${badge ? styles.badge : styles.icon} ${styles.brand}`}
+        className={`${badge ? styles.badge : styles.icon} ${styles.brand} ${brand.length > 1 ? styles.cluster : ''}`}
         aria-hidden="true"
+        data-brand-count={brand.length}
       >
-        <img src={brand} alt="" />
+        {brand.map((src) => (
+          <img key={src} src={src} alt="" />
+        ))}
       </span>
     );
   const Icon = iconFor(name);

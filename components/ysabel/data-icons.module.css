@@ -34,3 +34,15 @@
   display: block;
   opacity: 0.82;
 }
+.cluster {
+  width: 30px;
+  height: 20px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  align-items: center;
+}
+.cluster img {
+  width: 12px;
+  height: 12px;
+}

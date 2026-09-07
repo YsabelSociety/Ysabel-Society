@@ -1779,6 +1779,7 @@ export function GoogleReviews({
   );
   return (
     <section className="community-view google-reviews">
+      {children}
       <div className="section-head">
         <div>
           <h2>Guest reviews</h2>
@@ -2007,7 +2008,6 @@ export function GoogleReviews({
         source="gbp"
         onSaved={data.refresh}
       />
-      {children}
       <ReviewReports
         records={all}
         range={range}

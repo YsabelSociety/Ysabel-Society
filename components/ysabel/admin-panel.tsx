@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   ArrowUpRight,
   CalendarDays,
@@ -54,10 +54,12 @@ export function AdminPanel({
   data,
   onSelect,
   onNavigate,
+  syncSettings,
 }: {
   data: WorkspaceData;
   onSelect: (post: Post) => void;
   onNavigate: (page: string) => void;
+  syncSettings?: ReactNode;
 }) {
   const [tab, setTab] = useState('Dashboard');
   return (
@@ -83,6 +85,7 @@ export function AdminPanel({
           <ConnectionsPage notify={data.notify} />
         </TabsContent>
         <TabsContent value="Preferences">
+          {syncSettings}
           <SettingsPage data={data} />
         </TabsContent>
       </Tabs>

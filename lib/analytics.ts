@@ -17,6 +17,7 @@ export type Metric =
   | 'followers'
   | 'users'
   | 'actions'
+  | 'search'
   | 'conversions';
 export const METRICS: {
   key: Metric;
@@ -67,11 +68,11 @@ export const METRICS: {
       'Sum of daily active users in this preview. Multi-day unique totals require a period-level GA4 query.',
   },
   {
-    key: 'actions',
-    label: 'Google actions',
+    key: 'search',
+    label: 'Google Search views',
     source: 'Google Business Profile',
     definition:
-      'Website clicks, phone call clicks and direction requests. Actions are not completed visits.',
+      'Reported views of the Ysabel Society Business Profile on Google Search, across mobile and desktop, during the selected dates. Google Maps views and customer actions are separate metrics.',
   },
 ];
 export type Daily = {

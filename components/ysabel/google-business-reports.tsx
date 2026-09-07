@@ -12,7 +12,20 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Download } from 'lucide-react';
+import {
+  Download,
+  Search,
+  MapPinned,
+  Navigation,
+  Globe,
+  Phone,
+  Utensils,
+  CalendarCheck,
+  ShoppingBag,
+  Smartphone,
+  Monitor,
+  type LucideIcon,
+} from 'lucide-react';
 import {
   GBP_METRICS,
   GBP_SUMMARY,
@@ -28,6 +41,20 @@ import styles from './google-business.module.css';
 
 type Point = { date: string; value: number | null };
 type Definition = (typeof GBP_METRICS)[number];
+const metricIcons: Record<Definition['key'], LucideIcon> = {
+  search: Search,
+  maps: MapPinned,
+  directions: Navigation,
+  clicks: Globe,
+  calls: Phone,
+  menu: Utensils,
+  bookings: CalendarCheck,
+  foodOrders: ShoppingBag,
+  searchMobile: Smartphone,
+  searchDesktop: Monitor,
+  mapsMobile: Smartphone,
+  mapsDesktop: Monitor,
+};
 function MetricChart({
   metric,
   points,
@@ -102,12 +129,18 @@ function MetricCard({
   points: Point[];
   note?: string;
 }) {
+  const Icon = metricIcons[metric.key];
   return (
     <article
       className={styles.metric}
       style={{ '--gbp-color': metric.color } as React.CSSProperties}
     >
-      <span>{metric.label}</span>
+      <div className={styles.metricHeading}>
+        <span className={styles.metricIcon} aria-hidden="true">
+          <Icon size={19} strokeWidth={1.6} />
+        </span>
+        <span>{metric.label}</span>
+      </div>
       <strong>{value === null ? '—' : number(value)}</strong>
       {points.length > 0 && <Spark values={points.map((p) => p.value)} />}
       <small>{note || metric.description}</small>
@@ -293,7 +326,20 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
                     loading={false}
                   >
                     <article>
-                      <h3>{p.metric.label}</h3>
+                      <h3 className={styles.chartHeading}>
+                        {(() => {
+                          const Icon = metricIcons[p.metric.key];
+                          return (
+                            <Icon
+                              size={18}
+                              strokeWidth={1.6}
+                              aria-hidden="true"
+                              style={{ color: p.metric.color }}
+                            />
+                          );
+                        })()}
+                        {p.metric.label}
+                      </h3>
                       <MetricChart metric={p.metric} points={p.points} />
                       <details>
                         <summary>Monthly values</summary>

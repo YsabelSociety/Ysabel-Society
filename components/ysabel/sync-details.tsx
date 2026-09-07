@@ -1,5 +1,32 @@
 import type { RefreshJob } from '@/lib/refresh-types';
 import styles from './sync-details.module.css';
+export function SyncSettings({
+  status,
+  lastChecked,
+  ...details
+}: {
+  status: string;
+  lastChecked?: string;
+  job: RefreshJob | null;
+  schedule: string | null;
+}) {
+  return (
+    <section className="surface padded">
+      <h2>Data synchronization</h2>
+      {status && (
+        <p role="status" aria-live="polite">
+          {status}
+        </p>
+      )}
+      {lastChecked && (
+        <p className="muted">
+          Last checked {new Date(lastChecked).toLocaleString()}
+        </p>
+      )}
+      <SyncDetails {...details} />
+    </section>
+  );
+}
 export function SyncDetails({
   job,
   schedule,

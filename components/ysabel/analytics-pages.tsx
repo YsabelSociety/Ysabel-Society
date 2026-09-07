@@ -1,6 +1,6 @@
 'use client';
 import { useMinimalMotion } from './use-motion';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   websiteStatus,
   type SourceStatus,
@@ -413,16 +413,27 @@ export function PerformancePage({
   const [channel, setChannel] = useState(initialChannel),
     [note, setNote] = useState(''),
     [noteDate, setNoteDate] = useState(range.end);
-  const r = rows.filter((row) => channel === 'All' || row.channel === channel),
-    p = previous.filter((row) => channel === 'All' || row.channel === channel);
-  const websiteTables = tables
-    .filter((t) => t.source === 'ga4')
-    .map((t) => ({
-      ...t,
-      columns: t.columns.filter(
-        (c) => !['conversions', 'conversionValue', 'keyEvents'].includes(c),
-      ),
-    }));
+  const r = useMemo(
+      () => rows.filter((row) => channel === 'All' || row.channel === channel),
+      [rows, channel],
+    ),
+    p = useMemo(
+      () =>
+        previous.filter((row) => channel === 'All' || row.channel === channel),
+      [previous, channel],
+    );
+  const websiteTables = useMemo(
+    () =>
+      tables
+        .filter((t) => t.source === 'ga4')
+        .map((t) => ({
+          ...t,
+          columns: t.columns.filter(
+            (c) => !['conversions', 'conversionValue', 'keyEvents'].includes(c),
+          ),
+        })),
+    [tables],
+  );
   return (
     <div className="view-enter platform-workspace" data-platform={channel}>
       {live && <HistoryImport />}

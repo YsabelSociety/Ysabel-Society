@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
-import { SyncDetails } from './sync-details';
+import { SyncSettings } from './sync-details';
 import {
   Command,
   CommandDialog,
@@ -773,31 +773,6 @@ export default function Workspace({
                     <button onClick={() => void data.load()}>Retry</button>
                   </div>
                 )}
-                {source.mode === 'live' && syncState.status && (
-                  <div
-                    className="sync-feedback"
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <span>{syncState.status}</span>
-                    {syncState.lastChecked && (
-                      <small>
-                        Checked{' '}
-                        {new Date(syncState.lastChecked).toLocaleTimeString(
-                          [],
-                          {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          },
-                        )}
-                      </small>
-                    )}
-                  </div>
-                )}
-                <SyncDetails
-                  job={syncState.job}
-                  schedule={syncState.schedule}
-                />
                 {source.error && (
                   <div className="save-error" role="alert">
                     {source.error}
@@ -809,6 +784,7 @@ export default function Workspace({
                       data={data}
                       onSelect={setPost}
                       onNavigate={navigate}
+                      syncSettings={<SyncSettings {...syncState} />}
                     />
                   )}
                   {page === 'Overview' && (

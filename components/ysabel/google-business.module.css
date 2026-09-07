@@ -27,10 +27,33 @@
   );
   box-shadow: 0 8px 32px #5e697709;
 }
-.metric > span {
-  font-size: 12px;
+.metricHeading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
   font-weight: 600;
   padding-right: 8px;
+}
+.metricIcon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 36px;
+  height: 36px;
+  border: 1px solid #ffffffbd;
+  border-radius: 12px;
+  color: var(--gbp-color);
+  background: linear-gradient(
+    145deg,
+    #ffffffd0,
+    color-mix(in srgb, var(--gbp-color) 13%, #e4e9ee)
+  );
+  box-shadow: 0 3px 9px #4d62680a;
+}
+.chartHeading {
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
 .metric strong {
   font-size: clamp(24px, 2.2vw, 34px);
@@ -44,7 +67,7 @@
   color: #586474;
   max-width: 95%;
 }
-.metric svg {
+.metric > svg {
   position: absolute;
   top: 39px;
   right: 14px;

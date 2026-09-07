@@ -34,9 +34,24 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
         );
       }
     };
-    const updated = () => {
-      window.dispatchEvent(new Event('ysabel:sources-updated'));
-      window.dispatchEvent(new Event('ysabel:community-updated'));
+    let reportedJob = '',
+      communityJob = '';
+    const updated = (next: RefreshJob) => {
+      // Message pagination does not change analytics. Publish reports once when
+      // their phase finishes, then community records when the run finishes.
+      if (
+        next.id !== reportedJob &&
+        next.tasks.every(
+          (task) => task.kind !== 'reports' || task.state !== 'pending',
+        )
+      ) {
+        reportedJob = next.id;
+        window.dispatchEvent(new Event('ysabel:sources-updated'));
+      }
+      if (next.id !== communityJob && next.status !== 'running') {
+        communityJob = next.id;
+        window.dispatchEvent(new Event('ysabel:community-updated'));
+      }
     };
     async function call(body: object): Promise<RefreshJob> {
       const response = await fetch(appPath('/api/refresh'), {
@@ -88,7 +103,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
             next = await call({ op: 'step', id: next.id });
             failures = 0;
             publish(next);
-            updated();
+            updated(next);
           } catch (error) {
             if (controller.signal.aborted) return;
             if (++failures >= 3) throw error;
@@ -98,7 +113,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
         }
         if (next.status === 'running')
           setStatus('Import progress saved. Use Sync now to continue.');
-        updated();
+        updated(next);
       } catch (error) {
         if (!controller.signal.aborted)
           setStatus(

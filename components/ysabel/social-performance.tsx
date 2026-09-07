@@ -3,7 +3,7 @@ import {
   Component,
   useEffect,
   useMemo,
-  useRef,
+  memo,
   useState,
   type ReactNode,
 } from 'react';
@@ -81,36 +81,14 @@ export function DeferredChart({
   loading: boolean;
   title: string;
 }) {
-  const ref = useRef<HTMLDivElement>(null),
-    [ready, setReady] = useState(false);
-  useEffect(() => {
-    if (!ref.current) return;
-    if (!('IntersectionObserver' in window)) {
-      setReady(true);
-      return;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setReady(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '350px' },
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
   return (
-    <div ref={ref} className="metric-slot" aria-busy={loading || !ready}>
-      {ready && !loading ? (
+    <div className="metric-slot" aria-busy={loading}>
+      {!loading ? (
         <ChartBoundary>{children}</ChartBoundary>
       ) : (
         <section className="surface metric-placeholder">
           <h3>{title}</h3>
-          <p role="status">
-            {loading ? 'Loading source data…' : 'Chart loads as you scroll'}
-          </p>
+          <p role="status">Loading source data…</p>
           <div />
         </section>
       )}
@@ -563,7 +541,7 @@ export function AudienceBreakdown({
     </>
   );
 }
-export function SocialPerformance({
+export const SocialPerformance = memo(function SocialPerformance({
   rows,
   posts,
   tables,
@@ -737,4 +715,4 @@ export function SocialPerformance({
       />
     </div>
   );
-}
+});

@@ -61,10 +61,18 @@ export default function Overview({
       <ProfileViews rows={rows} previous={previous} />
       <div className="metrics-strip">
         {METRICS.filter((m) => m.key !== 'profileViews').map((m, i) => {
-          const value = total(rows, m.key),
-            prior = total(previous, m.key),
+          const metricRows =
+              m.key === 'search'
+                ? rows.filter((r) => r.channel === 'Google Business')
+                : rows,
+            previousRows =
+              m.key === 'search'
+                ? previous.filter((r) => r.channel === 'Google Business')
+                : previous,
+            value = total(metricRows, m.key),
+            prior = total(previousRows, m.key),
             delta = change(value, prior),
-            available = metricAvailable(rows, m.key);
+            available = metricAvailable(metricRows, m.key);
           return (
             <div
               className={'metric-card metric-' + i}
@@ -102,7 +110,7 @@ export default function Overview({
               </div>
               {available && (
                 <Spark
-                  values={series(rows, m.key).map((d) => Number(d.total))}
+                  values={series(metricRows, m.key).map((d) => Number(d.total))}
                 />
               )}
             </div>
@@ -180,13 +188,13 @@ export default function Overview({
                 ? 0
                 : total(
                     previous.filter((r) => r.channel === c),
-                    i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                    i < 3 ? 'views' : i === 3 ? 'search' : 'users',
                   ),
             available =
               (c === 'TikTok' && tiktokContent) ||
               metricAvailable(
                 cr,
-                i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                i < 3 ? 'views' : i === 3 ? 'search' : 'users',
               );
           return (
             <button
@@ -217,7 +225,7 @@ export default function Overview({
                     : compact(
                         total(
                           cr,
-                          i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                          i < 3 ? 'views' : i === 3 ? 'search' : 'users',
                         ),
                       )
                   : '—'}
@@ -228,7 +236,7 @@ export default function Overview({
                     ? 'Video views · lifetime'
                     : 'Daily content views'
                   : i === 3
-                    ? 'Customer actions'
+                    ? 'Google Search views'
                     : 'Daily active users'}
               </span>
               <div className="channel-footer">
@@ -238,18 +246,18 @@ export default function Overview({
                       <span className="positive">
                         {total(
                           cr,
-                          i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                          i < 3 ? 'views' : i === 3 ? 'search' : 'users',
                         ) >= prior
                           ? '↗'
                           : '↘'}{' '}
                         {change(
                           total(
                             cr,
-                            i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                            i < 3 ? 'views' : i === 3 ? 'search' : 'users',
                           ),
                           total(
                             previous.filter((r) => r.channel === c),
-                            i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                            i < 3 ? 'views' : i === 3 ? 'search' : 'users',
                           ),
                         ).toFixed(1)}
                         %
@@ -260,7 +268,7 @@ export default function Overview({
                     <Spark
                       values={series(
                         cr,
-                        i < 3 ? 'views' : i === 3 ? 'actions' : 'users',
+                        i < 3 ? 'views' : i === 3 ? 'search' : 'users',
                       ).map((d) => Number(d.total))}
                     />
                   </>

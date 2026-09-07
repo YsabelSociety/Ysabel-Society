@@ -6,15 +6,6 @@
   place-items: center;
   overflow: hidden;
   isolation: isolate;
-  background:
-    radial-gradient(
-      ellipse at 48% 36%,
-      #454d2d 0%,
-      #343e24 31%,
-      transparent 65%
-    ),
-    radial-gradient(ellipse at 100% 5%, #394326 0, transparent 48%),
-    linear-gradient(160deg, #28331d, #151e11 87%);
   transition:
     opacity 650ms ease,
     visibility 650ms;
@@ -29,9 +20,9 @@
   background: conic-gradient(
     from 45deg,
     transparent 20%,
-    #bbc59214 36%,
+    #bdbdb914 36%,
     transparent 49%,
-    #909e6614 65%,
+    #7f9b8914 65%,
     transparent 80%
   );
   filter: blur(40px);

@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import styles from './loading-logo.module.css';
-import { INTRO_LOGO_MATERIAL } from './brand-appearance';
+import { INTRO_LIGHT_COLORS, INTRO_LOGO_MATERIAL } from './brand-appearance';
 
 // Both loading surfaces use the supplied emblem, extruded as one rigid shape.
 export function LoadingLogo({
@@ -144,14 +144,20 @@ export function LoadingLogo({
       material = new THREE.MeshPhysicalMaterial(INTRO_LOGO_MATERIAL);
       const logo = new THREE.Mesh(geometry, material);
       scene.add(logo);
-      scene.add(new THREE.HemisphereLight(0xf5edcf, 0x20291b, 2.1));
-      const key = new THREE.DirectionalLight(0xffefd3, 5.5);
+      scene.add(
+        new THREE.HemisphereLight(
+          INTRO_LIGHT_COLORS.sky,
+          INTRO_LIGHT_COLORS.ground,
+          2.1,
+        ),
+      );
+      const key = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.key, 5.5);
       key.position.set(-3, 4, 5);
       scene.add(key);
-      const rim = new THREE.DirectionalLight(0xe5dcb0, 4);
+      const rim = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.rim, 4);
       rim.position.set(4, 1, -2);
       scene.add(rim);
-      const fill = new THREE.DirectionalLight(0xd6e1ba, 0.85);
+      const fill = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.fill, 0.85);
       fill.position.set(2, -2, 3);
       scene.add(fill);
       const smooth = (t: number) => {

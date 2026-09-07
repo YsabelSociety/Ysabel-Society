@@ -1,9 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeftRight, Pause, Play } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
-import { INTRO_LOGO_MATERIAL } from './brand-appearance';
+import {
+  INTRO_BACKGROUND,
+  INTRO_LIGHT_COLORS,
+  INTRO_LOGO_COLOR,
+  INTRO_LOGO_MATERIAL,
+} from './brand-appearance';
 
 const ease = (a: number, b: number, value: number) => {
   const t = Math.max(0, Math.min(1, (value - a) / (b - a)));
@@ -11,6 +16,7 @@ const ease = (a: number, b: number, value: number) => {
 };
 
 export function LoginScene() {
+  const fallbackMask = useId();
   const host = useRef<HTMLDivElement>(null);
   const settings = useRef({
     automatic: true,
@@ -106,8 +112,14 @@ export function LoginScene() {
         : environment.texture;
       room.dispose();
       pmrem.dispose();
-      scene.add(new THREE.HemisphereLight(0xf5edcf, 0x20291b, 2.1));
-      const key = new THREE.DirectionalLight(0xffefd3, 5.5);
+      scene.add(
+        new THREE.HemisphereLight(
+          INTRO_LIGHT_COLORS.sky,
+          INTRO_LIGHT_COLORS.ground,
+          2.1,
+        ),
+      );
+      const key = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.key, 5.5);
       key.position.set(-3.8, 5.5, 5);
       key.castShadow = true;
       key.shadow.mapSize.set(1024, 1024);
@@ -119,10 +131,10 @@ export function LoginScene() {
       key.shadow.bias = -0.0001;
       key.shadow.radius = 4;
       scene.add(key);
-      const rim = new THREE.DirectionalLight(0xe5dcb0, 4);
+      const rim = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.rim, 4);
       rim.position.set(3, 2, -3);
       scene.add(rim);
-      const fill = new THREE.DirectionalLight(0xd6e1ba, 0.85);
+      const fill = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.fill, 0.85);
       fill.position.set(2, -1, 4);
       scene.add(fill);
 
@@ -377,6 +389,7 @@ export function LoginScene() {
   return (
     <section
       className="login-intro"
+      style={{ color: INTRO_LOGO_COLOR, background: INTRO_BACKGROUND }}
       aria-label="Ysabel Society cinematic introduction"
     >
       <div className="login-intro-top">
@@ -384,14 +397,39 @@ export function LoginScene() {
         <span className="login-edition">DIGITAL INTELLIGENCE</span>
       </div>
       <div className="login-emblem-stage">
-        <img
+        <svg
           className={'login-emblem-fallback' + (ready ? ' is-ready' : '')}
-          src={appPath('/ysabel-emblem.png')}
-          alt="Ysabel Society emblem"
+          viewBox="0 0 8000 4500"
+          role="img"
+          aria-label="Ysabel Society emblem"
           aria-hidden={ready}
           width={8000}
           height={4500}
-        />
+        >
+          <defs>
+            <mask
+              id={fallbackMask}
+              maskUnits="userSpaceOnUse"
+              x={0}
+              y={0}
+              width={8000}
+              height={4500}
+              style={{ maskType: 'alpha' }}
+            >
+              <image
+                href={appPath('/ysabel-emblem.png')}
+                width={8000}
+                height={4500}
+              />
+            </mask>
+          </defs>
+          <rect
+            width={8000}
+            height={4500}
+            fill="currentColor"
+            mask={`url(#${fallbackMask})`}
+          />
+        </svg>
         <div
           ref={host}
           className="login-three"

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { createLoginStatistics } from './login-statistics';
+import { INTRO_LOGO_COLOR } from './brand-appearance';
 
 const vertex = `
   attribute vec3 aOrigin;
@@ -14,7 +15,6 @@ const vertex = `
   varying vec2 vUv;
   varying float vGlyph;
   varying float vAlpha;
-  varying float vWarm;
   void main() {
     float arrive = smoothstep(.08+aSeed*.16, .76+aSeed*.18, uProgress);
     float turn = uTime*.018*(.3+aSeed*.4);
@@ -31,23 +31,21 @@ const vertex = `
     vGlyph = aGlyph;
     float depth = 1.0-smoothstep(7.0,16.0,-viewPosition.z);
     vAlpha = smoothstep(.05,.28,arrive) * mix(.12+.38*aSeed,.86,uEquation) * (.45+.55*depth);
-    vWarm = aSeed;
   }
 `;
 const fragment = `
   uniform sampler2D uAtlas;
   uniform vec2 uGrid;
+  uniform vec3 uInk;
   varying vec2 vUv;
   varying float vGlyph;
   varying float vAlpha;
-  varying float vWarm;
   void main() {
     vec2 cell = vec2(mod(vGlyph,uGrid.x),uGrid.y-1.0-floor(vGlyph/uGrid.x));
     float ink = texture2D(uAtlas,(cell+vUv)/uGrid).a;
     float alpha = ink*vAlpha;
     if(alpha<.018) discard;
-    vec3 colour = mix(vec3(.61,.69,.47),vec3(.94,.87,.64),vWarm);
-    gl_FragColor = vec4(colour,alpha);
+    gl_FragColor = vec4(uInk,alpha);
     #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
@@ -245,10 +243,12 @@ export function createLoginDataField(
       vertexShader: vertex,
       fragmentShader: fragment,
       transparent: true,
+      toneMapped: false,
       depthWrite: false,
       uniforms: {
         uAtlas: { value: source.texture },
         uGrid: { value: new THREE.Vector2(source.columns, source.rows) },
+        uInk: { value: new THREE.Color(INTRO_LOGO_COLOR) },
         uProgress: { value: 0 },
         uTime: { value: 0 },
         uAspect: { value: isEquation ? 8 : 1 },

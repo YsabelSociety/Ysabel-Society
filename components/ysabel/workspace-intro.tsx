@@ -4,7 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
 import styles from './workspace-intro.module.css';
 import { LoadingLogo } from './loading-logo';
-import { INTRO_LOGO_COLOR } from './brand-appearance';
+import { INTRO_BACKGROUND, INTRO_LOGO_COLOR } from './brand-appearance';
 
 export const INTRO_KEY = 'ysabel:login-intro';
 export const INTRO_TIMING = { minimum: 1200, settle: 300, exit: 650 };
@@ -25,7 +25,7 @@ export function WorkspaceIntro({
   return (
     <div
       className={styles.intro + (leaving ? ' ' + styles.leaving : '')}
-      style={{ color: INTRO_LOGO_COLOR }}
+      style={{ color: INTRO_LOGO_COLOR, background: INTRO_BACKGROUND }}
       role="status"
       aria-live="polite"
       aria-label={

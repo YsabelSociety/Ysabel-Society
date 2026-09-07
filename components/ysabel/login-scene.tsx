@@ -90,7 +90,7 @@ export function LoginScene() {
       let environment: InstanceType<typeof THREE.WebGLRenderTarget> | undefined;
       let observer: ResizeObserver | undefined;
       let dataField: ReturnType<typeof createLoginDataField> | undefined;
-      const background = createIntroBackdrop(scene, true);
+      const background = createIntroBackdrop(scene, { softEdges: true });
       const dispose = () => {
         cancelAnimationFrame(frame);
         observer?.disconnect();

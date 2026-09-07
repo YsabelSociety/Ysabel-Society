@@ -153,7 +153,7 @@ function verifyIntro() {
       'INTRO_KEY',
       'LoadingLogo',
       'appPath',
-      'INTRO_BACKGROUND',
+      'LOADING_BACKGROUND',
       'INTRO_TEXT_COLOR',
       'LoadingIdentity',
       compiled,

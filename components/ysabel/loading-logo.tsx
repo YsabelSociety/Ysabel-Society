@@ -149,7 +149,9 @@ export function LoadingLogo({
         renderer.dispose();
         renderer.domElement.remove();
       };
-      const background = compact ? null : createIntroBackdrop(scene);
+      const background = compact
+        ? null
+        : createIntroBackdrop(scene, { loading: true });
       if (background) resources.push(background);
       const room = new RoomEnvironment();
       const pmrem = new THREE.PMREMGenerator(renderer);
@@ -191,11 +193,13 @@ export function LoadingLogo({
       const lettering = new THREE.Group();
       identity.add(lettering);
       const letteringPhase = { value: 0 };
+      const captionMotion = { value: 1 };
 
       function canvasPlane(
         canvas: HTMLCanvasElement,
         width: number,
         height: number,
+        animatedCaption = false,
       ) {
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
@@ -203,7 +207,12 @@ export function LoadingLogo({
           4,
           renderer.capabilities.getMaxAnisotropy(),
         );
-        const geometry = new THREE.PlaneGeometry(width, height);
+        const geometry = new THREE.PlaneGeometry(
+          width,
+          height,
+          animatedCaption ? 48 : 1,
+          1,
+        );
         const material = new THREE.MeshBasicMaterial({
           map: texture,
           transparent: true,
@@ -213,22 +222,42 @@ export function LoadingLogo({
         });
         material.onBeforeCompile = (shader) => {
           shader.uniforms.uLetteringPhase = letteringPhase;
+          shader.uniforms.uCaptionMotion = captionMotion;
           shader.fragmentShader =
-            'uniform float uLetteringPhase;\n' + shader.fragmentShader;
+            'uniform float uLetteringPhase;\nuniform float uCaptionMotion;\n' +
+            shader.fragmentShader;
           shader.fragmentShader = shader.fragmentShader.replace(
             '#include <color_fragment>',
             '#include <color_fragment>\n' +
               'float lightSweep = .5 + .5 * sin(vMapUv.x * 4.0 - uLetteringPhase);\n' +
-              'diffuseColor.rgb *= mix(.82, 1.12, lightSweep);',
+              (animatedCaption
+                ? 'float sheen=pow(lightSweep,4.0)*uCaptionMotion;\n' +
+                  'diffuseColor.rgb *= mix(.9,1.45,sheen);\n' +
+                  'diffuseColor.a *= 1.0 - uCaptionMotion * .12 * (1.0-lightSweep);'
+                : 'diffuseColor.rgb *= mix(.82, 1.12, lightSweep);'),
           );
+          if (animatedCaption) {
+            shader.vertexShader =
+              'uniform float uLetteringPhase;\nuniform float uCaptionMotion;\n' +
+              shader.vertexShader;
+            shader.vertexShader = shader.vertexShader.replace(
+              '#include <begin_vertex>',
+              '#include <begin_vertex>\n' +
+                'transformed.y += sin(uv.x*6.28318-uLetteringPhase)*.018*uCaptionMotion;',
+            );
+          }
         };
-        material.customProgramCacheKey = () => 'ysabel-cinematic-lettering-v1';
+        material.customProgramCacheKey = () =>
+          animatedCaption
+            ? 'ysabel-flowing-caption-v2'
+            : 'ysabel-cinematic-lettering-v1';
         resources.push(texture, geometry, material);
         const mesh = new THREE.Mesh(geometry, material);
         lettering.add(mesh);
         return { mesh, texture };
       }
       let captionTexture: InstanceType<typeof THREE.CanvasTexture> | undefined;
+      let captionMesh: InstanceType<typeof THREE.Mesh> | undefined;
       let captionContext: CanvasRenderingContext2D | null = null;
       let previousCaption = '';
       if (bitmap) {
@@ -261,8 +290,14 @@ export function LoadingLogo({
         captionCanvas.height = 112;
         captionContext = captionCanvas.getContext('2d');
         if (!captionContext) throw new Error('Caption unavailable');
-        const label = canvasPlane(captionCanvas, 4.45, (4.45 * 112) / 1536);
+        const label = canvasPlane(
+          captionCanvas,
+          4.45,
+          (4.45 * 112) / 1536,
+          true,
+        );
         label.mesh.position.set(0, -2.22, 0.14);
+        captionMesh = label.mesh;
         captionTexture = label.texture;
       }
       // The arc represents completed loading stages, never elapsed time.
@@ -313,6 +348,8 @@ export function LoadingLogo({
           ? 1
           : Math.max(0, Math.min(0.96, current.progress));
         const ease = still ? 1 : 1 - Math.exp(-delta * 9);
+        captionMotion.value +=
+          ((still || current.complete ? 0 : 1) - captionMotion.value) * ease;
         shownProgress += (targetProgress - shownProgress) * ease;
         ringGeometry.setDrawRange(0, Math.round(shownProgress * 160) + 1);
         if (
@@ -354,6 +391,15 @@ export function LoadingLogo({
         identity.rotation.x = still ? 0 : -pointer.y * 0.018;
         identity.rotation.y = still ? 0 : pointer.x * 0.022;
         letteringPhase.value = still ? 0 : t * 0.8;
+        if (captionMesh) {
+          captionMesh.position.y =
+            -2.22 + Math.sin(t * 0.8) * 0.035 * captionMotion.value;
+          captionMesh.rotation.x =
+            Math.sin(t * 0.6) * 0.025 * captionMotion.value;
+          captionMesh.scale.setScalar(
+            1 + Math.sin(t * 0.8) * 0.006 * captionMotion.value,
+          );
+        }
         lettering.rotation.x = still ? 0 : Math.sin(t * 0.8) * 0.008;
         key.intensity = still ? 3.4 : 3.4 + Math.sin(t * 0.8) * 0.25;
         background?.update(t, pointer.x, pointer.y);

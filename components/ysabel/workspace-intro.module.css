@@ -71,6 +71,26 @@
   font-size: max(14px, calc(var(--unit) * 0.18));
   letter-spacing: 0.07em;
   line-height: 1.5;
+  color: #2d2c2c;
+  background: linear-gradient(105deg, #2d2c2c 12%, #626e66 38%, #2d2c2c 65%);
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: caption-flow 7.8s ease-in-out infinite;
+}
+@keyframes caption-flow {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0) scale(1);
+    background-position: 100% 50%;
+    opacity: 0.88;
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-4px) scale(1.006);
+    background-position: 0% 50%;
+    opacity: 1;
+  }
 }
 @keyframes identity-breathe {
   0%,
@@ -104,7 +124,8 @@
   margin: 14px auto 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .fallbackGroup {
+  .fallbackGroup,
+  .fallbackCaption {
     animation: none;
   }
   .intro {

@@ -6,6 +6,11 @@ export const INTRO_BACKGROUND = [
   'radial-gradient(ellipse at 100% 8%, #e1e8e3 0%, transparent 60%)',
   'linear-gradient(150deg, #f8faf8, #eef1ee 62%, #dfe5e0)',
 ].join(', ');
+export const LOADING_BACKGROUND = [
+  'radial-gradient(ellipse at 30% 28%, #ffffff 0%, #fffffff0 18%, transparent 68%)',
+  'radial-gradient(ellipse at 88% 76%, #d1dcd4 0%, transparent 64%)',
+  'linear-gradient(135deg, #f7faf7 4%, #e7ede8 48%, #d6dfd8 100%)',
+].join(', ');
 export const INTRO_LIGHT_COLORS = {
   sky: 0xf4f5f2,
   ground: 0x8b9b90,

@@ -4,7 +4,7 @@ import { RefreshCw } from 'lucide-react';
 import styles from './workspace-intro.module.css';
 import { LoadingLogo } from './loading-logo';
 import { LoadingIdentity } from './loading-identity';
-import { INTRO_BACKGROUND, INTRO_TEXT_COLOR } from './brand-appearance';
+import { LOADING_BACKGROUND, INTRO_TEXT_COLOR } from './brand-appearance';
 
 export const INTRO_KEY = 'ysabel:login-intro';
 // Only a short reveal transition remains; loading itself has no cinematic delay.
@@ -38,7 +38,7 @@ export function WorkspaceIntro({
     <div
       className={styles.intro + (leaving ? ' ' + styles.leaving : '')}
       data-rendered={rendered}
-      style={{ color: INTRO_TEXT_COLOR, background: INTRO_BACKGROUND }}
+      style={{ color: INTRO_TEXT_COLOR, background: LOADING_BACKGROUND }}
       role="status"
       aria-live="polite"
       aria-label={

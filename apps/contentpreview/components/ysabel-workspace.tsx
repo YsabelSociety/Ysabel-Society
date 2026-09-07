@@ -1975,8 +1975,8 @@ export default function YsabelWorkspace() {
                   }}><Check />{availableCaptions.filter((caption) => selectedCaptionIds.includes(caption.id)).length === availableCaptions.length ? 'Clear selection' : 'Select all'}</Button>}
                 </div>
               </header>
-              <div className="caption-list">{availableCaptions.length ? availableCaptions.map((caption) => (
-                <article key={caption.id} className="caption-item">
+              <div className="caption-list">{availableCaptions.length ? availableCaptions.map((caption, index) => (
+                <article key={caption.id} className={'caption-item' + (selectedCaptionIds.includes(caption.id) ? ' is-selected' : '')} style={{ '--caption-index': index } as CSSProperties}>
                   <label className="caption-select"><input type="checkbox" checked={selectedCaptionIds.includes(caption.id)} onChange={() => toggleCaptionSelection(caption.id)} /></label>
                   <p>{caption.text}</p>
                   <div className="caption-item-actions"><Button size="sm" onClick={() => useCaption(caption.id)}><Plus />Use</Button><Button size="icon-sm" variant="ghost" aria-label={'Copy caption'} onClick={() => copyCaption(caption.id)}><Copy /></Button><Button size="icon-sm" variant="ghost" aria-label={'Delete caption'} onClick={() => deleteCaption(caption.id)}><Trash2 /></Button></div>
@@ -1997,8 +1997,8 @@ export default function YsabelWorkspace() {
                   }}><Check />{usedCaptions.filter((caption) => selectedCaptionIds.includes(caption.id)).length === usedCaptions.length ? 'Clear selection' : 'Select all'}</Button>}
                 </div>
               </header>
-              <div className="caption-list">{usedCaptions.length ? usedCaptions.map((caption) => (
-                <article key={caption.id} className="caption-item caption-item--used">
+              <div className="caption-list">{usedCaptions.length ? usedCaptions.map((caption, index) => (
+                <article key={caption.id} className={'caption-item caption-item--used' + (selectedCaptionIds.includes(caption.id) ? ' is-selected' : '')} style={{ '--caption-index': index } as CSSProperties}>
                   <label className="caption-select"><input type="checkbox" checked={selectedCaptionIds.includes(caption.id)} onChange={() => toggleCaptionSelection(caption.id)} /></label>
                   <p>{caption.text}</p>
                   <div className="caption-item-actions"><Button size="sm" variant="outline" onClick={() => removeUsedCaption(caption.id)}>Return</Button><Button size="icon-sm" variant="ghost" aria-label={'Copy caption'} onClick={() => copyCaption(caption.id)}><Copy /></Button><Button size="icon-sm" variant="ghost" aria-label={'Delete used caption'} onClick={() => deleteCaption(caption.id)}><Trash2 /></Button></div>

@@ -23,6 +23,9 @@ import {
   ArrowUpRight,
   ArrowDownToLine,
   ChevronRight,
+  ChevronDown,
+  Menu,
+  LogOut,
   Sun,
   Check,
   X,
@@ -42,7 +45,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
-  SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
@@ -214,6 +217,26 @@ const headings: Record<string, [string, string]> = {
     'A single workspace for Ysabel Society.',
   ],
 };
+function MobileCategoryMenu({ page }: { page: string }) {
+  const { openMobile, toggleSidebar } = useSidebar();
+  const label = page === 'Overview' ? 'Marketing Data' : page;
+  return (
+    <button
+      type="button"
+      className="mobile-category-menu"
+      onClick={toggleSidebar}
+      aria-label={`Categories: ${label}`}
+      aria-expanded={openMobile}
+      aria-haspopup="dialog"
+      title={`Browse categories · ${label}`}
+    >
+      <Menu size={16} aria-hidden="true" />
+      <span>{label}</span>
+      <ChevronDown size={12} aria-hidden="true" />
+    </button>
+  );
+}
+
 export default function Workspace({
   initialPage = 'Overview',
 }: {
@@ -223,6 +246,7 @@ export default function Workspace({
   const syncState = useAutoRefresh(data.ready, data.settings.timezone);
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [today, setToday] = useState(ANCHOR);
   const liveInitialized = useRef(false);
   const [page, setPage] = useState(
@@ -283,6 +307,7 @@ export default function Workspace({
   );
   function navigate(name: string) {
     if (!names.includes(name)) return;
+    setMobileMenuOpen(false);
     setPage(name);
     setCommand(false);
     window.history.pushState(
@@ -538,6 +563,8 @@ export default function Workspace({
             data-section={page}
             mobileBreakpoint={640}
             open={true}
+            openMobile={mobileMenuOpen}
+            onOpenMobileChange={setMobileMenuOpen}
           >
             <Sidebar
               className="ys-sidebar"
@@ -609,10 +636,7 @@ export default function Workspace({
             <main className="workspace">
               <header className="topbar">
                 <div className="workspace-picker">
-                  <SidebarTrigger
-                    className="mobile-trigger"
-                    aria-label="Open workspace sidebar"
-                  />
+                  <MobileCategoryMenu page={page} />
                   <span className="workspace-location">{page}</span>
                 </div>
                 <div className="top-actions">
@@ -621,16 +645,24 @@ export default function Workspace({
                     disabled={!data.ready || syncState.running}
                     onClick={() => void syncState.sync()}
                     aria-label="Sync all connected platforms now"
+                    aria-busy={syncState.running}
                   >
-                    {syncState.running && !intro.visible ? (
-                      <LoadingLogo compact />
-                    ) : (
-                      <RefreshCw size={16} />
-                    )}
-                    {syncState.running ? 'Syncing…' : 'Sync now'}
+                    <span className="header-sync-icon" aria-hidden="true">
+                      {syncState.running && !intro.visible ? (
+                        <LoadingLogo compact />
+                      ) : (
+                        <RefreshCw size={16} />
+                      )}
+                    </span>
+                    <span className="header-desktop-label">
+                      {syncState.running ? 'Syncing…' : 'Sync now'}
+                    </span>
+                    <span className="header-mobile-label" aria-hidden="true">
+                      {syncState.running ? 'Syncing' : 'Sync'}
+                    </span>
                   </button>
                   <button
-                    className="admin-launch"
+                    className="admin-launch header-sign-out"
                     onClick={async () => {
                       const response = await fetch(
                         '/marketingdata/api/session',
@@ -641,11 +673,17 @@ export default function Workspace({
                       if (response.ok) location.assign('/marketingdata/login');
                     }}
                     aria-label="Sign out"
+                    title="Sign out"
                   >
-                    Sign out
+                    <LogOut
+                      className="header-mobile-label"
+                      size={18}
+                      aria-hidden="true"
+                    />
+                    <span className="header-desktop-label">Sign out</span>
                   </button>
                   <button
-                    className="admin-launch"
+                    className="admin-launch header-admin"
                     onClick={() => navigate('Admin Panel')}
                     aria-label="Open admin panel"
                     aria-current={page === 'Admin Panel' ? 'page' : undefined}
@@ -670,7 +708,7 @@ export default function Workspace({
                     <kbd>⌘ K</kbd>
                   </button>
                   <button
-                    className="avatar small"
+                    className="avatar small header-admin"
                     aria-label="Open admin panel"
                     onClick={() => navigate('Admin Panel')}
                   >

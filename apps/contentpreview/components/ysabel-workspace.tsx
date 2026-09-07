@@ -1014,6 +1014,7 @@ export default function YsabelWorkspace() {
   const [publications, setPublications] = useState<Publication[]>([]);
   const [captionStore, setCaptionStore] = useState<CommunityCaptionStore>({});
   const [captionActionMessage, setCaptionActionMessage] = useState('');
+  const [selectedCaptionIds, setSelectedCaptionIds] = useState<string[]>([]);
   const [selectedNoteDate, setSelectedNoteDate] = useState('month');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [postId, setPostId] = useState<string | null>(null);
@@ -1131,6 +1132,10 @@ export default function YsabelWorkspace() {
     if (!workspaceReady) return;
     try { window.localStorage.setItem(COMMUNITY_CAPTION_STORAGE_KEY, JSON.stringify(captionStore)); } catch { /* localStorage can be restricted in some browser modes. */ }
   }, [captionStore, workspaceReady]);
+
+  useEffect(() => {
+    setSelectedCaptionIds([]);
+  }, [activeBoardId, section]);
 
   useEffect(() => () => {
     if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current);
@@ -1266,9 +1271,29 @@ export default function YsabelWorkspace() {
     captionActionTimer.current = window.setTimeout(() => setCaptionActionMessage(''), 1400);
   };
 
+  const clearCaptionSelection = () => setSelectedCaptionIds([]);
+
+  const toggleCaptionSelection = (captionId: string) => {
+    setSelectedCaptionIds((current) => (current.includes(captionId) ? current.filter((id) => id !== captionId) : [...current, captionId]));
+  };
+
+  const selectCaptionSet = (captions: CommunityCaption[]) => {
+    setSelectedCaptionIds((current) => {
+      const next = new Set(current);
+      captions.forEach((caption) => next.add(caption.id));
+      return [...next];
+    });
+  };
+
+  const deselectCaptionSet = (captions: CommunityCaption[]) => {
+    const ids = new Set(captions.map((caption) => caption.id));
+    setSelectedCaptionIds((current) => current.filter((id) => !ids.has(id)));
+  };
+
   const useCaption = (captionId: string) => {
     if (!activeBoardId) return;
     setCaptionPoolForBoard(activeBoardId, (pool) => moveCaptionBetweenPools(pool, captionId, 'used'));
+    clearCaptionSelection();
     setCaptionActionMessage('');
     if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
     publishCaptionMessage('Caption moved to used');
@@ -1277,6 +1302,7 @@ export default function YsabelWorkspace() {
   const removeUsedCaption = (captionId: string) => {
     if (!activeBoardId) return;
     setCaptionPoolForBoard(activeBoardId, (pool) => moveCaptionBetweenPools(pool, captionId, 'available'));
+    clearCaptionSelection();
     setCaptionActionMessage('');
     if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
     publishCaptionMessage('Caption returned to available');
@@ -1289,6 +1315,7 @@ export default function YsabelWorkspace() {
       const available = dedupeOrdered([...base.available, ...base.used]);
       return { ...current, [activeBoardId]: { available, used: [] } };
     });
+    clearCaptionSelection();
     if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
     publishCaptionMessage('All used captions returned to available');
   };
@@ -1303,6 +1330,7 @@ export default function YsabelWorkspace() {
       };
       return { ...current, [activeBoardId]: pool };
     });
+    setSelectedCaptionIds((current) => current.filter((id) => id !== captionId));
     if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
     publishCaptionMessage('Caption removed from this board');
   };
@@ -1310,8 +1338,27 @@ export default function YsabelWorkspace() {
   const deleteAllCaptions = () => {
     if (!activeBoardId) return;
     setCaptionStore((current) => ({ ...current, [activeBoardId]: { available: [], used: [] } }));
+    clearCaptionSelection();
     if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
     publishCaptionMessage('All captions cleared for this board');
+  };
+
+  const deleteSelectedCaptions = () => {
+    if (!activeBoardId || selectedCaptionIds.length === 0) return;
+    const removeSet = new Set(selectedCaptionIds);
+    setCaptionStore((current) => {
+      const base = current[activeBoardId] || DEFAULT_CAPTION_POOL;
+      return {
+        ...current,
+        [activeBoardId]: {
+          available: base.available.filter((id) => !removeSet.has(id)),
+          used: base.used.filter((id) => !removeSet.has(id)),
+        },
+      };
+    });
+    const count = selectedCaptionIds.length;
+    clearCaptionSelection();
+    publishCaptionMessage(`${count} caption${count === 1 ? '' : 's'} removed`);
   };
 
   const copyCaption = async (captionId: string) => {
@@ -1909,23 +1956,50 @@ export default function YsabelWorkspace() {
             <div className="captions-status">{captionActionMessage || 'Select captions from Available to mark them as used for this board.'}</div>
             <div className="captions-actions">
               {usedCaptions.length > 0 && <Button variant="outline" onClick={removeAllUsedCaptions}><Undo2 />Return used</Button>}
+              {selectedCaptionIds.length > 0 && <Button variant="destructive" onClick={deleteSelectedCaptions}><Trash2 />Delete selected ({selectedCaptionIds.length})</Button>}
               <Button variant="destructive" onClick={deleteAllCaptions}><Trash2 />Delete all</Button>
             </div>
           </div>
           <div className="captions-columns">
             <article className="captions-block">
-              <header><span>Available captions</span><p>{availableCaptions.length} remaining</p></header>
+              <header>
+                <div>
+                  <span>Available captions</span>
+                  <p>{availableCaptions.length} remaining</p>
+                </div>
+                <div className="captions-block-actions">
+                  {availableCaptions.length > 0 && <Button size="sm" variant="outline" onClick={() => {
+                    const selected = availableCaptions.filter((caption) => selectedCaptionIds.includes(caption.id)).length;
+                    if (selected === availableCaptions.length) deselectCaptionSet(availableCaptions);
+                    else selectCaptionSet(availableCaptions);
+                  }}><Check />{availableCaptions.filter((caption) => selectedCaptionIds.includes(caption.id)).length === availableCaptions.length ? 'Clear selection' : 'Select all'}</Button>}
+                </div>
+              </header>
               <div className="caption-list">{availableCaptions.length ? availableCaptions.map((caption) => (
                 <article key={caption.id} className="caption-item">
+                  <label className="caption-select"><input type="checkbox" checked={selectedCaptionIds.includes(caption.id)} onChange={() => toggleCaptionSelection(caption.id)} /></label>
                   <p>{caption.text}</p>
                   <div className="caption-item-actions"><Button size="sm" onClick={() => useCaption(caption.id)}><Plus />Use</Button><Button size="icon-sm" variant="ghost" aria-label={'Copy caption'} onClick={() => copyCaption(caption.id)}><Copy /></Button><Button size="icon-sm" variant="ghost" aria-label={'Delete caption'} onClick={() => deleteCaption(caption.id)}><Trash2 /></Button></div>
                 </article>
               )) : <div className="caption-empty">No available captions. Promote one from used with Return.</div>}</div>
             </article>
             <article className="captions-block">
-              <header><span>Used captions</span><p>{usedCaptions.length} selected</p></header>
+              <header>
+                <div>
+                  <span>Used captions</span>
+                  <p>{usedCaptions.length} selected</p>
+                </div>
+                <div className="captions-block-actions">
+                  {usedCaptions.length > 0 && <Button size="sm" variant="outline" onClick={() => {
+                    const selected = usedCaptions.filter((caption) => selectedCaptionIds.includes(caption.id)).length;
+                    if (selected === usedCaptions.length) deselectCaptionSet(usedCaptions);
+                    else selectCaptionSet(usedCaptions);
+                  }}><Check />{usedCaptions.filter((caption) => selectedCaptionIds.includes(caption.id)).length === usedCaptions.length ? 'Clear selection' : 'Select all'}</Button>}
+                </div>
+              </header>
               <div className="caption-list">{usedCaptions.length ? usedCaptions.map((caption) => (
                 <article key={caption.id} className="caption-item caption-item--used">
+                  <label className="caption-select"><input type="checkbox" checked={selectedCaptionIds.includes(caption.id)} onChange={() => toggleCaptionSelection(caption.id)} /></label>
                   <p>{caption.text}</p>
                   <div className="caption-item-actions"><Button size="sm" variant="outline" onClick={() => removeUsedCaption(caption.id)}>Return</Button><Button size="icon-sm" variant="ghost" aria-label={'Copy caption'} onClick={() => copyCaption(caption.id)}><Copy /></Button><Button size="icon-sm" variant="ghost" aria-label={'Delete used caption'} onClick={() => deleteCaption(caption.id)}><Trash2 /></Button></div>
                 </article>

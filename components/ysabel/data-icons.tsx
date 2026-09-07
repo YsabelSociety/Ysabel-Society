@@ -5,6 +5,10 @@ import {
   type ComponentProps,
   type ReactNode,
 } from 'react';
+import facebookMark from 'simple-icons/icons/facebook.svg';
+import googleMapsMark from 'simple-icons/icons/googlemaps.svg';
+import instagramMark from 'simple-icons/icons/instagram.svg';
+import tiktokMark from 'simple-icons/icons/tiktok.svg';
 import {
   Activity,
   AtSign,
@@ -226,6 +230,14 @@ const icons = new Map(
     names.map((name) => [normalize(name), icon] as const),
   ),
 );
+const brandIcons = new Map<string, string>([
+  ['instagram', instagramMark],
+  ['direct instagram', instagramMark],
+  ['facebook', facebookMark],
+  ['tiktok', tiktokMark],
+  ['google business', googleMapsMark],
+  ['gbp', googleMapsMark],
+]);
 const contextualIcons = [...icons.entries()].sort(
   (a, b) => b[0].length - a[0].length,
 );
@@ -246,6 +258,16 @@ export function DataIcon({
   name: string;
   badge?: boolean;
 }) {
+  const brand = brandIcons.get(normalize(name));
+  if (brand)
+    return (
+      <span
+        className={`${badge ? styles.badge : styles.icon} ${styles.brand}`}
+        aria-hidden="true"
+      >
+        <img src={brand} alt="" />
+      </span>
+    );
   const Icon = iconFor(name);
   return (
     <span className={badge ? styles.badge : styles.icon} aria-hidden="true">

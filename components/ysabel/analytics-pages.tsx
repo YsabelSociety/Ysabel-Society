@@ -443,7 +443,7 @@ export function PerformancePage({
       {live && <HistoryImport />}
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
-          <TabsList className="page-tabs">
+          <TabsList className="page-tabs platform-tabs">
             {['All', ...CHANNELS].map((c) => (
               <TabsTrigger key={c} value={c} data-platform={c}>
                 {c === 'All' ? 'All platforms' : c}
@@ -582,7 +582,7 @@ export function AudiencePage({
     <div className="view-enter platform-workspace" data-platform={channel}>
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
-          <TabsList className="page-tabs">
+          <TabsList className="page-tabs platform-tabs">
             {['All', ...SOCIAL_PLATFORMS].map((c) => (
               <TabsTrigger value={c} key={c} data-platform={c}>
                 {c === 'All' ? 'All social platforms' : c}

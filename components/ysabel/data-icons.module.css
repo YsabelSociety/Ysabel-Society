@@ -25,3 +25,12 @@
   background: linear-gradient(145deg, #ffffffda, #d5dfe978);
   box-shadow: 0 2px 8px #4d62680a;
 }
+.brand {
+  color: inherit;
+}
+.brand img {
+  width: 18px;
+  height: 18px;
+  display: block;
+  opacity: 0.82;
+}

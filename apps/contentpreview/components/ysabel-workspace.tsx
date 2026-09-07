@@ -2,7 +2,8 @@
 
 import {
   Archive, ArrowLeftRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Columns3,
-  Compass, Copy, Download, Expand, Grid3X3, Heart, Home, Images, Maximize2, Menu, MessageCircle,
+  Compass, Copy, Download, Expand, Grid3X3, Heart, Home, Images, Maximize2, Menu,
+  MessageCircle,
   LockKeyhole, LogOut, Monitor, MoreHorizontal, Move, NotebookPen, Pause, Play, Plus, Redo2,
   RotateCcw, Search, Send, Settings, SlidersHorizontal, Smartphone, Sparkles, Trash2, Undo2,
   Upload, UserRound, Video, Volume2, X,
@@ -36,7 +37,7 @@ import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
-type Section = 'feed' | 'media' | 'calendar' | 'notes' | 'versions' | 'archive' | 'settings';
+type Section = 'feed' | 'media' | 'calendar' | 'notes' | 'captions' | 'versions' | 'archive' | 'settings';
 type RearrangeMode = 'swap' | 'insert';
 type DragSource = { type: 'grid' | 'library'; index?: number; id?: string };
 
@@ -51,6 +52,9 @@ type Board = { id: string; name: string; archived: boolean; createdAt?: number; 
 type Version = { id: string; boardId: string; name: string; snapshot: string; createdAt: number };
 type CalendarNote = { boardId: string; noteDate: string; body: string; updatedAt: number };
 type Publication = { boardId: string; snapshot: string; publishedAt: number | string };
+type CommunityCaption = { id: string; text: string };
+type CaptionPool = { available: string[]; used: string[] };
+type CommunityCaptionStore = Record<string, CaptionPool>;
 type WorkspaceData = {
   boards: Board[];
   media: (Asset & { publicPath?: string })[];
@@ -62,6 +66,170 @@ type WorkspaceData = {
 
 const FEED_SIZE = 15;
 const emptyFeed = () => Array<string | null>(FEED_SIZE).fill(null);
+const COMMUNITY_CAPTION_STORAGE_KEY = 'ysabel_community_captions_v1';
+const COMMUNITY_CAPTIONS_TEXTS = [
+  'Monday night. Who did you think of when you saw Kipey’s name? Bring them. — Ysabel Garden · 21:00',
+  'Tuesday night. Don’t just forward this. Add “come with me.” — Lab Sadiku · Ysabel Garden · 21:00',
+  'We’d love to see you walk in this Wednesday. — Jeton Berisha · Ysabel Asian · 20:00',
+  'Thursday night with Kreshatech. Come early enough to hear how it begins. — Ysabel Garden · 21:00',
+  'Friday night. “I miss going out with you.” Send that part too. — Artan Ymeri · Ysabel Garden · 21:00',
+  'Saturday night. The song you know by heart. The person who knows why. — Yll Megi · Ysabel Garden · 21:00',
+  'Monday night. First time at Ysabel? Come say hello when you arrive. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Tuesday night with Yll Megi. Bring the person who got you into this music. — Ysabel Garden · 21:00',
+  'If you’ve been meaning to come back, make it this Wednesday. — Kipey · Ysabel Garden · 21:00',
+  'Thursday night. “I’ll come if you come.” We’re counting on both. — Dandara Sound · Ysabel Garden · 21:00',
+  'Friday night with Firstmusix. Sometimes you know in the first ten seconds. — Ysabel Garden · 21:00',
+  'Saturday night. Back in Prishtina? Come tell us where you’ve been. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Monday night. We’re here if you feel like going out. — Kipey · Ysabel Garden · 21:00',
+  'Tuesday night. Ever heard a song and immediately wanted someone else to hear it? — Kreshatech · Ysabel Garden · 21:00',
+  'Wednesday night with Dandara Sound. Who should be hearing this beside you? — Ysabel Garden · 21:00',
+  'If someone’s back in town, bring them by this Thursday. — Artan Ymeri · Ysabel Garden · 21:00',
+  'Friday night. Have you eaten? Jeton Berisha’s playing at eight. — Ysabel Asian · 20:00',
+  'Saturday night. You can bring someone we haven’t met. We’d like that. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Monday night. Lab Sadiku at nine. This is us asking you properly. — Ysabel Garden · 21:00',
+  'Tuesday night. Who knows your favourite song without having to ask? — Yll Megi · Ysabel Garden · 21:00',
+  'Wednesday night with Kipey. Hear the whole set before choosing your favourite. — Ysabel Garden · 21:00',
+  'Thursday night. Dinner can be the plan. The music’s already sorted. — Jeton Berisha · Ysabel Asian · 20:00',
+  'Friday night. Come for an hour. We’d still be happy to see you. — Firstmusix · Ysabel Garden · 21:00',
+  'Saturday night with Kipey. Tell us which track stays with you tomorrow. — Ysabel Garden · 21:00',
+  'Monday night. “Do you remember this?” Better when they’re sitting beside you. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Tuesday night. Someone in Prishtina knows exactly why you’d love this. — Dandara Sound · Ysabel Garden · 21:00',
+  'Wednesday night. Order something to share. Tell them what happened. — Jeton Berisha · Ysabel Asian · 20:00',
+  'Thursday night. Which song would make you get up halfway through dinner? — Artan Ymeri · Ysabel Garden · 21:00',
+  'Friday night with Adrian Berisha. We’d love your take on the set. — Ysabel Garden · 21:00',
+  'Saturday night. Bring the person you’ve been sending songs to. — Firstmusix · Ysabel Garden · 21:00',
+  'Monday night. The friend you keep sending songs to. Ask them along. — Kipey · Ysabel Garden · 21:00',
+  'Tuesday night. Which friend are you calling first? — Yll Megi · Ysabel Garden · 21:00',
+  'Wednesday night. Tell us you’re coming. We like having names to look out for. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Thursday night. First time hearing Kreshatech? Come close enough to watch. — Ysabel Garden · 21:00',
+  'Friday night. “Tell me everything.” There’s time before the music starts. — Jeton Berisha · Ysabel Asian · 20:00',
+  'Saturday night. Bring someone visiting Prishtina. Let them hear it for themselves. — Dandara Sound · Ysabel Garden · 21:00',
+  'Monday night. Get ready together. We’ll see you both here. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Tuesday night. What did you listen to before you met them? — Artan Ymeri · Ysabel Garden · 21:00',
+  'Wednesday night. Jeton Berisha at eight. Will you be here when we start? — Ysabel Asian · 20:00',
+  'Thursday night. “We should do this again.” Tonight would work. — Kipey · Ysabel Garden · 21:00',
+  'Friday night. An evening without rushing each other. Come sit down. — Dandara Sound · Ysabel Garden · 21:00',
+  'Saturday night. We don’t need the short version. Come tell us everything. — Jeton Berisha · Ysabel Garden · 21:00',
+  'Monday night. Bring someone who’s never heard Kipey. Watch what they notice. — Ysabel Garden · 21:00',
+  'Tuesday night. “Thought you’d like this.” Sometimes that’s all it takes. — Yll Megi · Ysabel Garden · 21:00',
+  'If your friend’s playing this Wednesday, let them see you there. — Kreshatech · Ysabel Garden · 21:00',
+  'Thursday night with Firstmusix. Who’s joining us? — Ysabel Garden · 21:00',
+  'Friday night. Dinner outside? Jeton Berisha’s playing. — Ysabel Garden · 21:00',
+  'Saturday night. Who remembers where you first heard that song? — Lab Sadiku · Ysabel Garden · 21:00',
+  'Monday night. “Can we catch up?” We’ve got somewhere in mind. — Artan Ymeri · Ysabel Garden · 21:00',
+  'If we haven’t met yet, come say hello this Tuesday. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Wednesday night with Kipey. What would you love to hear? — Ysabel Garden · 21:00',
+  'Thursday night. Bring whoever you’ve barely spoken to all week. — Dandara Sound · Ysabel Garden · 21:00',
+  'Friday night. Your friend knows every track. We’d like to meet them. — Kreshatech · Ysabel Garden · 21:00',
+  'Saturday night. “You’d love this.” Give them the chance to find out. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Monday night with Yll Megi. You don’t have to know the music yet. — Ysabel Garden · 21:00',
+  'Tuesday night. A song comes on. Who’s the first person you look for? — Kipey · Ysabel Garden · 21:00',
+  'Wednesday night. Keep us in mind when dinner ends. Lab Sadiku’s playing. — Ysabel Garden · 21:00',
+  'Thursday night. Somebody’s first Ysabel night could be with you. — Firstmusix · Ysabel Garden · 21:00',
+  'Friday night with Adrian Berisha. First visit? We’d love to meet you. — Ysabel Garden · 21:00',
+  'Saturday night. When was the last time you heard them laugh in person? — Jeton Berisha · Ysabel Asian · 20:00',
+  'Monday night with Artan Ymeri. Tell us what you’d play next. — Ysabel Garden · 21:00',
+  'Tuesday night. “Come over. There’s someone I want you to hear.” — Kreshatech · Ysabel Garden · 21:00',
+  'Wednesday night. Your favourite song was new to you once. — Dandara Sound · Ysabel Garden · 21:00',
+  'Thursday night. You don’t have to wait until you have news. — Jeton Berisha · Ysabel Asian · 20:00',
+  'Friday night. Got an hour before heading home? Kipey’s starting at nine. — Ysabel Garden · 21:00',
+  'Saturday night. “Are you coming?” We’d love a yes. — Firstmusix · Ysabel Garden · 21:00',
+  'Monday night. Tell us which song reminds you of your first night here. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Tuesday night with Dandara Sound. Start at the back. Come closer when you feel it. — Ysabel Garden · 21:00',
+  'Wednesday night with Lab Sadiku. Come hear something you’ll want to share. — Ysabel Garden · 21:00',
+  'Thursday night. That friend who lives nearby but you never see. Invite them. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Friday night. Will you remember the song or who you were with? — Kipey · Ysabel Garden · 21:00',
+  'Saturday night. Invite someone you usually only see on a screen. — Jeton Berisha · Ysabel Asian · 20:00',
+  'Monday night. “This one’s for you.” You know who to bring. — Yll Megi · Ysabel Garden · 21:00',
+  'Tuesday night with Firstmusix. Come listen, then tell us what you think. — Ysabel Garden · 21:00',
+  'Wednesday night. First night in Prishtina? We’d like to be part of it. — Artan Ymeri · Ysabel Garden · 21:00',
+  'Thursday night. “How have you been?” Let’s ask that in person. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Friday night with Yll Megi. Let’s see how many opening notes you need. — Ysabel Garden · 21:00',
+  'Saturday night. Dandara Sound at nine. Let’s introduce someone new to this music. — Ysabel Garden · 21:00',
+  'Monday night. The person you keep sending songs to. Ask them along. — Kipey · Ysabel Garden · 21:00',
+  'Tuesday night. Find us before you start asking where everyone went. — Kreshatech · Ysabel Garden · 21:00',
+  'Wednesday night. Come on your own if you like. We’ll be happy to see you. — Artan Ymeri · Ysabel Garden · 21:00',
+  'Thursday night. Been listening to anything good? Come tell Kipey. — Ysabel Garden · 21:00',
+  'Friday night. “I was hoping you’d be here.” So were we. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Saturday night. Who are you saving the seat beside you for? — Jeton Berisha · Ysabel Asian · 20:00',
+  'Monday night with Jeton Berisha. Come sit with us for the first track. — Ysabel Asian · 20:00',
+  'Did a friend bring you here the first time? Thank them this Tuesday. — Dandara Sound · Ysabel Garden · 21:00',
+  'Wednesday night. Is there someone you’d like to get to know better? — Yll Megi · Ysabel Garden · 21:00',
+  'Thursday night with Adrian Berisha. Bring someone whose music taste you’re curious about. — Ysabel Garden · 21:00',
+  'Friday night. Dinner in the Garden? Firstmusix is playing. — Ysabel Garden · 21:00',
+  'Saturday night. “We haven’t done this in ages.” Come say it here. — Kipey · Ysabel Garden · 21:00',
+  'Monday night. Watch who smiles when Kreshatech changes the track. — Ysabel Garden · 21:00',
+  'There’s someone you’ve only met briefly. Invite them properly this Tuesday. — Lab Sadiku · Ysabel Garden · 21:00',
+  'Wednesday night with Artan Ymeri. Tell us who introduced you to his music. — Ysabel Garden · 21:00',
+  'Thursday night. Have you been to the Garden at this hour? — Dandara Sound · Ysabel Garden · 21:00',
+  'Never heard Lab Sadiku play? Come this Friday. — Ysabel Garden · 21:00',
+  'Saturday night. Bring your oldest friend. See which song you both remember. — Yll Megi · Ysabel Garden · 21:00',
+  'Monday night. Pull up a chair. Tell us how your summer went. — Jeton Berisha · Ysabel Garden · 21:00',
+  'Tuesday night. First time hearing Yll Megi, or back for another set? — Ysabel Garden · 21:00',
+  'Wednesday night. Come tell us which part you’d bring someone back for. — Adrian Berisha · Ysabel Garden · 21:00',
+  'Society, who are we finally seeing this Thursday? — Kipey · Ysabel Garden · 21:00',
+];
+const COMMUNITY_CAPTIONS = COMMUNITY_CAPTIONS_TEXTS.map((text, index) => ({ id: `caption-${index + 1}`, text }));
+const COMMUNITY_CAPTION_IDS = new Set(COMMUNITY_CAPTIONS.map((caption) => caption.id));
+
+const COMMUNITY_CAPTION_BY_ID = new Map(COMMUNITY_CAPTIONS.map((caption) => [caption.id, caption]));
+const DEFAULT_CAPTION_POOL: CaptionPool = {
+  available: COMMUNITY_CAPTIONS.map((caption) => caption.id),
+  used: [],
+};
+
+function dedupeOrdered(items: string[]) {
+  const seen = new Set<string>();
+  const output: string[] = [];
+  for (const item of items) {
+    if (!seen.has(item)) {
+      seen.add(item);
+      output.push(item);
+    }
+  }
+  return output;
+}
+
+function normalizeCaptionPool(value: unknown): CaptionPool {
+  const baseline: CaptionPool = { available: [...DEFAULT_CAPTION_POOL.available], used: [] };
+  if (!value || typeof value !== 'object') return baseline;
+  const input = value as { available?: unknown; used?: unknown };
+  if (!Array.isArray(input.available) || !Array.isArray(input.used)) return baseline;
+  const valid = input.available.filter((value): value is string => typeof value === 'string' && COMMUNITY_CAPTION_IDS.has(value));
+  const validUsed = input.used.filter((value): value is string => typeof value === 'string' && COMMUNITY_CAPTION_IDS.has(value));
+  const used = dedupeOrdered(validUsed);
+  const usedSet = new Set(used);
+  const available = dedupeOrdered(valid.filter((id) => !usedSet.has(id)));
+  return { available, used };
+}
+
+function mergeCaptionStore(raw: unknown, boardIds: string[]) {
+  const output: CommunityCaptionStore = {};
+  const parsed = typeof raw === 'object' && raw !== null ? raw as Record<string, unknown> : {};
+  for (const boardId of boardIds) output[boardId] = normalizeCaptionPool(parsed[boardId]);
+  return output;
+}
+
+function cloneCaptionPool(pool: CaptionPool): CaptionPool {
+  return { available: [...pool.available], used: [...pool.used] };
+}
+
+function moveCaptionBetweenPools(pool: CaptionPool, captionId: string, target: 'used' | 'available') {
+  const available = dedupeOrdered(pool.available);
+  const used = dedupeOrdered(pool.used);
+  if (target === 'used') {
+    if (!available.includes(captionId)) return pool;
+    return {
+      available: available.filter((id) => id !== captionId),
+      used: [...used, captionId],
+    };
+  }
+  if (!used.includes(captionId)) return pool;
+  return {
+    available: [...available, captionId],
+    used: used.filter((id) => id !== captionId),
+  };
+}
 
 function mediaUrl(asset: Pick<Asset, 'id' | 'url' | 'publicPath'>, token = '') {
   const incoming = asset.publicPath || asset.url || '/contentpreview/api/media/' + asset.id;
@@ -844,6 +1012,8 @@ export default function YsabelWorkspace() {
   const [versions, setVersions] = useState<Version[]>([]);
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [publications, setPublications] = useState<Publication[]>([]);
+  const [captionStore, setCaptionStore] = useState<CommunityCaptionStore>({});
+  const [captionActionMessage, setCaptionActionMessage] = useState('');
   const [selectedNoteDate, setSelectedNoteDate] = useState('month');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [postId, setPostId] = useState<string | null>(null);
@@ -883,6 +1053,7 @@ export default function YsabelWorkspace() {
   const saveRevision = useRef(0);
   const pendingNoteDate = useRef<string | null>(null);
   const pointerDrag = useRef<{ source: DragSource; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
+  const captionActionTimer = useRef<number | null>(null);
   const dockResize = useRef<{ node: HTMLElement; pointerId: number; startX: number; startY: number; startWidth: number; startHeight: number; maxWidth: number; maxHeight: number; nextWidth: number; nextHeight: number } | null>(null);
   const dockResizeFrame = useRef<number | null>(null);
   const positions = feeds[activeBoardId] || emptyFeed();
@@ -940,6 +1111,13 @@ export default function YsabelWorkspace() {
       setVersions(Array.isArray(data.versions) ? data.versions : []);
       setNotes(Array.isArray(data.notes) ? data.notes : []);
       setPublications(Array.isArray(data.publications) ? data.publications : []);
+      try {
+        const raw = JSON.parse(window.localStorage.getItem(COMMUNITY_CAPTION_STORAGE_KEY) || '{}') as unknown;
+        const nextBoards = Array.isArray(data.boards) ? data.boards : [];
+        setCaptionStore(mergeCaptionStore(raw, nextBoards.map((board) => board.id)));
+      } catch {
+        setCaptionStore((current) => current);
+      }
       setWorkspaceReady(true);
     }).catch(() => {
       if (!cancelled) { setWorkspaceReady(false); setAuthState('login'); }
@@ -949,7 +1127,18 @@ export default function YsabelWorkspace() {
 
   useEffect(() => { setSelectedNoteDate(pendingNoteDate.current || 'month'); pendingNoteDate.current = null; }, [activeBoardId]);
 
-  useEffect(() => () => { if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current); }, []);
+  useEffect(() => {
+    if (!workspaceReady) return;
+    try { window.localStorage.setItem(COMMUNITY_CAPTION_STORAGE_KEY, JSON.stringify(captionStore)); } catch { /* localStorage can be restricted in some browser modes. */ }
+  }, [captionStore, workspaceReady]);
+
+  useEffect(() => () => {
+    if (noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current);
+    if (captionActionTimer.current) {
+      window.clearTimeout(captionActionTimer.current);
+      captionActionTimer.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     try {
@@ -1061,6 +1250,90 @@ export default function YsabelWorkspace() {
     if (boardId === activeBoardId && noteDate === selectedNoteDate && noteSaveTimer.current) window.clearTimeout(noteSaveTimer.current);
     setNotes((current) => current.filter((note) => !(note.boardId === boardId && note.noteDate === noteDate)));
     persist({ action: 'delete-note', boardId, noteDate });
+  };
+
+  const setCaptionPoolForBoard = (boardId: string, next: (pool: CaptionPool) => CaptionPool) => {
+    setCaptionStore((current) => {
+      const base = current[boardId] || DEFAULT_CAPTION_POOL;
+      const updated = next(cloneCaptionPool(base));
+      return { ...current, [boardId]: cloneCaptionPool(updated) };
+    });
+  };
+
+  const publishCaptionMessage = (message: string) => {
+    if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
+    setCaptionActionMessage(message);
+    captionActionTimer.current = window.setTimeout(() => setCaptionActionMessage(''), 1400);
+  };
+
+  const useCaption = (captionId: string) => {
+    if (!activeBoardId) return;
+    setCaptionPoolForBoard(activeBoardId, (pool) => moveCaptionBetweenPools(pool, captionId, 'used'));
+    setCaptionActionMessage('');
+    if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
+    publishCaptionMessage('Caption moved to used');
+  };
+
+  const removeUsedCaption = (captionId: string) => {
+    if (!activeBoardId) return;
+    setCaptionPoolForBoard(activeBoardId, (pool) => moveCaptionBetweenPools(pool, captionId, 'available'));
+    setCaptionActionMessage('');
+    if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
+    publishCaptionMessage('Caption returned to available');
+  };
+
+  const removeAllUsedCaptions = () => {
+    if (!activeBoardId) return;
+    setCaptionStore((current) => {
+      const base = current[activeBoardId] || DEFAULT_CAPTION_POOL;
+      const available = dedupeOrdered([...base.available, ...base.used]);
+      return { ...current, [activeBoardId]: { available, used: [] } };
+    });
+    if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
+    publishCaptionMessage('All used captions returned to available');
+  };
+
+  const deleteCaption = (captionId: string) => {
+    if (!activeBoardId) return;
+    setCaptionStore((current) => {
+      const base = current[activeBoardId] || DEFAULT_CAPTION_POOL;
+      const pool = {
+        available: base.available.filter((id) => id !== captionId),
+        used: base.used.filter((id) => id !== captionId),
+      };
+      return { ...current, [activeBoardId]: pool };
+    });
+    if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
+    publishCaptionMessage('Caption removed from this board');
+  };
+
+  const deleteAllCaptions = () => {
+    if (!activeBoardId) return;
+    setCaptionStore((current) => ({ ...current, [activeBoardId]: { available: [], used: [] } }));
+    if (captionActionTimer.current) window.clearTimeout(captionActionTimer.current);
+    publishCaptionMessage('All captions cleared for this board');
+  };
+
+  const copyCaption = async (captionId: string) => {
+    const caption = COMMUNITY_CAPTION_BY_ID.get(captionId)?.text;
+    if (!caption) return;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(caption);
+      else {
+        const textarea = document.createElement('textarea');
+        textarea.value = caption;
+        textarea.style.position = 'fixed';
+        textarea.style.left = '-99999px';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      publishCaptionMessage('Caption copied');
+    } catch {
+      publishCaptionMessage('Copy failed');
+    }
   };
 
   const openSavedNote = (note: CalendarNote) => {
@@ -1406,17 +1679,20 @@ export default function YsabelWorkspace() {
 
   const createBoard = async (duplicate = false) => {
     const name = newBoardName.trim() || 'Untitled Direction';
+    const newCaptionPool = cloneCaptionPool(duplicate ? (captionStore[activeBoardId] || DEFAULT_CAPTION_POOL) : DEFAULT_CAPTION_POOL);
     try {
       const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: duplicate ? 'duplicate-board' : 'create-board', name, sourceBoardId: duplicate ? activeBoardId : undefined }) });
       const responseData = await response.json() as Board & { publication?: Publication };
       const { publication, ...board } = responseData;
       setBoards((current) => [board, ...current]); setFeeds((current) => ({ ...current, [board.id]: duplicate ? [...positions] : emptyFeed() })); setActiveBoardId(board.id);
+      setCaptionStore((current) => ({ ...current, [board.id]: cloneCaptionPool(newCaptionPool) }));
       if (publication) setPublications((current) => [publication, ...current]);
     } catch {
       const id = crypto.randomUUID();
       const fallbackPositions = duplicate ? [...positions] : emptyFeed();
       setBoards((current) => [{ id, name, archived: false }, ...current]); setFeeds((current) => ({ ...current, [id]: fallbackPositions })); setActiveBoardId(id);
       setPublications((current) => [{ boardId: id, snapshot: JSON.stringify({ positions: fallbackPositions, assets }), publishedAt: Date.now() }, ...current]);
+      setCaptionStore((current) => ({ ...current, [id]: cloneCaptionPool(newCaptionPool) }));
     }
     setNewBoardOpen(false);
   };
@@ -1429,6 +1705,7 @@ export default function YsabelWorkspace() {
   const deleteBoard = () => {
     setBoards((current) => current.filter((board) => board.id !== activeBoardId)); persist({ action: 'delete-board', boardId: activeBoardId });
     const next = boards.find((board) => board.id !== activeBoardId && !board.archived); if (next) setActiveBoardId(next.id); setDeleteOpen(false);
+    setCaptionStore((current) => { const nextState = { ...current }; delete nextState[activeBoardId]; return nextState; });
   };
   const renameBoard = () => {
     setBoards((current) => current.map((board) => board.id === activeBoardId ? { ...board, name: renameValue } : board));
@@ -1501,6 +1778,14 @@ export default function YsabelWorkspace() {
     return !asset.archived;
   }), [assets, libraryFilter, used]);
 
+  const activeCaptionPool = captionStore[activeBoardId] || DEFAULT_CAPTION_POOL;
+  const availableCaptions = useMemo(() => activeCaptionPool.available
+    .map((id) => COMMUNITY_CAPTION_BY_ID.get(id))
+    .filter(Boolean) as CommunityCaption[], [activeCaptionPool.available, activeBoardId]);
+  const usedCaptions = useMemo(() => activeCaptionPool.used
+    .map((id) => COMMUNITY_CAPTION_BY_ID.get(id))
+    .filter(Boolean) as CommunityCaption[], [activeCaptionPool.used, activeBoardId]);
+
   if (authState !== 'ready' || loginEntering) {
     return (
       <main className={`login-screen${loginEntering && workspaceReady ? ' is-entering' : ''}`} style={{ '--entry-duration': `${LOGIN_SCENE.entry.durationMs}ms` } as CSSProperties}>
@@ -1545,6 +1830,7 @@ export default function YsabelWorkspace() {
   const navItems: { label: string; value: Section; icon: typeof Grid3X3 }[] = [
     { label: 'Feed', value: 'feed', icon: Grid3X3 }, { label: 'Media', value: 'media', icon: Images },
     { label: 'Calendar', value: 'calendar', icon: CalendarDays }, { label: 'Notes', value: 'notes', icon: NotebookPen },
+    { label: 'Captions', value: 'captions', icon: MessageCircle },
     { label: 'Versions', value: 'versions', icon: Columns3 },
     { label: 'Archive', value: 'archive', icon: Archive },
   ];
@@ -1616,6 +1902,37 @@ export default function YsabelWorkspace() {
         )}
 
         {section === 'media' && <section className="library-page"><header><div><span className="page-kicker">Independent collection</span><h1>Media Library</h1><p>Upload once, then place media from the compact library beside your feed.</p></div><div className="library-page-actions">{mediaSelection.length > 0 && <Button variant="destructive" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds(mediaSelection); }}><Trash2 />Delete {mediaSelection.length}</Button>}<Button variant="outline" onClick={() => { setMediaSelectMode((current) => !current); setMediaSelection([]); }}>{mediaSelectMode ? <><X />Cancel selection</> : <><Check />Select media</>}</Button><Button variant="outline" onClick={() => { setSection('feed'); setEdit(true); setLibraryDockOpen(true); }}><Grid3X3 />Open beside feed</Button><Button onClick={() => fileInput.current?.click()}><Upload />Upload media</Button></div></header><Tabs value={libraryFilter} onValueChange={(value) => setLibraryFilter(String(value))}><TabsList variant="line" className="library-tabs">{[['all','All'],['photo','Photography'],['video','Video'],['used','Used'],['unused','Unused'],['archived','Archived']].map(([value,label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}</TabsList></Tabs><div className="library-grid">{filteredAssets.map((asset) => { const selected = mediaSelection.includes(asset.id); return <article key={asset.id} className={selected ? 'selected' : ''}><button className="library-asset-button" draggable={!mediaSelectMode} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag} onClick={() => { if (mediaSelectMode) toggleMediaSelection(asset.id); else { setSelectedId(asset.id); setEdit(true); } }}><span className="library-thumb"><AssetVisual asset={asset} defer />{used.has(asset.id) && <em>Used</em>}{mediaSelectMode && <i className="library-selection-mark">{selected && <Check />}</i>}</span><strong>{asset.name}</strong><small>{asset.format} · {asset.category}</small></button>{!mediaSelectMode && <button className="library-delete-one" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button>}</article>; })}</div></section>}
+
+        {section === 'captions' && <section className="captions-page">
+          <header><span className="page-kicker">Social direction writing</span><h1>Community Captions</h1><p>Keep one list of reusable caption suggestions and track what has already been used.</p></header>
+          <div className="captions-toolbar">
+            <div className="captions-status">{captionActionMessage || 'Select captions from Available to mark them as used for this board.'}</div>
+            <div className="captions-actions">
+              {usedCaptions.length > 0 && <Button variant="outline" onClick={removeAllUsedCaptions}><Undo2 />Return used</Button>}
+              <Button variant="destructive" onClick={deleteAllCaptions}><Trash2 />Delete all</Button>
+            </div>
+          </div>
+          <div className="captions-columns">
+            <article className="captions-block">
+              <header><span>Available captions</span><p>{availableCaptions.length} remaining</p></header>
+              <div className="caption-list">{availableCaptions.length ? availableCaptions.map((caption) => (
+                <article key={caption.id} className="caption-item">
+                  <p>{caption.text}</p>
+                  <div className="caption-item-actions"><Button size="sm" onClick={() => useCaption(caption.id)}><Plus />Use</Button><Button size="icon-sm" variant="ghost" aria-label={'Copy caption'} onClick={() => copyCaption(caption.id)}><Copy /></Button><Button size="icon-sm" variant="ghost" aria-label={'Delete caption'} onClick={() => deleteCaption(caption.id)}><Trash2 /></Button></div>
+                </article>
+              )) : <div className="caption-empty">No available captions. Promote one from used with Return.</div>}</div>
+            </article>
+            <article className="captions-block">
+              <header><span>Used captions</span><p>{usedCaptions.length} selected</p></header>
+              <div className="caption-list">{usedCaptions.length ? usedCaptions.map((caption) => (
+                <article key={caption.id} className="caption-item caption-item--used">
+                  <p>{caption.text}</p>
+                  <div className="caption-item-actions"><Button size="sm" variant="outline" onClick={() => removeUsedCaption(caption.id)}>Return</Button><Button size="icon-sm" variant="ghost" aria-label={'Copy caption'} onClick={() => copyCaption(caption.id)}><Copy /></Button><Button size="icon-sm" variant="ghost" aria-label={'Delete used caption'} onClick={() => deleteCaption(caption.id)}><Trash2 /></Button></div>
+                </article>
+              )) : <div className="caption-empty">No used captions yet.</div>}</div>
+            </article>
+          </div>
+        </section>}
 
         {section === 'calendar' && <section className="calendar-page">
           <header><span className="page-kicker">Publication rhythm</span><h1>{calendar.label}</h1><p>Select any day to add its creative notes</p></header>

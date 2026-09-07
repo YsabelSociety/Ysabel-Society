@@ -1,5 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
+import { loadReportBundle } from '@/lib/report-bundle';
 import { Download, FileText, ExternalLink } from 'lucide-react';
 import {
   Dialog,
@@ -23,8 +24,6 @@ import {
 import {
   DEFAULT_REVIEW_FILTERS,
   makeReviewReport,
-  reportCSV,
-  reportHTML,
   reviewDateLabel,
   reviewFilterLabel,
   reviewKey,
@@ -32,56 +31,6 @@ import {
   type ReviewReport,
   type ReviewReportFilters,
 } from '@/lib/review-report';
-
-function download(content: string, type: string, name: string) {
-  const url = URL.createObjectURL(new Blob([content], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-}
-async function embedPhotos(
-  report: ReviewReport,
-  progress: (n: number) => void,
-) {
-  const photos: Record<string, string> = {};
-  let next = 0,
-    completed = 0;
-  await Promise.all(
-    Array.from({ length: Math.min(6, report.rows.length) }, async () => {
-      while (next < report.rows.length) {
-        const r = report.rows[next++];
-        try {
-          if (r.avatar) {
-            const response = await fetch(
-              '/marketingdata/api/review-photo?' +
-                new URLSearchParams({ accountId: r.accountId, id: r.id }),
-              { signal: AbortSignal.timeout(12000) },
-            );
-            if (response.status === 401)
-              throw new Error('Sign in again to include profile photos.');
-            if (response.ok) {
-              const blob = await response.blob();
-              photos[reviewKey(r)] = await new Promise<string>(
-                (resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => resolve(String(reader.result));
-                  reader.onerror = reject;
-                  reader.readAsDataURL(blob);
-                },
-              );
-            }
-          }
-        } catch {
-          /* Preserve the review and report missing photos explicitly. */
-        }
-        progress(++completed);
-      }
-    }),
-  );
-  return photos;
-}
 
 export function ReviewReports({
   records,
@@ -115,7 +64,6 @@ export function ReviewReports({
   };
   const [snapshot, setSnapshot] = useState<ReviewReport | null>(null);
   const [busy, setBusy] = useState(false),
-    [progress, setProgress] = useState(0),
     [message, setMessage] = useState('');
   const selection = useMemo(
     () => makeReviewReport(records, filters, reportRange, timezone, title),
@@ -137,29 +85,35 @@ export function ReviewReports({
     [records, localFilters, dates, range.start, range.end, timezone],
   );
   const ratingBasis = ratingReports.flatMap((report) => report.rows);
-  const filename =
-    'Ysabel-Society-Review-Report-' +
-    (snapshot?.generatedAt || selection.generatedAt).slice(0, 10);
   async function exportIllustrated() {
     if (!snapshot || busy) return;
     setBusy(true);
-    setProgress(0);
-    setMessage('');
+    setMessage('Collecting all platforms…');
     try {
-      const photos = await embedPhotos(snapshot, setProgress);
-      download(
-        reportHTML(snapshot, photos),
-        'text/html;charset=utf-8',
-        filename + '.html',
+      const bundle = await loadReportBundle(
+        snapshot.range,
+        snapshot.title,
+        setMessage,
       );
-      const missing = snapshot.rows.length - Object.keys(photos).length;
+      bundle.reviewSelection = makeReviewReport(
+        bundle.records,
+        snapshot.filters,
+        snapshot.range,
+        snapshot.timezone,
+        snapshot.title,
+      ).rows;
+      bundle.reviewNote = reviewFilterLabel(snapshot);
+      const { downloadReportPDF } = await import('@/lib/report-pdf');
+      await downloadReportPDF(bundle, setMessage);
       setMessage(
-        missing
-          ? `Report downloaded with all ${snapshot.rows.length} reviews. ${missing} profile photos were unavailable and are marked in the report.`
-          : `Report downloaded with all ${snapshot.rows.length} reviews and embedded profile photos.`,
+        'PDF downloaded with all platform categories and your filtered reviews.',
       );
-    } catch {
-      setMessage('The report could not be downloaded. Please try again.');
+    } catch (e) {
+      setMessage(
+        e instanceof Error
+          ? e.message
+          : 'The report could not be downloaded. Please retry.',
+      );
     } finally {
       setBusy(false);
     }
@@ -169,7 +123,6 @@ export function ReviewReports({
       makeReviewReport(records, filters, reportRange, timezone, title),
     );
     setMessage('');
-    setProgress(0);
   };
   return (
     <section
@@ -406,30 +359,13 @@ export function ReviewReports({
                   onClick={() => void exportIllustrated()}
                 >
                   <Download size={16} />
-                  {busy
-                    ? `Preparing photos ${progress}/${snapshot.rows.length}…`
-                    : 'Download illustrated report'}
-                </button>
-                <button
-                  className="secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    download(
-                      reportCSV(snapshot),
-                      'text/csv;charset=utf-8',
-                      filename + '.csv',
-                    )
-                  }
-                >
-                  <Download size={16} />
-                  Download CSV
+                  {busy ? 'Preparing PDF…' : 'Download PDF'}
                 </button>
               </div>
               <p className="source-asof">
-                The illustrated report opens in your browser, includes embedded
-                photos for offline use, and has a Print / Save as PDF button.
-                All {snapshot.rows.length} matching reviews are included,
-                grouped by star rating.
+                The PDF includes all platform categories and embedded review
+                photos when available. All {snapshot.rows.length} matching
+                reviews are included, grouped by star rating.
               </p>
               <div role="status" aria-live="polite">
                 {message}

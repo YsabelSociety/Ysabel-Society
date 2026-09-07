@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { Download } from 'lucide-react';
+import { ReportDownloadButton } from './reports';
 import { type ReportTable } from '@/lib/reporting';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { Picker } from './controls';
@@ -29,28 +29,6 @@ function label(key: string) {
   return (
     labels[key] || key.replace(/([a-z])([A-Z])/g, '$1 $2').replaceAll('_', ' ')
   );
-}
-function download(table: ReportTable) {
-  const encode = (v: unknown) =>
-    '"' +
-    String(v ?? '')
-      .replace(/^[=+@\-]/, "'$&")
-      .replaceAll('"', '""') +
-    '"';
-  const text = [
-    table.columns,
-    ...table.rows.map((r) => table.columns.map((k) => r[k])),
-  ]
-    .map((r) => r.map(encode).join(','))
-    .join('\r\n');
-  const url = URL.createObjectURL(
-      new Blob([text], { type: 'text/csv;charset=utf-8' }),
-    ),
-    a = document.createElement('a');
-  a.href = url;
-  a.download = 'Ysabel-Society-' + table.source + '-' + table.key + '.csv';
-  a.click();
-  URL.revokeObjectURL(url);
 }
 export function SourceReports({
   tables,
@@ -103,9 +81,7 @@ export function SourceReports({
     <section className="surface padded source-report">
       <div className="section-head">
         <h2>{title}</h2>
-        <button className="secondary" onClick={() => download(selected)}>
-          <Download size={15} /> Export this data
-        </button>
+        <ReportDownloadButton range={selected.period} title={selected.title} />
       </div>
       <div className="source-report-controls">
         <Picker

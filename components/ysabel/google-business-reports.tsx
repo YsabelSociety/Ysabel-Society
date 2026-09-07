@@ -1,4 +1,5 @@
 'use client';
+import { ReportDownloadButton } from './reports';
 import { useId, useState } from 'react';
 import {
   Area,
@@ -149,28 +150,6 @@ function MetricCard({
     </article>
   );
 }
-function download(table: ReportTable) {
-  const escape = (value: unknown) =>
-    '"' +
-    String(value ?? '')
-      .replace(/^[=+@\-]/, "'$&")
-      .replaceAll('"', '""') +
-    '"';
-  const csv = [
-    table.columns,
-    ...table.rows.map((r) => table.columns.map((k) => r[k])),
-  ]
-    .map((r) => r.map(escape).join(','))
-    .join('\r\n');
-  const url = URL.createObjectURL(
-      new Blob([csv], { type: 'text/csv;charset=utf-8' }),
-    ),
-    a = document.createElement('a');
-  a.href = url;
-  a.download = `Ysabel-Google-Business-${table.key}-${table.period.start}-${table.period.end}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
 function label(key: string) {
   return GBP_METRICS.find((m) => m.key === key)?.label || key;
 }
@@ -226,9 +205,10 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
                 ))}
               </select>
             </label>
-            <button className="secondary" onClick={() => download(active)}>
-              <Download size={15} /> Download report
-            </button>
+            <ReportDownloadButton
+              range={active.period}
+              title="Google Business · All platforms"
+            />
           </div>
           <p className={styles.coverage}>
             {active.period.start} – {active.period.end} · Google export{' '}
@@ -417,9 +397,7 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
             <strong>{t.title}</strong> · {t.period.start} – {t.period.end}
           </summary>
           <p className="footnote">{t.scope}</p>
-          <button className="secondary" onClick={() => download(t)}>
-            <Download size={15} /> Download source values
-          </button>
+          <ReportDownloadButton range={t.period} title={t.title} />
           {t.key === 'google-searches' &&
             t.rows.some((r) => typeof r.impressions === 'number') && (
               <div className={styles.chart}>

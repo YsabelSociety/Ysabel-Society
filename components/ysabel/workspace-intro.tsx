@@ -1,9 +1,10 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { RefreshCw } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
 import styles from './workspace-intro.module.css';
 import { LoadingLogo } from './loading-logo';
+import { INTRO_LOGO_COLOR } from './brand-appearance';
 
 export const INTRO_KEY = 'ysabel:login-intro';
 export const INTRO_TIMING = { minimum: 1200, settle: 300, exit: 650 };
@@ -20,9 +21,11 @@ export function WorkspaceIntro({
   onRetry?: () => void;
   onSceneReady?: () => void;
 }) {
+  const wordmarkMask = useId();
   return (
     <div
       className={styles.intro + (leaving ? ' ' + styles.leaving : '')}
+      style={{ color: INTRO_LOGO_COLOR }}
       role="status"
       aria-live="polite"
       aria-label={
@@ -34,7 +37,7 @@ export function WorkspaceIntro({
       <div className={styles.light} aria-hidden="true" />
       <div className={styles.identity}>
         <LoadingLogo onReady={onSceneReady} />
-        {/* Frame only the original lettering; its emblem is rendered in Three.js. */}
+        {/* Tint the original lettering's alpha silhouette without retyping or reshaping it. */}
         <svg
           className={styles.wordmark}
           viewBox="1502 2158 4996 1916"
@@ -43,10 +46,30 @@ export function WorkspaceIntro({
           role="img"
           aria-label="Ysabel Society"
         >
-          <image
-            href={appPath('/ysabel-society-logo.png')}
-            width={8000}
-            height={4500}
+          <defs>
+            <mask
+              id={wordmarkMask}
+              maskUnits="userSpaceOnUse"
+              x={1502}
+              y={2158}
+              width={4996}
+              height={1916}
+              style={{ maskType: 'alpha' }}
+            >
+              <image
+                href={appPath('/ysabel-society-logo.png')}
+                width={8000}
+                height={4500}
+              />
+            </mask>
+          </defs>
+          <rect
+            x={1502}
+            y={2158}
+            width={4996}
+            height={1916}
+            fill="currentColor"
+            mask={`url(#${wordmarkMask})`}
           />
         </svg>
         <span className={styles.caption}>

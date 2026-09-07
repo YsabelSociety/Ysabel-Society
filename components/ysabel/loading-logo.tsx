@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import styles from './loading-logo.module.css';
+import { INTRO_LOGO_MATERIAL } from './brand-appearance';
 
 // Both loading surfaces use the supplied emblem, extruded as one rigid shape.
 export function LoadingLogo({
@@ -52,7 +53,7 @@ export function LoadingLogo({
       );
       renderer.setClearColor(0, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.1;
+      renderer.toneMappingExposure = 1.15;
       target!.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 30);
@@ -114,7 +115,7 @@ export function LoadingLogo({
       const room = new RoomEnvironment();
       const pmrem = new THREE.PMREMGenerator(renderer);
       try {
-        environment = pmrem.fromScene(room, 0.035);
+        environment = pmrem.fromScene(room, 0.045);
         scene.environment = Array.isArray(environment.texture)
           ? environment.texture[0]
           : environment.texture;
@@ -140,24 +141,17 @@ export function LoadingLogo({
       const size = geometry.boundingBox!.getSize(new THREE.Vector3());
       const scale = 3.1 / Math.max(size.x, size.y);
       geometry.scale(scale, scale, scale);
-      material = new THREE.MeshPhysicalMaterial({
-        color: 0xd4d7c8,
-        metalness: 0.84,
-        roughness: 0.23,
-        clearcoat: 0.35,
-        clearcoatRoughness: 0.25,
-        envMapIntensity: 1.35,
-      });
+      material = new THREE.MeshPhysicalMaterial(INTRO_LOGO_MATERIAL);
       const logo = new THREE.Mesh(geometry, material);
       scene.add(logo);
-      scene.add(new THREE.HemisphereLight(0xf7f8e9, 0x37472a, 2));
-      const key = new THREE.DirectionalLight(0xfffae9, 4.5);
+      scene.add(new THREE.HemisphereLight(0xf5edcf, 0x20291b, 2.1));
+      const key = new THREE.DirectionalLight(0xffefd3, 5.5);
       key.position.set(-3, 4, 5);
       scene.add(key);
-      const rim = new THREE.DirectionalLight(0xcbd9b4, 3);
+      const rim = new THREE.DirectionalLight(0xe5dcb0, 4);
       rim.position.set(4, 1, -2);
       scene.add(rim);
-      const fill = new THREE.DirectionalLight(0xffffff, 1.5);
+      const fill = new THREE.DirectionalLight(0xd6e1ba, 0.85);
       fill.position.set(2, -2, 3);
       scene.add(fill);
       const smooth = (t: number) => {

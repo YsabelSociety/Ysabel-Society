@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeftRight, Pause, Play } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
+import { INTRO_LOGO_MATERIAL } from './brand-appearance';
 
 const ease = (a: number, b: number, value: number) => {
   const t = Math.max(0, Math.min(1, (value - a) / (b - a)));
@@ -125,14 +126,7 @@ export function LoginScene() {
       fill.position.set(2, -1, 4);
       scene.add(fill);
 
-      const bronze = new THREE.MeshPhysicalMaterial({
-        color: 0xb6a376,
-        metalness: 0.86,
-        roughness: 0.27,
-        envMapIntensity: 1.3,
-        clearcoat: 0.25,
-        clearcoatRoughness: 0.32,
-      });
+      const bronze = new THREE.MeshPhysicalMaterial(INTRO_LOGO_MATERIAL);
       materials.push(bronze);
       const world = new THREE.Group();
       scene.add(world);

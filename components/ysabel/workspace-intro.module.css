@@ -15,7 +15,6 @@
     ),
     radial-gradient(ellipse at 100% 5%, #394326 0, transparent 48%),
     linear-gradient(160deg, #28331d, #151e11 87%);
-  color: #263222;
   transition:
     opacity 650ms ease,
     visibility 650ms;
@@ -53,7 +52,7 @@
 }
 .caption {
   font-size: 0.875rem;
-  color: #36472d;
+  color: inherit;
 }
 .failure {
   margin-top: 22px;

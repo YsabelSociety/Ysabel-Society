@@ -23,7 +23,7 @@ export function createLoginStatistics(parent: THREE.Group) {
   const root = new THREE.Group();
   parent.add(root);
   const resources: { dispose: () => void }[] = [];
-  const palette = [0xe1d3ad, 0xa6c2b1, 0xa9bdcc, 0xc0a874];
+  const palette = [0x1d3428, 0x536b5e, 0x84938a, 0x2d2c2c];
   const materials = palette.map(
     (color) =>
       new THREE.MeshPhysicalMaterial({
@@ -37,12 +37,12 @@ export function createLoginStatistics(parent: THREE.Group) {
       new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.85 }),
   );
   const axes = new THREE.LineBasicMaterial({
-    color: 0xb8c09c,
+    color: 0x536b5e,
     transparent: true,
     opacity: 0.25,
   });
   const filled = new THREE.MeshBasicMaterial({
-    color: 0xa6c2b1,
+    color: 0x536b5e,
     transparent: true,
     opacity: 0.38,
     side: THREE.DoubleSide,

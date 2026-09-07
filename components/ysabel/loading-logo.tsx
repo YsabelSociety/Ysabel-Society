@@ -2,49 +2,79 @@
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import styles from './loading-logo.module.css';
-import { INTRO_LIGHT_COLORS, INTRO_LOGO_MATERIAL } from './brand-appearance';
+import {
+  INTRO_LIGHT_COLORS,
+  INTRO_LOGO_MATERIAL,
+  INTRO_LOGO_COLOR,
+  INTRO_TEXT_COLOR,
+} from './brand-appearance';
 
-// Both loading surfaces use the supplied emblem, extruded as one rigid shape.
+type LoadingLogoProps = {
+  compact?: boolean;
+  progress?: number;
+  complete?: boolean;
+  caption?: string;
+  onReady?: (rendered: boolean) => void;
+};
+
+// The emblem is a rigid extrusion; the lettering uses the original alpha artwork.
 export function LoadingLogo({
   compact = false,
+  progress = 0,
+  complete = false,
+  caption = 'Loading your marketing data…',
   onReady,
-}: {
-  compact?: boolean;
-  onReady?: () => void;
-}) {
+}: LoadingLogoProps) {
   const host = useRef<HTMLDivElement>(null);
-  const ready = useRef(onReady);
-  ready.current = onReady;
+  const state = useRef({ progress, complete, caption, onReady });
+  const repaint = useRef<() => void>(() => {});
+  useEffect(() => {
+    state.current = { progress, complete, caption, onReady };
+    repaint.current();
+  }, [progress, complete, caption, onReady]);
   useEffect(() => {
     const target = host.current;
     if (!target) return;
-    let disposed = false,
-      announced = false;
+    let disposed = false;
+    let availability: boolean | undefined;
     let cleanup = () => {};
     const abort = new AbortController();
-    const announce = () => {
-      if (!disposed && !announced) {
-        announced = true;
-        ready.current?.();
+    const announce = (rendered: boolean) => {
+      if (!disposed && availability !== rendered) {
+        availability = rendered;
+        state.current.onReady?.(rendered);
       }
     };
-    // An unsupported GPU or slow module download must not block access to data.
-    const fallbackDeadline = setTimeout(announce, 6000);
+    // Asset or GPU failure must never trap a ready dashboard behind an intro.
+    const fallbackDeadline = setTimeout(() => announce(false), 6000);
     async function start() {
-      const [THREE, { SVGLoader }, { RoomEnvironment }, response] =
-        await Promise.all([
-          import('three'),
-          import('three/examples/jsm/loaders/SVGLoader.js'),
-          import('three/examples/jsm/environments/RoomEnvironment.js'),
-          fetch(appPath('/ysabel-emblem-source.svg'), {
-            signal: AbortSignal.any([abort.signal, AbortSignal.timeout(6000)]),
-          }),
-        ]);
-      if (!response.ok) throw new Error('Logo unavailable');
-      const svg = await response.text();
+      const signal = AbortSignal.any([abort.signal, AbortSignal.timeout(6000)]);
+      const [
+        THREE,
+        { SVGLoader },
+        { RoomEnvironment },
+        { createIntroBackdrop },
+        svg,
+        bitmap,
+      ] = await Promise.all([
+        import('three'),
+        import('three/examples/jsm/loaders/SVGLoader.js'),
+        import('three/examples/jsm/environments/RoomEnvironment.js'),
+        import('./intro-backdrop'),
+        fetch(appPath('/ysabel-emblem-source.svg'), { signal }).then((r) => {
+          if (!r.ok) throw new Error('Logo unavailable');
+          return r.text();
+        }),
+        compact
+          ? Promise.resolve(null)
+          : fetch(appPath('/ysabel-society-logo.png'), { signal }).then((r) => {
+              if (!r.ok) throw new Error('Lettering unavailable');
+              return r.blob();
+            }),
+      ]);
       if (disposed) return;
       const renderer = new THREE.WebGLRenderer({
-        alpha: true,
+        alpha: compact,
         antialias: !compact,
         powerPreference: 'low-power',
       });
@@ -53,23 +83,31 @@ export function LoadingLogo({
       );
       renderer.setClearColor(0, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
+      renderer.toneMappingExposure = 1;
+      renderer.domElement.style.visibility = 'hidden';
       target!.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
-      const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 30);
-      camera.position.z = 7.4;
+      const camera = new THREE.OrthographicCamera(
+        -3.5,
+        3.5,
+        3.5,
+        -3.5,
+        0.1,
+        30,
+      );
+      camera.position.z = 10;
       const preference = matchMedia('(prefers-reduced-motion: reduce)');
       const pointer = new THREE.Vector2();
+      const resources: { dispose: () => void }[] = [];
       let frame = 0,
         elapsed = 0,
         last = 0,
         paint = 0,
-        lost = false,
-        firstFrame = false;
-      let geometry: InstanceType<typeof THREE.ExtrudeGeometry> | undefined;
-      let material: InstanceType<typeof THREE.MeshPhysicalMaterial> | undefined;
-      let environment: InstanceType<typeof THREE.WebGLRenderTarget> | undefined;
-      let observer: ResizeObserver | undefined;
+        yaw = 0.08;
+      let lost = false,
+        firstFrame = false,
+        shownProgress = 0;
+      const lifecycle: { observer?: ResizeObserver } = {};
       const stop = () => {
         cancelAnimationFrame(frame);
         frame = 0;
@@ -87,7 +125,7 @@ export function LoadingLogo({
         event.preventDefault();
         lost = true;
         stop();
-        announce();
+        announce(false);
       };
       let resume = () => {};
       const onVisible = () => {
@@ -100,22 +138,24 @@ export function LoadingLogo({
       };
       cleanup = () => {
         stop();
-        observer?.disconnect();
+        repaint.current = () => {};
+        lifecycle.observer?.disconnect();
         target!.removeEventListener('pointermove', onMove);
         target!.removeEventListener('pointerleave', onLeave);
         renderer.domElement.removeEventListener('webglcontextlost', onLost);
         document.removeEventListener('visibilitychange', onVisible);
         preference.removeEventListener('change', onPreference);
-        geometry?.dispose();
-        material?.dispose();
-        environment?.dispose();
+        resources.forEach((resource) => resource.dispose());
         renderer.dispose();
         renderer.domElement.remove();
       };
+      const background = compact ? null : createIntroBackdrop(scene);
+      if (background) resources.push(background);
       const room = new RoomEnvironment();
       const pmrem = new THREE.PMREMGenerator(renderer);
       try {
-        environment = pmrem.fromScene(room, 0.045);
+        const environment = pmrem.fromScene(room, 0.035);
+        resources.push(environment);
         scene.environment = Array.isArray(environment.texture)
           ? environment.texture[0]
           : environment.texture;
@@ -126,7 +166,7 @@ export function LoadingLogo({
       const shapes = new SVGLoader()
         .parse(svg)
         .paths.flatMap((path) => path.toShapes());
-      geometry = new THREE.ExtrudeGeometry(shapes, {
+      const geometry = new THREE.ExtrudeGeometry(shapes, {
         depth: 32,
         steps: 1,
         bevelEnabled: true,
@@ -135,58 +175,178 @@ export function LoadingLogo({
         bevelSegments: 2,
         curveSegments: compact ? 8 : 12,
       });
+      resources.push(geometry);
       geometry.center();
       geometry.rotateX(Math.PI);
       geometry.computeBoundingBox();
       const size = geometry.boundingBox!.getSize(new THREE.Vector3());
-      const scale = 3.1 / Math.max(size.x, size.y);
+      const scale = (compact ? 3.1 : 2.45) / Math.max(size.x, size.y);
       geometry.scale(scale, scale, scale);
-      material = new THREE.MeshPhysicalMaterial(INTRO_LOGO_MATERIAL);
+      const material = new THREE.MeshPhysicalMaterial(INTRO_LOGO_MATERIAL);
+      resources.push(material);
       const logo = new THREE.Mesh(geometry, material);
       scene.add(logo);
+      const lettering = new THREE.Group();
+      scene.add(lettering);
+
+      function canvasPlane(
+        canvas: HTMLCanvasElement,
+        width: number,
+        height: number,
+      ) {
+        const texture = new THREE.CanvasTexture(canvas);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(
+          4,
+          renderer.capabilities.getMaxAnisotropy(),
+        );
+        const geometry = new THREE.PlaneGeometry(width, height);
+        const material = new THREE.MeshBasicMaterial({
+          map: texture,
+          transparent: true,
+          depthWrite: false,
+          toneMapped: false,
+          side: THREE.DoubleSide,
+        });
+        resources.push(texture, geometry, material);
+        const mesh = new THREE.Mesh(geometry, material);
+        lettering.add(mesh);
+        return { mesh, texture };
+      }
+      let captionTexture: InstanceType<typeof THREE.CanvasTexture> | undefined;
+      let captionContext: CanvasRenderingContext2D | null = null;
+      let previousCaption = '';
+      if (bitmap) {
+        const image = await createImageBitmap(bitmap, 1502, 2158, 4996, 1916, {
+          resizeWidth: 1499,
+          resizeHeight: 575,
+          resizeQuality: 'high',
+        });
+        if (disposed) {
+          image.close();
+          return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = 1499;
+        canvas.height = 575;
+        const context = canvas.getContext('2d');
+        if (!context) {
+          image.close();
+          throw new Error('Lettering unavailable');
+        }
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        image.close();
+        context.globalCompositeOperation = 'source-in';
+        context.fillStyle = INTRO_TEXT_COLOR;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        const wordmark = canvasPlane(canvas, 2.95, (2.95 * 1916) / 4996);
+        wordmark.mesh.position.set(0, -1.28, 0.12);
+        const captionCanvas = document.createElement('canvas');
+        captionCanvas.width = 1536;
+        captionCanvas.height = 112;
+        captionContext = captionCanvas.getContext('2d');
+        if (!captionContext) throw new Error('Caption unavailable');
+        const label = canvasPlane(captionCanvas, 4.45, (4.45 * 112) / 1536);
+        label.mesh.position.set(0, -2.22, 0.14);
+        captionTexture = label.texture;
+      }
+      // The arc represents completed loading stages, never elapsed time.
+      const ringGeometry = new THREE.BufferGeometry();
+      const points = [];
+      for (let i = 0; i <= 160; i++) {
+        const angle = Math.PI / 2 - (i / 160) * Math.PI * 2;
+        points.push(Math.cos(angle) * 1.47, Math.sin(angle) * 1.47, -0.06);
+      }
+      ringGeometry.setAttribute(
+        'position',
+        new THREE.Float32BufferAttribute(points, 3),
+      );
+      const ringMaterial = new THREE.LineBasicMaterial({
+        color: INTRO_LOGO_COLOR,
+        transparent: true,
+        opacity: 0.25,
+        toneMapped: false,
+        depthWrite: false,
+      });
+      resources.push(ringGeometry, ringMaterial);
+      const ring = new THREE.Line(ringGeometry, ringMaterial);
+      ring.visible = !compact;
+      ring.position.y = 0.72;
+      scene.add(ring);
       scene.add(
         new THREE.HemisphereLight(
           INTRO_LIGHT_COLORS.sky,
           INTRO_LIGHT_COLORS.ground,
-          2.1,
+          1.5,
         ),
       );
-      const key = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.key, 5.5);
+      const key = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.key, 3.4);
       key.position.set(-3, 4, 5);
       scene.add(key);
-      const rim = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.rim, 4);
+      const rim = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.rim, 2.2);
       rim.position.set(4, 1, -2);
       scene.add(rim);
-      const fill = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.fill, 0.85);
+      const fill = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.fill, 0.65);
       fill.position.set(2, -2, 3);
       scene.add(fill);
-      const smooth = (t: number) => {
-        const x = Math.min(1, Math.max(0, t));
-        return x * x * (3 - 2 * x);
-      };
-      const draw = () => {
+      const draw = (delta = 0) => {
         if (lost || disposed) return;
         const still = preference.matches;
-        const t = still ? 2 : elapsed;
-        logo.rotation.x +=
-          ((still
-            ? -0.06
-            : -0.08 + Math.sin(t * 0.42) * 0.055 - pointer.y * 0.12) -
-            logo.rotation.x) *
-          0.07;
-        logo.rotation.y +=
-          ((still ? 0.12 : 0.12 + t * 0.42 + pointer.x * 0.22) -
-            logo.rotation.y) *
-          0.07;
-        logo.rotation.z = still ? 0 : Math.sin(t * 0.31) * 0.018;
-        logo.position.y = still ? 0 : Math.sin(t * 0.85) * 0.045;
-        camera.position.z = 7.4 + (still ? 0 : 0.65 * (1 - smooth(t / 1.5)));
-        key.position.x = -3 + (still ? 0 : Math.sin(t * 0.8) * 2.4);
+        const t = still ? 0 : elapsed;
+        const current = state.current;
+        const targetProgress = current.complete
+          ? 1
+          : Math.max(0, Math.min(0.96, current.progress));
+        const ease = still ? 1 : 1 - Math.exp(-delta * 9);
+        shownProgress += (targetProgress - shownProgress) * ease;
+        ringGeometry.setDrawRange(0, Math.round(shownProgress * 160) + 1);
+        if (
+          captionContext &&
+          captionTexture &&
+          previousCaption !== current.caption
+        ) {
+          previousCaption = current.caption;
+          const { width, height } = captionContext.canvas;
+          captionContext.clearRect(0, 0, width, height);
+          captionContext.font = '400 48px Arial, sans-serif';
+          captionContext.textAlign = 'center';
+          captionContext.textBaseline = 'middle';
+          captionContext.fillStyle = INTRO_TEXT_COLOR;
+          captionContext.fillText(
+            current.caption,
+            width / 2,
+            height / 2,
+            width - 80,
+          );
+          captionTexture.needsUpdate = true;
+        }
+        // Real completion starts the settle immediately, without an extra cycle.
+        if (!still) {
+          if (current.complete) {
+            const nearest = Math.round(yaw / (Math.PI * 2)) * Math.PI * 2;
+            yaw += (nearest - yaw) * ease;
+          } else yaw += delta * (0.36 + shownProgress * 0.36);
+        }
+        logo.rotation.set(
+          still ? -0.04 : -0.08 + Math.sin(t * 0.42) * 0.04 - pointer.y * 0.07,
+          still ? 0.08 : yaw + pointer.x * 0.12,
+          still ? 0 : Math.sin(t * 0.31) * 0.014,
+        );
+        logo.position.y =
+          (compact ? 0 : 0.72) + (still ? 0 : Math.sin(t * 0.8) * 0.035);
+        lettering.rotation.x = still
+          ? 0
+          : Math.sin(t * 0.3) * 0.006 - pointer.y * 0.008;
+        lettering.rotation.y = still ? 0 : pointer.x * 0.012;
+        lettering.position.y = still ? 0 : Math.sin(t * 0.65) * 0.012;
+        background?.update(t, pointer.x, pointer.y);
+        key.position.x = -3 + (still ? 0 : Math.sin(t * 0.6) * 1.6);
         renderer.render(scene, camera);
         if (!firstFrame) {
           firstFrame = true;
+          renderer.domElement.style.visibility = 'visible';
           clearTimeout(fallbackDeadline);
-          announce();
+          announce(true);
         }
       };
       const tick = (now: number) => {
@@ -196,10 +356,11 @@ export function LoadingLogo({
         }
         frame = requestAnimationFrame(tick);
         if (now - paint < 1000 / 30) return;
-        elapsed += last ? Math.min((now - last) / 1000, 0.1) : 0;
+        const delta = last ? Math.min((now - last) / 1000, 0.1) : 1 / 30;
+        elapsed += delta;
         last = now;
         paint = now;
-        draw();
+        draw(delta);
       };
       resume = () => {
         if (disposed || lost || document.hidden) return;
@@ -207,19 +368,23 @@ export function LoadingLogo({
         draw();
         if (!preference.matches && !frame) frame = requestAnimationFrame(tick);
       };
-      observer = new ResizeObserver(() => {
+      const resize = () => {
         const { width, height } = target!.getBoundingClientRect();
         if (!width || !height) return;
-        camera.aspect = width / height;
+        const aspect = width / height;
+        const viewHeight = compact ? 3.5 : Math.max(7, 5 / aspect);
+        camera.left = (-viewHeight * aspect) / 2;
+        camera.right = -camera.left;
+        camera.top = viewHeight / 2;
+        camera.bottom = -camera.top;
         camera.updateProjectionMatrix();
         renderer.setSize(width, height, false);
         draw();
-      });
-      observer.observe(target!);
-      const rect = target!.getBoundingClientRect();
-      camera.aspect = (rect.width || 300) / (rect.height || 300);
-      camera.updateProjectionMatrix();
-      renderer.setSize(rect.width || 300, rect.height || 300, false);
+      };
+      lifecycle.observer = new ResizeObserver(resize);
+      lifecycle.observer.observe(target!);
+      resize();
+      repaint.current = () => draw();
       target!.addEventListener('pointermove', onMove);
       target!.addEventListener('pointerleave', onLeave);
       renderer.domElement.addEventListener('webglcontextlost', onLost);
@@ -229,7 +394,8 @@ export function LoadingLogo({
     }
     void start().catch(() => {
       cleanup();
-      if (!disposed) announce();
+      clearTimeout(fallbackDeadline);
+      announce(false);
     });
     return () => {
       disposed = true;

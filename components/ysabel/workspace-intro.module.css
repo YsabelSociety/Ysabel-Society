@@ -7,46 +7,39 @@
   overflow: hidden;
   isolation: isolate;
   transition:
-    opacity 650ms ease,
-    visibility 650ms;
+    opacity 420ms ease,
+    visibility 420ms;
 }
 .leaving {
   opacity: 0;
   visibility: hidden;
 }
-.light {
+.accessible {
   position: absolute;
-  inset: -50%;
-  background: conic-gradient(
-    from 45deg,
-    transparent 20%,
-    #bdbdb914 36%,
-    transparent 49%,
-    #7f9b8914 65%,
-    transparent 80%
-  );
-  filter: blur(40px);
-  animation: drift 15s linear infinite;
-}
-.identity {
-  position: relative;
-  width: min(420px, 82vw);
-  text-align: center;
-  animation: arrive 0.6s ease-out both;
-}
-.wordmark {
-  display: block;
-  width: min(280px, 66vw);
-  height: auto;
-  margin: 0 auto 18px;
+  width: 1px;
+  height: 1px;
+  padding: 0;
   overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
-.caption {
-  font-size: 0.875rem;
-  color: inherit;
+.fallback {
+  position: relative;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 24px;
 }
 .failure {
-  margin-top: 22px;
+  position: absolute;
+  bottom: max(24px, 5svh);
+  width: min(480px, calc(100% - 40px));
+  max-height: 27svh;
+  overflow: auto;
+  padding: 14px 20px;
+  border-radius: 20px;
+  background: #fffffff2;
+  box-shadow: 0 8px 40px #1d34280a;
+  text-align: center;
 }
 .failure p {
   font-size: 14px;
@@ -54,28 +47,9 @@
   overflow-wrap: anywhere;
 }
 .failure button {
-  margin: 18px auto 0;
-}
-@keyframes arrive {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@keyframes drift {
-  to {
-    transform: rotate(360deg);
-  }
+  margin: 14px auto 0;
 }
 @media (prefers-reduced-motion: reduce) {
-  .identity,
-  .light {
-    animation: none;
-  }
   .intro {
     transition-duration: 150ms;
   }

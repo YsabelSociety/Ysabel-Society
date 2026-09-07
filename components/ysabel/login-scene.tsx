@@ -3,10 +3,12 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeftRight, Pause, Play } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
+import { BrandLogo } from './brand-logo';
 import {
   INTRO_BACKGROUND,
   INTRO_LIGHT_COLORS,
   INTRO_LOGO_COLOR,
+  INTRO_TEXT_COLOR,
   INTRO_LOGO_MATERIAL,
 } from './brand-appearance';
 
@@ -51,12 +53,14 @@ export function LoginScene() {
         { SVGLoader },
         { RoomEnvironment },
         { createLoginDataField },
+        { createIntroBackdrop },
         svgResponse,
       ] = await Promise.all([
         import('three'),
         import('three/examples/jsm/loaders/SVGLoader.js'),
         import('three/examples/jsm/environments/RoomEnvironment.js'),
         import('./login-data-field'),
+        import('./intro-backdrop'),
         fetch(appPath('/ysabel-emblem-source.svg'), { signal: abort.signal }),
       ]);
       if (!svgResponse.ok) throw new Error('Emblem unavailable');
@@ -77,7 +81,7 @@ export function LoginScene() {
       );
       renderer.setClearColor(0x000000, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.15;
+      renderer.toneMappingExposure = 1;
       renderer.shadowMap.enabled = true;
       renderer.shadowMap.type = THREE.PCFShadowMap;
       renderer.domElement.setAttribute('aria-hidden', 'true');
@@ -86,10 +90,12 @@ export function LoginScene() {
       let environment: InstanceType<typeof THREE.WebGLRenderTarget> | undefined;
       let observer: ResizeObserver | undefined;
       let dataField: ReturnType<typeof createLoginDataField> | undefined;
+      const background = createIntroBackdrop(scene, true);
       const dispose = () => {
         cancelAnimationFrame(frame);
         observer?.disconnect();
         dataField?.dispose();
+        background.dispose();
         geometries.forEach((item) => item.dispose());
         materials.forEach((item) => item.dispose());
         environment?.dispose();
@@ -106,7 +112,7 @@ export function LoginScene() {
 
       const pmrem = new THREE.PMREMGenerator(renderer);
       const room = new RoomEnvironment();
-      environment = pmrem.fromScene(room, 0.045);
+      environment = pmrem.fromScene(room, 0.035);
       scene.environment = Array.isArray(environment.texture)
         ? environment.texture[0]
         : environment.texture;
@@ -116,10 +122,10 @@ export function LoginScene() {
         new THREE.HemisphereLight(
           INTRO_LIGHT_COLORS.sky,
           INTRO_LIGHT_COLORS.ground,
-          2.1,
+          1.5,
         ),
       );
-      const key = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.key, 5.5);
+      const key = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.key, 3.4);
       key.position.set(-3.8, 5.5, 5);
       key.castShadow = true;
       key.shadow.mapSize.set(1024, 1024);
@@ -131,10 +137,10 @@ export function LoginScene() {
       key.shadow.bias = -0.0001;
       key.shadow.radius = 4;
       scene.add(key);
-      const rim = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.rim, 4);
+      const rim = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.rim, 2.2);
       rim.position.set(3, 2, -3);
       scene.add(rim);
-      const fill = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.fill, 0.85);
+      const fill = new THREE.DirectionalLight(INTRO_LIGHT_COLORS.fill, 0.65);
       fill.position.set(2, -1, 4);
       scene.add(fill);
 
@@ -331,6 +337,7 @@ export function LoginScene() {
           );
           mesh.visible = shrink > 0.002;
         });
+        background.update(state.reduced ? 0 : elapsed, pointer.x, pointer.y);
         renderer.render(scene, camera);
       }
       const onVisibility = () => {
@@ -389,16 +396,17 @@ export function LoginScene() {
   return (
     <section
       className="login-intro"
-      style={{ color: INTRO_LOGO_COLOR, background: INTRO_BACKGROUND }}
+      style={{ color: INTRO_TEXT_COLOR, background: INTRO_BACKGROUND }}
       aria-label="Ysabel Society cinematic introduction"
     >
       <div className="login-intro-top">
-        <span className="login-eyebrow">YSABEL SOCIETY</span>
+        <BrandLogo introPalette wordmarkOnly className="login-wordmark" />
         <span className="login-edition">DIGITAL INTELLIGENCE</span>
       </div>
       <div className="login-emblem-stage">
         <svg
           className={'login-emblem-fallback' + (ready ? ' is-ready' : '')}
+          style={{ color: INTRO_LOGO_COLOR }}
           viewBox="0 0 8000 4500"
           role="img"
           aria-label="Ysabel Society emblem"

@@ -14,7 +14,7 @@ export default function LoginForm() {
       {!busy && <LoginScene />}
       <section className="login-access">
         <div className="login-card">
-          <BrandLogo />
+          <BrandLogo introPalette />
           <div className="brand-caption">DIGITAL INTELLIGENCE</div>
           <h1>Welcome back.</h1>
           <p className="muted">Sign in to your Ysabel Society workspace.</p>

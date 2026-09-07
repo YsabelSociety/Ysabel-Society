@@ -153,6 +153,8 @@ function verifyIntro() {
       'INTRO_KEY',
       'LoadingLogo',
       'appPath',
+      'INTRO_BACKGROUND',
+      'INTRO_TEXT_COLOR',
       compiled,
     )(
       require,
@@ -165,6 +167,8 @@ function verifyIntro() {
       'test-intro',
       () => React.createElement('div', { 'data-loading-logo': 'animated' }),
       (path) => '/marketingdata' + path,
+      'linear-gradient(#ffffff, #e1e8e3)',
+      '#2d2c2c',
     );
     return {
       h,
@@ -182,8 +186,10 @@ function verifyIntro() {
     const fast = setup(true),
       timing = fast.m.exports.INTRO_TIMING;
     assert(fast.render().visible);
-    advance(timing.minimum);
-    fast.render();
+    assert(
+      timing.settle + timing.exit < 600,
+      'Ready data reveals without a fixed cinematic wait',
+    );
     advance(timing.settle - 1);
     assert.equal(fast.render().leaving, false);
     advance(1);
@@ -207,15 +213,13 @@ function verifyIntro() {
       'Ready data waits for the animated logo to render or its availability deadline',
     );
     preparingLogo.render(true, true);
-    advance(timing.minimum);
-    preparingLogo.render(true, true);
     advance(timing.settle);
     preparingLogo.render(true, true);
     advance(timing.exit);
     assert.equal(
       preparingLogo.render(true, true).visible,
       false,
-      'The cinematic minimum starts when the logo is ready',
+      'Data and scene readiness start the reveal immediately',
     );
     preparingLogo.h.cleanup();
     const slow = setup(false);
@@ -256,6 +260,20 @@ function verifyIntro() {
       'Loading failures offer a retry',
     );
     slow.h.cleanup();
+    global.matchMedia = () => ({ matches: true });
+    const reduced = setup(true);
+    reduced.render();
+    advance(0);
+    assert.equal(reduced.render().leaving, true);
+    advance(149);
+    assert.equal(reduced.render().visible, true);
+    advance(1);
+    assert.equal(
+      reduced.render().visible,
+      false,
+      'Reduced motion uses only a short crossfade',
+    );
+    reduced.h.cleanup();
   } finally {
     Object.assign(global, original);
   }

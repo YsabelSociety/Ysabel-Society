@@ -537,10 +537,20 @@ export default function Workspace({
     (!source.ready ? source.error : '') ||
     (communityKind === communityLoad.kind ? communityLoad.error : '');
   const [introSceneReady, setIntroSceneReady] = useState(false);
-  const intro = useWorkspaceIntro(
-    data.ready && source.ready && communityReady && !initialError,
-    introSceneReady,
-  );
+  const initialReady =
+    data.ready && source.ready && communityReady && !initialError;
+  const initialStages = [
+    data.ready,
+    source.ready,
+    ...(communityKind ? [communityReady] : []),
+  ];
+  const initialProgress =
+    initialStages.filter(Boolean).length / initialStages.length;
+  const syncBusy = syncState.running || source.refreshing;
+  const syncProgress = syncState.job?.tasks.length
+    ? syncState.job.completed / syncState.job.tasks.length
+    : 0;
+  const intro = useWorkspaceIntro(!!initialReady, introSceneReady);
   const retryInitialLoad = () => {
     void data.load();
     window.dispatchEvent(new Event('ysabel:sources-updated'));
@@ -551,6 +561,8 @@ export default function Workspace({
       {intro.visible && (
         <WorkspaceIntro
           leaving={intro.leaving}
+          progress={initialProgress}
+          complete={!!initialReady}
           error={initialError}
           onRetry={retryInitialLoad}
           onSceneReady={() => setIntroSceneReady(true)}
@@ -642,23 +654,23 @@ export default function Workspace({
                 <div className="top-actions">
                   <button
                     className="secondary sync-now"
-                    disabled={!data.ready || syncState.running}
+                    disabled={!data.ready || syncBusy}
                     onClick={() => void syncState.sync()}
                     aria-label="Sync all connected platforms now"
-                    aria-busy={syncState.running}
+                    aria-busy={syncBusy}
                   >
                     <span className="header-sync-icon" aria-hidden="true">
-                      {syncState.running && !intro.visible ? (
-                        <LoadingLogo compact />
+                      {syncBusy && !intro.visible ? (
+                        <LoadingLogo compact progress={syncProgress} />
                       ) : (
                         <RefreshCw size={16} />
                       )}
                     </span>
                     <span className="header-desktop-label">
-                      {syncState.running ? 'Syncing…' : 'Sync now'}
+                      {syncBusy ? 'Syncing…' : 'Sync now'}
                     </span>
                     <span className="header-mobile-label" aria-hidden="true">
-                      {syncState.running ? 'Syncing' : 'Sync'}
+                      {syncBusy ? 'Syncing' : 'Sync'}
                     </span>
                   </button>
                   <button

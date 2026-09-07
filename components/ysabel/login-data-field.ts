@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createLoginStatistics } from './login-statistics';
-import { INTRO_LOGO_COLOR } from './brand-appearance';
+import { INTRO_TEXT_COLOR } from './brand-appearance';
 
 const vertex = `
   attribute vec3 aOrigin;
@@ -248,7 +248,7 @@ export function createLoginDataField(
       uniforms: {
         uAtlas: { value: source.texture },
         uGrid: { value: new THREE.Vector2(source.columns, source.rows) },
-        uInk: { value: new THREE.Color(INTRO_LOGO_COLOR) },
+        uInk: { value: new THREE.Color(INTRO_TEXT_COLOR) },
         uProgress: { value: 0 },
         uTime: { value: 0 },
         uAspect: { value: isEquation ? 8 : 1 },

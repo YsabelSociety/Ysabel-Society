@@ -51,7 +51,6 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
 import { SyncSettings } from './sync-details';
 import { AdminGate } from './admin-gate';
-import { LoadingLogo } from './loading-logo';
 import {
   Command,
   CommandDialog,
@@ -547,10 +546,13 @@ export default function Workspace({
   const initialProgress =
     initialStages.filter(Boolean).length / initialStages.length;
   const syncBusy = syncState.running || source.refreshing;
+  const refreshingScene = syncState.running;
   const syncProgress = syncState.job?.tasks.length
     ? syncState.job.completed / syncState.job.tasks.length
     : 0;
   const intro = useWorkspaceIntro(!!initialReady, introSceneReady);
+  const introProgress = refreshingScene ? syncProgress : initialProgress;
+  const showLoadingScene = intro.visible || refreshingScene;
   const retryInitialLoad = () => {
     void data.load();
     window.dispatchEvent(new Event('ysabel:sources-updated'));
@@ -558,17 +560,21 @@ export default function Workspace({
   };
   return (
     <>
-      {intro.visible && (
+      {showLoadingScene && (
         <WorkspaceIntro
-          leaving={intro.leaving}
-          progress={initialProgress}
-          complete={!!initialReady}
+          leaving={intro.leaving && !refreshingScene}
+          progress={introProgress}
+          complete={!!initialReady && !refreshingScene}
+          refreshing={refreshingScene}
           error={initialError}
           onRetry={retryInitialLoad}
           onSceneReady={() => setIntroSceneReady(true)}
         />
       )}
-      <div inert={intro.visible} aria-hidden={intro.visible || undefined}>
+      <div
+        inert={showLoadingScene}
+        aria-hidden={showLoadingScene || undefined}
+      >
         <TooltipProvider>
           <SidebarProvider
             className="workspace-shell"
@@ -660,11 +666,7 @@ export default function Workspace({
                     aria-busy={syncBusy}
                   >
                     <span className="header-sync-icon" aria-hidden="true">
-                      {syncBusy && !intro.visible ? (
-                        <LoadingLogo compact progress={syncProgress} />
-                      ) : (
-                        <RefreshCw size={16} />
-                      )}
+                      <RefreshCw size={16} />
                     </span>
                     <span className="header-desktop-label">
                       {syncBusy ? 'Syncing…' : 'Sync now'}

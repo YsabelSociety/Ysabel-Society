@@ -26,23 +26,61 @@
   box-shadow: 0 2px 8px #4d62680a;
 }
 .brand {
-  color: inherit;
+  color: #60717a;
 }
-.brand img {
-  width: 18px;
-  height: 18px;
+.badge.brand {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.disc {
+  display: inline-flex;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #ffffffeb;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #ffffff 15%, #f1f3f2 72%, #e7ebe9);
+  box-shadow:
+    0 7px 13px #3e50581f,
+    inset 1px 1px 1px #ffffff,
+    inset -1px -1px 2px #b9c2be40;
+}
+.brand svg {
+  width: 19px;
+  height: 19px;
   display: block;
-  opacity: 0.82;
+  fill: var(--brand-color, currentColor) !important;
+  color: inherit;
+  opacity: 1;
+}
+.line svg {
+  fill: none !important;
+  stroke: currentColor;
 }
 .cluster {
-  width: 30px;
-  height: 20px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
+  width: 52px;
+  height: 28px;
+  display: flex;
+  gap: 0;
   align-items: center;
 }
-.cluster img {
-  width: 12px;
-  height: 12px;
+.cluster .disc {
+  width: 26px;
+  height: 26px;
+  flex-basis: 26px;
+  box-shadow:
+    0 5px 10px #3e50581c,
+    inset 1px 1px 1px #ffffff;
+}
+.cluster .disc + .disc {
+  margin-left: -13px;
+}
+.cluster svg {
+  width: 14px;
+  height: 14px;
 }

@@ -2,14 +2,17 @@
 import {
   Children,
   isValidElement,
+  type CSSProperties,
   type ComponentProps,
   type ReactNode,
 } from 'react';
-import facebookMark from 'simple-icons/icons/facebook.svg';
-import googleAnalyticsMark from 'simple-icons/icons/googleanalytics.svg';
-import googleMapsMark from 'simple-icons/icons/googlemaps.svg';
-import instagramMark from 'simple-icons/icons/instagram.svg';
-import tiktokMark from 'simple-icons/icons/tiktok.svg';
+import {
+  siFacebook,
+  siGoogle,
+  siInstagram,
+  siTiktok,
+  type SimpleIcon,
+} from 'simple-icons';
 import {
   Activity,
   AtSign,
@@ -231,19 +234,26 @@ const icons = new Map(
     names.map((name) => [normalize(name), icon] as const),
   ),
 );
-const socialCluster = [instagramMark, facebookMark, tiktokMark];
-const brandIcons = new Map<string, string[]>([
+type BrandMark = SimpleIcon | { title: string; slug: string; kind: 'globe' };
+const websiteMark: BrandMark = {
+  title: 'Website',
+  slug: 'website',
+  kind: 'globe',
+};
+const socialCluster: BrandMark[] = [siInstagram, siFacebook, siTiktok];
+const brandIcons = new Map<string, BrandMark[]>([
   ['all', socialCluster],
   ['all platforms', socialCluster],
   ['all social platforms', socialCluster],
-  ['instagram', [instagramMark]],
-  ['direct instagram', [instagramMark]],
-  ['facebook', [facebookMark]],
-  ['tiktok', [tiktokMark]],
-  ['google business', [googleMapsMark]],
-  ['gbp', [googleMapsMark]],
-  ['website', [googleAnalyticsMark]],
-  ['ga4', [googleAnalyticsMark]],
+  ['instagram', [siInstagram]],
+  ['direct instagram', [siInstagram]],
+  ['facebook', [siFacebook]],
+  ['tiktok', [siTiktok]],
+  ['tik tok', [siTiktok]],
+  ['google business', [siGoogle]],
+  ['gbp', [siGoogle]],
+  ['website', [websiteMark]],
+  ['ga4', [websiteMark]],
 ]);
 const contextualIcons = [...icons.entries()].sort(
   (a, b) => b[0].length - a[0].length,
@@ -273,8 +283,24 @@ export function DataIcon({
         aria-hidden="true"
         data-brand-count={brand.length}
       >
-        {brand.map((src) => (
-          <img key={src} src={src} alt="" />
+        {brand.map((mark) => (
+          <span
+            className={`${styles.disc} ${'kind' in mark ? styles.line : ''}`}
+            key={mark.slug}
+          >
+            {'kind' in mark ? (
+              <Globe aria-hidden="true" />
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                style={
+                  { '--brand-color': '#60717a' } as CSSProperties
+                }
+              >
+                <path d={mark.path} />
+              </svg>
+            )}
+          </span>
         ))}
       </span>
     );

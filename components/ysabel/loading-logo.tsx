@@ -14,6 +14,7 @@ type LoadingLogoProps = {
   compact?: boolean;
   progress?: number;
   complete?: boolean;
+  refreshing?: boolean;
   caption?: string;
   onReady?: (rendered: boolean) => void;
 };
@@ -23,16 +24,17 @@ export function LoadingLogo({
   compact = false,
   progress = 0,
   complete = false,
+  refreshing = false,
   caption = 'Loading your marketing data…',
   onReady,
 }: LoadingLogoProps) {
   const host = useRef<HTMLDivElement>(null);
-  const state = useRef({ progress, complete, caption, onReady });
+  const state = useRef({ progress, complete, refreshing, caption, onReady });
   const repaint = useRef<() => void>(() => {});
   useEffect(() => {
-    state.current = { progress, complete, caption, onReady };
+    state.current = { progress, complete, refreshing, caption, onReady };
     repaint.current();
-  }, [progress, complete, caption, onReady]);
+  }, [progress, complete, refreshing, caption, onReady]);
   useEffect(() => {
     const target = host.current;
     if (!target) return;
@@ -103,7 +105,8 @@ export function LoadingLogo({
         elapsed = 0,
         last = 0,
         paint = 0,
-        yaw = 0.08;
+        yaw = 0.08,
+        identityScale = 1;
       let lost = false,
         firstFrame = false,
         shownProgress = 0;
@@ -344,6 +347,7 @@ export function LoadingLogo({
         const still = preference.matches;
         const t = still ? 0 : elapsed;
         const current = state.current;
+        const motionTime = current.refreshing ? t * 2.8 : t;
         const targetProgress = current.complete
           ? 1
           : Math.max(0, Math.min(0.96, current.progress));
@@ -378,31 +382,54 @@ export function LoadingLogo({
           if (current.complete) {
             const nearest = Math.round(yaw / (Math.PI * 2)) * Math.PI * 2;
             yaw += (nearest - yaw) * ease;
-          } else if (compact) yaw += delta * (0.36 + shownProgress * 0.36);
+          } else if (current.refreshing)
+            yaw += delta * (3.2 + shownProgress * 3.8);
+          else if (compact) yaw += delta * (0.36 + shownProgress * 0.36);
           else yaw = 0.08 + Math.sin(t * 0.58) * 0.3;
         }
         logo.rotation.set(
           still ? -0.04 : -0.08 + Math.sin(t * 0.42) * 0.04 - pointer.y * 0.07,
           still ? 0.08 : yaw + pointer.x * 0.12,
-          still ? 0 : Math.sin(t * 0.31) * 0.014,
+          still
+            ? 0
+            : current.refreshing
+              ? motionTime * 0.68
+              : Math.sin(t * 0.31) * 0.014,
         );
         logo.position.y = compact ? 0 : 0.72;
-        identity.position.y = still ? 0 : Math.sin(t * 0.8) * 0.035;
+        identityScale +=
+          ((current.refreshing ? 0.82 : 1) - identityScale) * ease;
+        identity.scale.setScalar(identityScale);
+        identity.position.y = still ? 0 : Math.sin(motionTime * 0.8) * 0.035;
         identity.rotation.x = still ? 0 : -pointer.y * 0.018;
         identity.rotation.y = still ? 0 : pointer.x * 0.022;
-        letteringPhase.value = still ? 0 : t * 0.8;
+        ring.rotation.z =
+          still || !current.refreshing ? 0 : -motionTime * 1.65;
+        letteringPhase.value = still
+          ? 0
+          : t * (current.refreshing ? 4.8 : 0.8);
         if (captionMesh) {
           captionMesh.position.y =
-            -2.22 + Math.sin(t * 0.8) * 0.035 * captionMotion.value;
+            -2.22 +
+            Math.sin(motionTime * 0.8) * 0.035 * captionMotion.value;
           captionMesh.rotation.x =
-            Math.sin(t * 0.6) * 0.025 * captionMotion.value;
+            Math.sin(motionTime * 0.6) * 0.025 * captionMotion.value;
           captionMesh.scale.setScalar(
-            1 + Math.sin(t * 0.8) * 0.006 * captionMotion.value,
+            1 +
+              Math.sin(motionTime * 0.8) * 0.006 * captionMotion.value,
           );
         }
-        lettering.rotation.x = still ? 0 : Math.sin(t * 0.8) * 0.008;
-        key.intensity = still ? 3.4 : 3.4 + Math.sin(t * 0.8) * 0.25;
-        background?.update(t, pointer.x, pointer.y);
+        lettering.rotation.x = still
+          ? 0
+          : Math.sin(motionTime * 0.8) * 0.008;
+        key.intensity = still
+          ? 3.4
+          : 3.4 + Math.sin(motionTime * 0.8) * 0.25;
+        background?.update(
+          current.refreshing ? t * 2.4 : t,
+          pointer.x,
+          pointer.y,
+        );
         key.position.x = -3 + (still ? 0 : Math.sin(t * 0.6) * 1.6);
         renderer.render(scene, camera);
         if (!firstFrame) {

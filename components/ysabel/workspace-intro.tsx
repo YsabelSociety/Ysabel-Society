@@ -15,6 +15,7 @@ export function WorkspaceIntro({
   error = '',
   progress = 0,
   complete = false,
+  refreshing = false,
   onRetry,
   onSceneReady,
 }: {
@@ -23,6 +24,7 @@ export function WorkspaceIntro({
   error?: string;
   progress?: number;
   complete?: boolean;
+  refreshing?: boolean;
   onRetry?: () => void;
   onSceneReady?: () => void;
 }) {
@@ -33,7 +35,9 @@ export function WorkspaceIntro({
       ? 'Your data could not finish loading.'
       : complete
         ? 'Your marketing data is ready.'
-        : 'Loading your marketing data…';
+        : refreshing
+          ? 'Refreshing your marketing data…'
+          : 'Loading your marketing data…';
   return (
     <div
       className={styles.intro + (leaving ? ' ' + styles.leaving : '')}
@@ -51,6 +55,7 @@ export function WorkspaceIntro({
         <LoadingLogo
           progress={progress}
           complete={complete}
+          refreshing={refreshing}
           caption={caption}
           onReady={(available) => {
             setRendered(available);

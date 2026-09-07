@@ -161,10 +161,10 @@ export async function POST(req: Request) {
       validateImportSize(result);
       const linked = await db
         .prepare(
-          'SELECT external_id,label FROM connector_links WHERE owner=? AND source=?',
+          'SELECT external_id,label,provider FROM connector_links WHERE owner=? AND source=?',
         )
         .bind(owner, source)
-        .first<{ external_id: string; label: string }>();
+        .first<{ external_id: string; label: string; provider: string }>();
       const id = linked?.external_id || 'file-import',
         account = owner + ':' + source + ':' + id,
         now = new Date().toISOString();
@@ -174,7 +174,15 @@ export async function POST(req: Request) {
             .prepare(
               'INSERT INTO connector_links(owner,source,provider,external_id,label,auto_sync) VALUES(?,?,?,?,?,0)',
             )
-            .bind(owner, source, 'file', id, label),
+            .bind(
+              owner,
+              source,
+              'file',
+              id,
+              source === 'gbp'
+                ? 'Ysabel Society · Business Profile exports'
+                : label,
+            ),
           db
             .prepare(
               "INSERT INTO platform_accounts(id,owner,channel,unit,external_id,enabled,status,last_sync) VALUES(?,?,?,?,?,1,'Imported file',?) ON CONFLICT(id) DO UPDATE SET enabled=1,last_sync=excluded.last_sync,status='Imported file'",
@@ -182,7 +190,13 @@ export async function POST(req: Request) {
             .bind(account, owner, channel, 'Ysabel Society', id, now),
         ]);
       await persistImport(owner, source, id, result, range);
-      if (!linked)
+      if (!linked || linked.provider === 'file') {
+        await db
+          .prepare(
+            "UPDATE platform_accounts SET last_sync=?,status='Imported file' WHERE id=? AND owner=?",
+          )
+          .bind(now, account, owner)
+          .run();
         await db
           .prepare(
             'UPDATE connector_links SET snapshot=? WHERE owner=? AND source=?',
@@ -192,6 +206,7 @@ export async function POST(req: Request) {
               kind: 'reporting',
               observedAt: now,
               method: 'file',
+              period: range,
               checks: result.checks,
               scope: result.scope,
               records: result.daily.length,
@@ -202,6 +217,7 @@ export async function POST(req: Request) {
             source,
           )
           .run();
+      }
       await db
         .prepare(
           'INSERT INTO sync_runs(id,owner,channel,status,started_at,finished_at,message) VALUES(?,?,?,?,?,?,?)',

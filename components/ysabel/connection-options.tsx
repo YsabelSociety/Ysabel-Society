@@ -12,6 +12,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { csvRows, DAILY_FIELDS, POST_FIELDS } from '@/lib/import-file';
+import { gbpFileRange, isGBPExport } from '@/lib/google-business';
 import { type DataCheck } from '@/lib/reporting';
 import { iso } from '@/lib/analytics';
 import { Picker } from './controls';
@@ -153,6 +154,10 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
   }
   useEffect(() => {
     void load();
+    const params = new URL(window.location.href).searchParams;
+    const requested = params.get('source');
+    if (requested && SOURCE_CHANNELS[requested]) setSource(requested);
+    if (params.get('method') === 'file') setMethod('file');
     const refresh = () => void load();
     window.addEventListener('ysabel:sources-updated', refresh);
     return () => window.removeEventListener('ysabel:sources-updated', refresh);
@@ -599,6 +604,15 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
           </form>
         </TabsContent>
         <TabsContent value="file">
+          {source === 'gbp' && (
+            <p className="info-banner">
+              Google Business: export Insights from Business Profile Manager →
+              select Ysabel Society → Actions → Insights. The original
+              Performance Report CSV is recognized automatically. Export one day
+              to add a daily chart point, or a longer period for its totals.
+              Uploading a file does not enable automatic Google reporting.
+            </p>
+          )}
           <p className="muted">
             Import reports exported from the selected platform. Daily totals
             feed the dashboard; content feeds Content Intelligence; detailed
@@ -611,16 +625,18 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
               label="Report type"
               value={kind}
               options={
-                source.endsWith('-ads')
-                  ? ['advertising', 'detail']
-                  : [
-                      'daily',
-                      'posts',
-                      'audience',
-                      'website',
-                      'business',
-                      'detail',
-                    ]
+                source === 'gbp'
+                  ? ['google-business', 'daily', 'business', 'detail']
+                  : source.endsWith('-ads')
+                    ? ['advertising', 'detail']
+                    : [
+                        'daily',
+                        'posts',
+                        'audience',
+                        'website',
+                        'business',
+                        'detail',
+                      ]
               }
               onChange={(v) => {
                 setKind(v);
@@ -649,6 +665,14 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
                       setPreview(rows);
                       setFileName(f.name);
                       setMapping({});
+                      if (source === 'gbp' && isGBPExport(rows)) {
+                        setKind('google-business');
+                        const period = gbpFileRange(f.name);
+                        if (period) {
+                          setStart(period.start);
+                          setEnd(period.end);
+                        }
+                      }
                       setError('');
                     } catch (e) {
                       setError(e instanceof Error ? e.message : 'Invalid CSV.');
@@ -682,7 +706,10 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
             <>
               <p>
                 <strong>{fileName}</strong> · {preview.length.toLocaleString()}{' '}
-                rows. Confirm the period and column mappings before importing.
+                rows.{' '}
+                {kind === 'google-business'
+                  ? 'Google Business export recognized. Definition rows are skipped; confirm the period below.'
+                  : 'Confirm the period and column mappings before importing.'}
               </p>
               {['daily', 'posts'].includes(kind) && (
                 <div className="column-mapping">

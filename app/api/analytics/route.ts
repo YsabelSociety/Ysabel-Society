@@ -12,6 +12,7 @@ import {
   type Daily,
 } from '@/lib/analytics';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
+import { googlePeriodTable } from '@/lib/google-business';
 export async function GET(req: Request) {
   try {
     const user = await identity(),
@@ -53,7 +54,7 @@ export async function GET(req: Request) {
       .all<{ payload: string }>();
     const tableRows = await db
       .prepare(
-        'SELECT r.payload,r.period_start,r.period_end,r.updated_at,a.channel FROM source_reports r JOIN platform_accounts a ON a.id=r.account_id WHERE a.owner=? AND a.enabled=1 AND r.period_start<=? AND r.period_end>=? ORDER BY r.updated_at DESC',
+        "SELECT r.payload,r.period_start,r.period_end,r.updated_at,a.channel FROM source_reports r JOIN platform_accounts a ON a.id=r.account_id WHERE a.owner=? AND a.enabled=1 AND ((r.period_start<=? AND r.period_end>=?) OR a.channel='Google Business') ORDER BY r.updated_at DESC",
       )
       .bind(user.userId, end, start)
       .all<{
@@ -68,6 +69,7 @@ export async function GET(req: Request) {
       .filter(
         (t) =>
           t.rows.some((r: any) => r.date) ||
+          googlePeriodTable(t) ||
           (t.period.start === start && t.period.end === end) ||
           t.key.startsWith('audience-'),
       )
@@ -79,7 +81,13 @@ export async function GET(req: Request) {
       }));
     const tableMap = new Map<string, any>();
     for (const table of tables) {
-      const key = table.source + ':' + table.key,
+      const key =
+          table.source +
+          ':' +
+          table.key +
+          (googlePeriodTable(table)
+            ? ':' + table.period.start + ':' + table.period.end
+            : ''),
         prior = tableMap.get(key);
       if (!prior) {
         tableMap.set(key, table);

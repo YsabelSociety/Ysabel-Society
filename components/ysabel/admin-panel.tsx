@@ -25,6 +25,14 @@ type ConnectionSummary = {
   kind: string;
   status: string;
   lastSync: string | null;
+  autoSync?: boolean;
+  snapshot?: {
+    method?: string;
+    observedAt?: string;
+    scope?: string;
+    period?: { start: string; end: string };
+    checks?: { label: string; status: string; detail: string }[];
+  };
 };
 type SourceState = {
   connections: ConnectionSummary[];
@@ -101,6 +109,10 @@ function AdminDashboard({
     setLoading(true);
     setRevision((value) => value + 1);
   }
+  useEffect(() => {
+    window.addEventListener('ysabel:sources-updated', refresh);
+    return () => window.removeEventListener('ysabel:sources-updated', refresh);
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     void fetch('/marketingdata/api/connections', { signal: controller.signal })
@@ -250,6 +262,37 @@ function AdminDashboard({
           ) : (
             <p className="admin-empty">Loading connection status…</p>
           )}
+          {sources?.connections
+            .filter((c) => c.channel === 'Google Business')
+            .map((c) => (
+              <div className="surface padded" key={'gbp-' + c.id}>
+                <h3>Google Business reporting</h3>
+                <p className="muted">
+                  {c.snapshot?.method === 'file'
+                    ? 'Performance exports imported. Automatic Google API reporting is not connected.'
+                    : c.status === 'Connected'
+                      ? 'Business Profile reporting is connected.'
+                      : 'Connect a Business Profile location or import its Google performance exports.'}
+                </p>
+                {c.snapshot?.period && (
+                  <p className="footnote">
+                    Latest imported period: {c.snapshot.period.start} –{' '}
+                    {c.snapshot.period.end}
+                  </p>
+                )}
+                {c.snapshot?.observedAt && (
+                  <p className="footnote">
+                    Updated {new Date(c.snapshot.observedAt).toLocaleString()}
+                  </p>
+                )}
+                <button
+                  className="secondary"
+                  onClick={() => onNavigate('Google Business')}
+                >
+                  Open Google Business reports <ArrowUpRight size={15} />
+                </button>
+              </div>
+            ))}
           <div className="admin-section-foot">
             <button
               className="secondary"

@@ -1,5 +1,6 @@
 import { CHANNELS, type Channel, type Range } from './analytics';
 import { SOURCE_CHANNELS } from './connector-catalog';
+import { parseGBPExport } from './google-business';
 import {
   emptyDaily,
   finite,
@@ -142,6 +143,11 @@ export function parseImport(
   range: Range,
   title: string,
 ) {
+  if (kind === 'google-business') {
+    if (source !== 'gbp')
+      throw new Error('INPUT:Select Google Business for this export.');
+    return parseGBPExport(rows, range, title);
+  }
   const channel = SOURCE_CHANNELS[source];
   if (!channel) throw new Error('INPUT:Choose a supported platform.');
   if (!rows.length) throw new Error('INPUT:The file has no rows.');

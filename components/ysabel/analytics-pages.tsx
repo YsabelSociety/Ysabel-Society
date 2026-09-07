@@ -58,6 +58,7 @@ import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
 import { HistoryImport } from './history-import';
+import { GoogleBusinessMetrics } from './google-business-reports';
 import { activitySeries } from '@/lib/activity-series';
 import {
   AudienceHistory,
@@ -1168,124 +1169,7 @@ export function GooglePage({
   rows: Daily[];
   live?: boolean;
 }) {
-  const r = rows.filter((r) => r.channel === 'Google Business');
-  if (live && !r.length)
-    return (
-      <Panel
-        title="Business Profile metrics are not available for this period"
-        description="Connect a Google Business Profile location or choose a date range with imported observations."
-      >
-        <a className="secondary" href="/marketingdata/connections">
-          Open Connections
-        </a>
-      </Panel>
-    );
-  const grouped = new Map<string, any>();
-  r.forEach((d) => {
-    const v = grouped.get(d.date) ?? { date: d.date, Search: 0, Maps: 0 };
-    v.Search += d.search;
-    v.Maps += d.maps;
-    grouped.set(d.date, v);
-  });
-  return (
-    <div className="view-enter">
-      <StatRow
-        items={[
-          {
-            label: 'Google Search views',
-            value: metricAvailable(r, 'search')
-              ? number(total(r, 'search'))
-              : '—',
-          },
-          {
-            label: 'Google Maps views',
-            value: metricAvailable(r, 'maps') ? number(total(r, 'maps')) : '—',
-          },
-          {
-            label: 'Website clicks',
-            value: metricAvailable(r, 'clicks')
-              ? number(total(r, 'clicks'))
-              : '—',
-          },
-          {
-            label: 'Phone call clicks',
-            value: metricAvailable(r, 'calls')
-              ? number(total(r, 'calls'))
-              : '—',
-          },
-          {
-            label: 'Direction requests',
-            value: metricAvailable(r, 'directions')
-              ? number(total(r, 'directions'))
-              : '—',
-          },
-          {
-            label: 'Reserve with Google bookings',
-            value: metricAvailable(r, 'bookings')
-              ? number(total(r, 'bookings'))
-              : '—',
-          },
-          {
-            label: 'Menu interactions',
-            value: metricAvailable(r, 'menu') ? number(total(r, 'menu')) : '—',
-          },
-          {
-            label: 'Food orders',
-            value: metricAvailable(r, 'foodOrders')
-              ? number(total(r, 'foodOrders'))
-              : '—',
-          },
-        ]}
-      />
-      <Trend
-        title="Search & Maps visibility"
-        data={[...grouped.values()]}
-        keys={['Search', 'Maps']}
-      />
-      <div className="two-col">
-        <Panel
-          title="Customer actions"
-          description="What people did after discovering Ysabel Society"
-        >
-          <Bars
-            items={[
-              { label: 'Direction requests', value: total(r, 'directions') },
-              { label: 'Website clicks', value: total(r, 'clicks') },
-              { label: 'Phone call clicks', value: total(r, 'calls') },
-            ]}
-          />
-          <p className="footnote">
-            These actions do not measure completed visits, answered calls or
-            reservations. Bookings, menu interactions and food orders depend on
-            the services enabled for your location.
-          </p>
-        </Panel>
-        <Panel
-          title="Ysabel Society at a glance"
-          description="Search visibility and customer intent for your brand"
-        >
-          <div className="simple-table">
-            <div className="simple-table-row table-label">
-              <span>Workspace</span>
-              <span>Search</span>
-              <span>Maps</span>
-              <span>Actions</span>
-            </div>
-            <div className="simple-table-row">
-              <strong>Ysabel Society</strong>
-              <span>{compact(total(r, 'search'))}</span>
-              <span>{compact(total(r, 'maps'))}</span>
-              <span>{compact(total(r, 'actions'))}</span>
-            </div>
-          </div>
-          <p className="footnote">
-            All connected Google Business sources are shown together for Ysabel
-            Society.
-          </p>
-        </Panel>
-      </div>
-    </div>
-  );
+  return <GoogleBusinessMetrics rows={rows} live={live} />;
 }
 export function ComparisonsPage({
   range,

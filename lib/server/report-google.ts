@@ -298,34 +298,80 @@ export async function importGBP(context: ReportingContext, range: Range) {
     BUSINESS_FOOD_ORDERS: 'foodOrders',
     BUSINESS_FOOD_MENU_CLICKS: 'menu',
   };
-  for (const [metric, field] of Object.entries(metrics)) {
-    const qs = new URLSearchParams({ dailyMetric: metric });
-    for (const [prefix, date] of [
-      ['startDate', range.start],
-      ['endDate', range.end],
-    ])
-      date
-        .split('-')
-        .forEach((n, i) =>
-          qs.set(
-            'dailyRange.' + prefix + '.' + ['year', 'month', 'day'][i],
-            String(Number(n)),
-          ),
-        );
-    const r: any = await collect(
-      result,
-      metric,
-      metric.toLowerCase().replaceAll('_', ' '),
-      () =>
-        requestJSON(
-          'https://businessprofileperformance.googleapis.com/v1/locations/' +
-            encodeURIComponent(context.externalId) +
-            ':getDailyMetricsTimeSeries?' +
-            qs,
-          { headers },
+  const requestGBP = async (url: string) => {
+    const response = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!response.ok)
+      throw new Error(
+        response.status === 429
+          ? 'INPUT:Google Business reporting quota is unavailable. Check the project’s Business Profile API approval; uploaded reports remain available.'
+          : response.status === 403
+            ? 'INPUT:Google has not granted this project or account access to Business Profile reporting. Check API approval and location permissions.'
+            : response.status === 401
+              ? 'INPUT:Google authorization has expired. Reconnect Google Business.'
+              : 'INPUT:Google could not supply this Business Profile report. Check the location ID and selected period.',
+      );
+    return response.json() as Promise<any>;
+  };
+  const qs = new URLSearchParams();
+  for (const metric of Object.keys(metrics)) qs.append('dailyMetrics', metric);
+  for (const [prefix, date] of [
+    ['startDate', range.start],
+    ['endDate', range.end],
+  ])
+    date
+      .split('-')
+      .forEach((n, i) =>
+        qs.set(
+          'dailyRange.' + prefix + '.' + ['year', 'month', 'day'][i],
+          String(Number(n)),
         ),
-      (r) => r.timeSeries?.datedValues?.length || 0,
+      );
+  const response: any = await collect(
+    result,
+    'daily-performance',
+    'Daily Google Business performance',
+    () =>
+      requestGBP(
+        'https://businessprofileperformance.googleapis.com/v1/locations/' +
+          encodeURIComponent(context.externalId) +
+          ':fetchMultiDailyMetricsTimeSeries?' +
+          qs,
+      ),
+    (r) =>
+      (r.multiDailyMetricTimeSeries || []).reduce(
+        (n: number, group: any) =>
+          n +
+          (group.dailyMetricTimeSeries || []).reduce(
+            (count: number, series: any) =>
+              count + (series.timeSeries?.datedValues?.length || 0),
+            0,
+          ),
+        0,
+      ),
+  );
+  if (!response) return result;
+  const suppliedSeries = (response.multiDailyMetricTimeSeries || []).flatMap(
+    (group: any) => group.dailyMetricTimeSeries || [],
+  );
+  for (const [metric] of Object.entries(metrics)) {
+    // A sub-entity series cannot be treated as the location-wide total.
+    const r = suppliedSeries.find(
+      (series: any) =>
+        series.dailyMetric === metric &&
+        !Object.keys(series.dailySubEntityType || {}).length,
     );
+    result.checks.push({
+      key: metric,
+      label: metric.toLowerCase().replaceAll('_', ' '),
+      status: r?.timeSeries?.datedValues?.length ? 'imported' : 'empty',
+      records: r?.timeSeries?.datedValues?.length || 0,
+      detail: r
+        ? 'Google daily observations returned.'
+        : 'Google did not return this metric for the selected location and dates.',
+    });
     for (const v of r?.timeSeries?.datedValues || []) {
       const date =
           v.date.year +
@@ -334,6 +380,7 @@ export async function importGBP(context: ReportingContext, range: Range) {
           '-' +
           String(v.date.day).padStart(2, '0'),
         d = map.get(date) || emptyDaily(date, 'Google Business');
+      if (date < range.start || date > range.end) continue;
       // Google protobuf omits value for an explicitly returned zero-valued date.
       const n = finite(v.value ?? 0);
       if (n !== null) {
@@ -352,6 +399,8 @@ export async function importGBP(context: ReportingContext, range: Range) {
           keys.reduce((n, k) => n + Number(d.sourceMetrics![k]), 0),
         );
     }
+    if (['search', 'maps'].every((k) => d.available?.includes(k)))
+      putMetric(d, 'views', d.search + d.maps);
     if (
       ['calls', 'clicks', 'directions'].every((k) => d.available?.includes(k))
     )
@@ -362,6 +411,8 @@ export async function importGBP(context: ReportingContext, range: Range) {
   const last = new Date(range.end + 'T12:00:00Z');
   last.setUTCDate(1);
   const keywords: ReportTable['rows'] = [];
+  let keywordsPartial = false;
+  const keywordDeadline = Date.now() + 25000;
   while (month <= last) {
     const qs = new URLSearchParams({
       'monthlyRange.startMonth.year': String(month.getUTCFullYear()),
@@ -370,36 +421,51 @@ export async function importGBP(context: ReportingContext, range: Range) {
       'monthlyRange.endMonth.month': String(month.getUTCMonth() + 1),
       pageSize: '100',
     });
-    const r: any = await collect(
-      result,
-      'searches-' + month.toISOString().slice(0, 7),
-      'Monthly Google search terms',
-      () =>
-        requestJSON(
-          'https://businessprofileperformance.googleapis.com/v1/locations/' +
-            encodeURIComponent(context.externalId) +
-            '/searchkeywords/impressions/monthly?' +
-            qs,
-          { headers },
-        ),
-      (r) => r.searchKeywordsCounts?.length || 0,
-    );
-    for (const row of r?.searchKeywordsCounts || [])
-      keywords.push({
-        month: month.toISOString().slice(0, 7),
-        keyword: row.searchKeyword,
-        impressions: finite(row.insightsValue?.value),
-        threshold: finite(row.insightsValue?.threshold),
-      });
-    if (r?.nextPageToken)
-      result.checks.push({
-        key: 'keywords-limit',
-        label: 'Additional search terms',
-        status: 'unavailable',
-        records: 0,
-        detail:
-          'The first 100 terms per month were imported; additional terms are available in the provider export.',
-      });
+    let pageToken = '',
+      page = 0;
+    const seen = new Set<string>();
+    do {
+      if (pageToken) qs.set('pageToken', pageToken);
+      const r: any = await collect(
+        result,
+        'searches-' + month.toISOString().slice(0, 7),
+        'Monthly Google search terms',
+        () =>
+          requestGBP(
+            'https://businessprofileperformance.googleapis.com/v1/locations/' +
+              encodeURIComponent(context.externalId) +
+              '/searchkeywords/impressions/monthly?' +
+              qs,
+          ),
+        (r) => r.searchKeywordsCounts?.length || 0,
+      );
+      for (const row of r?.searchKeywordsCounts || [])
+        keywords.push({
+          month: month.toISOString().slice(0, 7),
+          keyword: row.searchKeyword,
+          impressions: finite(row.insightsValue?.value),
+          threshold: finite(row.insightsValue?.threshold),
+        });
+      pageToken = r?.nextPageToken || '';
+      page++;
+      if (!r) keywordsPartial = true;
+      if (
+        pageToken &&
+        (page >= 25 || Date.now() >= keywordDeadline || seen.has(pageToken))
+      ) {
+        keywordsPartial = true;
+        result.checks.push({
+          key: 'keywords-limit',
+          label: 'Additional search terms',
+          status: 'unavailable',
+          records: 0,
+          detail:
+            'Search-term pages were imported up to this request’s time or page limit. This report is marked partial; import a single month to retrieve a smaller report.',
+        });
+        break;
+      }
+      seen.add(pageToken);
+    } while (pageToken);
     month.setUTCMonth(month.getUTCMonth() + 1);
   }
   if (keywords.length)
@@ -407,6 +473,7 @@ export async function importGBP(context: ReportingContext, range: Range) {
       key: 'google-searches',
       title: 'Google search terms',
       source: 'gbp',
+      truncated: keywordsPartial,
       columns: ['month', 'keyword', 'impressions', 'threshold'],
       rows: keywords,
       period: range,

@@ -35,6 +35,7 @@ import {
   inboxModel,
   inWindow,
   reviewTopics,
+  compareReviewsNewest,
   matchesProfile,
   followerTier,
   prepareMetaMessageParts,
@@ -1581,7 +1582,9 @@ export function GoogleReviews({
     [setup, setSetup] = useState(false),
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(1);
-  const all = data.records.filter((r) => r.kind === 'review'),
+  const all = data.records
+      .filter((r) => r.kind === 'review')
+      .sort(compareReviewsNewest),
     status = data.statuses.find(
       (s) => s.source === 'gbp' && s.kind === 'review',
     );

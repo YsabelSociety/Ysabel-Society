@@ -44,7 +44,48 @@ const {
   performanceSeries,
   seriesTotal,
 } = await import(load('lib/social-performance.ts'));
-const { parseCommunityCSV, inWindow } = await import(load('lib/community.ts'));
+const { parseCommunityCSV, inWindow, reviewTopics, compareReviewsNewest } =
+  await import(load('lib/community.ts'));
+const reviewFixture = {
+  id: 'test',
+  time: '2026-09-07T00:00:00Z',
+  kind: 'review',
+  source: 'gbp',
+  origin: 'file',
+  accountId: 'file',
+  rating: 5,
+  text: '',
+};
+for (const text of [
+  '(Translated by Google) The service is prompt and the food is wonderful. (Original) Stafi i sjellshem dhe ushqimi i mire pa vonesa.',
+  'It is a meal in slow motion. A lovely atmosphere to slow down and enjoy.',
+  'The food is good and the service is not slow.',
+])
+  assert.equal(reviewTopics({ ...reviewFixture, text }).criticisms.length, 0);
+assert.deepEqual(
+  reviewTopics({
+    ...reviewFixture,
+    text: 'The food was excellent but the service was rude.',
+  }).criticisms.map((c) => c.topic),
+  ['Service'],
+);
+assert.deepEqual(
+  reviewTopics({
+    ...reviewFixture,
+    text: 'The sushi was cold and the food tasted bland.',
+  }).criticisms.map((c) => c.topic),
+  ['Food'],
+);
+const ordered = ['42 weeks ago', 'Yesterday', '5 hours ago']
+  .map((timeLabel, i) => ({
+    ...reviewFixture,
+    id: String(i),
+    timePrecision: 'relative',
+    timeLabel,
+  }))
+  .sort(compareReviewsNewest);
+assert.equal(ordered[0].timeLabel, '5 hours ago');
+assert.equal(ordered.at(-1).timeLabel, '42 weeks ago');
 const range = { start: '2025-12-30', end: '2026-01-02' };
 const result = parseTikTokStudio(
   [

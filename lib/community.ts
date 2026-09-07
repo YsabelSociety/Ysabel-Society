@@ -211,11 +211,11 @@ const TOPICS: [string, RegExp][] = [
   ],
   [
     'Service',
-    /\b(service|staff|waiter|waitress|server|manager|rude|sherbim\w*|shërbim\w*|staf\w*|kamerier\w*|servizio|personale|camerier\w*)\b/i,
+    /\b(service|staff|waiters?|waitress\w*|servers?|manag\w*|security|reception\w*|rude|sherbim\w*|shërbim\w*|staf\w*|kamerier\w*|servizio|personale|camerier\w*)\b/i,
   ],
   [
     'Waiting time',
-    /\b(wait\w*|slow|delay\w*|minute\w*|hour\w*|vones\w*|prit\w*|attesa|lento|lenta)\b/i,
+    /\b(wait(?:s|ed|ing)?|slow|delay\w*|minutes?|hours?|vones\w*|prit\w*|attesa|lento|lenta)\b/i,
   ],
   [
     'Price & value',
@@ -237,19 +237,68 @@ export function reviewTopics(review: CommunityRecord) {
     ([label]) => label,
   );
   const criticisms: { topic: string; excerpt: string }[] = [];
-  for (const sentence of review.text.split(
+  // Google supplies an English translation followed by the original. Analyse
+  // the translation once, so negation in the original is not counted twice.
+  const analysisText = review.text.startsWith('(Translated by Google)')
+    ? review.text.split('(Original)')[0]
+    : review.text;
+  for (const sentence of analysisText.split(
     /(?<=[.!?\n])\s+|\b(?:but|however|although|por|ma)\b/i,
   )) {
-    const check = sentence.replace(
-      /\b(not (?:bad|expensive|slow|dirty)|no complaints)\b/gi,
-      '',
-    );
+    const check = sentence
+      .replace(
+        /\b(?:not|never|without)\s+(?:(?:very|at all|too|so)\s+)?(?:bad|expensive|slow|dirty|rude|unfriendly|disappoint\w*)\b|\bno (?:complaints|delays?)\b/gi,
+        '',
+      )
+      .replace(/\bslow (?:down|motion)\b|\bpa vones\w*/gi, '');
     if (!NEGATIVE.test(check)) continue;
-    for (const [topic, re] of TOPICS)
-      if (re.test(check) && !criticisms.some((c) => c.topic === topic))
-        criticisms.push({ topic, excerpt: sentence.trim().slice(0, 700) });
+    // Attribute each negative word to the closest topic in its clause rather
+    // than accusing every subject mentioned in an otherwise positive sentence.
+    const mentions = TOPICS.flatMap(([topic, re]) =>
+      [...check.matchAll(new RegExp(re.source, 'gi'))].map((m) => ({
+        topic,
+        index: m.index!,
+      })),
+    );
+    for (const negative of check.matchAll(new RegExp(NEGATIVE.source, 'gi'))) {
+      const closest = mentions
+        .map((m) => ({ ...m, distance: Math.abs(m.index - negative.index!) }))
+        .filter((m) => m.distance <= 80)
+        .sort((a, b) => a.distance - b.distance)[0];
+      if (closest && !criticisms.some((c) => c.topic === closest.topic))
+        criticisms.push({
+          topic: closest.topic,
+          excerpt: sentence.trim().slice(0, 700),
+        });
+    }
   }
   return { categories: categories.length ? categories : ['Other'], criticisms };
+}
+// Relative labels are used only to order reviews, never as exact report dates.
+export function compareReviewsNewest(a: CommunityRecord, b: CommunityRecord) {
+  const order = (r: CommunityRecord) => {
+    if (r.timePrecision !== 'relative') return Date.parse(r.time);
+    const label = (r.timeLabel || '').toLowerCase();
+    const match = label.match(
+      /(\d+)\s+(minute|hour|day|week|month|year)s?\s+ago/,
+    );
+    const unit: Record<string, number> = {
+      minute: 60,
+      hour: 3600,
+      day: 86400,
+      week: 604800,
+      month: 2629800,
+      year: 31557600,
+    };
+    const age =
+      label === 'yesterday'
+        ? 86400
+        : match
+          ? Number(match[1]) * unit[match[2]]
+          : 0;
+    return Date.parse(r.time) - age * 1000;
+  };
+  return order(b) - order(a) || a.id.localeCompare(b.id);
 }
 export function bucketActivity(
   records: CommunityRecord[],

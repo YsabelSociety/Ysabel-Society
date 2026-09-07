@@ -675,7 +675,7 @@ export function SocialPerformance({
       <p className="performance-scope">
         {basis === 'Published content'
           ? 'Published content compares the lifetime performance of posts published in these dates. This lets Instagram, Facebook and TikTok share the same measurement basis.'
-          : 'Daily activity shows activity on each date. TikTok daily traffic remains unavailable until a compatible report is imported.'}{' '}
+          : 'Daily activity uses imported reports for each date. Missing observations remain gaps in the charts.'}{' '}
         {selectedPosts.length} imported content items match the content filter.
         Followers and users keep their own daily observation basis.
       </p>

@@ -190,7 +190,16 @@ export async function POST(req: Request) {
       return json({ saved: true });
     }
     if (body.op === 'discover')
-      return json(await discoverResources(owner, group.id));
+      return json(
+        await discoverResources(
+          owner,
+          group.id,
+          typeof body.source === 'string' &&
+            ['ga4', 'gbp'].includes(body.source)
+            ? body.source
+            : undefined,
+        ),
+      );
     if (body.op === 'select')
       return json(
         await linkResource(

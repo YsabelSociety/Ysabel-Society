@@ -48,6 +48,15 @@ const valid = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value) && value >= 0;
 function read(record: Daily | Post, key: string): number | null {
   const value = (record as unknown as Record<string, unknown>)[key];
+  if (
+    'channel' in record &&
+    record.sourceMetrics?.studioImport &&
+    ['likes', 'comments', 'shares', 'engagements'].includes(key) &&
+    record.available?.includes(key) &&
+    typeof value === 'number' &&
+    Number.isFinite(value)
+  )
+    return value;
   return (!record.available || record.available.includes(key)) && valid(value)
     ? value
     : null;
@@ -198,7 +207,9 @@ export function seriesTotal(
   channel: string,
   metric: SocialMetric,
 ): number | null {
-  const values = points.map((p) => p[channel]).filter(valid);
+  const values = points
+    .map((p) => p[channel])
+    .filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
   return values.length
     ? metric === 'followers'
       ? values.at(-1)!
@@ -240,7 +251,8 @@ export function latestAudienceTables(
     const normalizedExport =
       table.key.startsWith('audience-file-') &&
       table.columns.includes(dimension) &&
-      table.columns.includes('followers');
+      (table.columns.includes('followers') ||
+        table.columns.includes('percentage'));
     const matching =
       normalizedExport ||
       (dimension === 'gender'
@@ -281,7 +293,8 @@ export function genderDistribution(
               : 'Other / unspecified') === label
         );
       });
-      const values = matches?.map((r) => r.followers).filter(valid) || [];
+      const values =
+        matches?.map((r) => r.followers ?? r.percentage).filter(valid) || [];
       point[channel] = values.length ? values.reduce((a, b) => a + b, 0) : null;
     }
     return point;

@@ -11,6 +11,7 @@ import {
 } from '@/lib/reporting';
 import { type ReportingContext } from './report-google';
 import { requestJSON } from './providers';
+import { calendarDate } from '@/lib/sync-window';
 
 export async function importTikTok(context: ReportingContext, range: Range) {
   const result = resultSet(),
@@ -36,7 +37,7 @@ export async function importTikTok(context: ReportingContext, range: Range) {
     likes: finite(u.likes_count),
     videos: finite(u.video_count),
   };
-  const d = emptyDaily(new Date().toISOString().slice(0, 10), 'TikTok');
+  const d = emptyDaily(calendarDate(), 'TikTok');
   putMetric(d, 'followers', u.follower_count);
   d.sourceMetrics = { followersObservedAt: new Date().toISOString() };
   result.daily.push(d);
@@ -80,7 +81,13 @@ export async function importTikTok(context: ReportingContext, range: Range) {
           const date = new Date(v.create_time * 1000)
             .toISOString()
             .slice(0, 10);
-          if (date >= range.start && date <= range.end) items.push(v);
+          // Counters are lifetime observations. Refresh older publications too;
+          // the dashboard applies the publication-date filter when displaying them.
+          if (
+            context.importMode !== 'content' ||
+            (date >= range.start && date <= range.end)
+          )
+            items.push(v);
         }
         cursor = r.data?.cursor;
         if (context.importMode === 'content') {
@@ -93,7 +100,8 @@ export async function importTikTok(context: ReportingContext, range: Range) {
         if (
           !r.data?.has_more ||
           !cursor ||
-          (r.data?.videos?.length &&
+          (context.importMode === 'content' &&
+            r.data?.videos?.length &&
             new Date(r.data.videos.at(-1).create_time * 1000)
               .toISOString()
               .slice(0, 10) < range.start)
@@ -106,7 +114,7 @@ export async function importTikTok(context: ReportingContext, range: Range) {
             status: 'unavailable',
             records: 0,
             detail:
-              'The first 1,000 accessible videos were scanned. Use an export for more history.',
+              'The first 1,000 accessible videos were refreshed. Use the resumable history import for older videos.',
           });
       }
       return items;

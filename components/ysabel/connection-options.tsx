@@ -409,7 +409,7 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
                       detail: ['instagram', 'facebook'].includes(source)
                         ? 'meta'
                         : ['ga4', 'gbp'].includes(source)
-                          ? 'google'
+                          ? source
                           : 'tiktok',
                     }),
                   )
@@ -757,8 +757,9 @@ export function ConnectionOptions({ notify }: { notify: (s: string) => void }) {
                 After you authorize and select an account, refresh is enabled
                 automatically. While the workspace is open and visible, it
                 checks every five minutes, reconciling the latest seven days and
-                observing current followers. Reloading the page or selecting Sync now
-                starts a fresh check. Today’s totals can be incomplete while platforms process them.
+                observing current followers. Reloading the page or selecting
+                Sync now starts a fresh check. Today’s totals can be incomplete
+                while platforms process them.
               </p>
               <p>
                 Google and TikTok sign-in renew tokens where the provider allows

@@ -206,7 +206,7 @@ export async function finishOAuth(
         !granted.some((s: string) => s.endsWith(needed))
       )
         throw new Error(
-          'INPUT:Your existing Google connection was preserved. Select Analytics and Business Profile and authorize both services to keep them connected.',
+          'INPUT:Your existing Google connection was preserved. Authorize this service again using the previously connected Google account and retain its previously granted access.',
         );
     }
   }
@@ -261,13 +261,17 @@ export async function accessGrant(owner: string, provider: ConnectorProvider) {
 export async function discoverResources(
   owner: string,
   provider: ConnectorProvider,
+  source?: string,
 ) {
   const grant = await accessGrant(owner, provider),
     headers = { Authorization: 'Bearer ' + grant.accessToken };
   const resources: Resource[] = [],
     warnings: string[] = [];
   if (provider === 'google') {
-    if (!grant.scopes || grant.scopes.includes('/auth/analytics.readonly'))
+    if (
+      source !== 'gbp' &&
+      (!grant.scopes || grant.scopes.includes('/auth/analytics.readonly'))
+    )
       try {
         let next = '';
         for (let page = 0; page < 10; page++) {
@@ -295,7 +299,10 @@ export async function discoverResources(
           'Analytics properties could not be listed. Enable the Admin API and confirm account access.',
         );
       }
-    if (!grant.scopes || grant.scopes.includes('/auth/business.manage'))
+    if (
+      source !== 'ga4' &&
+      (!grant.scopes || grant.scopes.includes('/auth/business.manage'))
+    )
       try {
         let next = '';
         for (let page = 0; page < 10; page++) {
@@ -387,7 +394,14 @@ export async function discoverResources(
     throw new Error(
       'INPUT:This account contains too many resources. Use an account with access to the Ysabel Society properties.',
     );
-  await writeVault(owner, 'grant', provider, { ...grant, resources });
+  // A source-specific discovery must not discard resources selected for the other Google product.
+  const kept = source
+    ? (grant.resources || []).filter((r) => r.source !== source)
+    : [];
+  await writeVault(owner, 'grant', provider, {
+    ...grant,
+    resources: [...kept, ...resources],
+  });
   return {
     resources: resources.map(({ source, id, label }) => ({
       source,

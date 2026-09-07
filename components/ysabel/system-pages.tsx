@@ -231,7 +231,7 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
                       )
                     : requestProvider(
                         ['ga4', 'gbp'].includes(c.id)
-                          ? 'google'
+                          ? c.id
                           : c.id === 'tiktok'
                             ? 'tiktok'
                             : 'meta',

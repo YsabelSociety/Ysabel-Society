@@ -7568,3 +7568,28 @@ h1 {
 .social-metric-card[data-metric="profileViews"] { background:linear-gradient(125deg,#f6f8f9,#d4e0ec,#e1dcef); }
 @media(max-width:750px) { .profile-views-grid { grid-template-columns:1fr; } .top-actions { flex-wrap:wrap; } .sync-now { padding:.55rem .7rem; } }
 @media(prefers-reduced-motion:reduce) { .sync-spinning { animation:none; } .profile-views-card:hover { transform:none; } }
+
+/* Real miniature trends with quiet movement, never generated data. */
+.spark { overflow: visible; color: inherit; }
+.spark-line { stroke-dasharray:1; stroke-dashoffset:0; animation:spark-reveal 1.2s ease-out both; }
+.spark-area { animation:spark-breathe 6s ease-in-out infinite; }
+.spark-pulse { transform-box:fill-box; transform-origin:center; animation:spark-beacon 3.8s ease-out infinite; }
+@keyframes spark-reveal { from { stroke-dashoffset:1; opacity:.25; } to { stroke-dashoffset:0; opacity:1; } }
+@keyframes spark-breathe { 0%,100% {opacity:.65} 50% {opacity:1} }
+@keyframes spark-beacon { 0% {transform:scale(.65);opacity:.48} 70%,100% {transform:scale(1.8);opacity:0} }
+.performance-totals > div,.stat-row > div {position:relative;overflow:hidden;}
+.performance-totals > div > .spark,.stat-row > div > .spark {position:absolute;right:.5rem;bottom:.3rem;width:96px;height:38px;opacity:.35;pointer-events:none;}
+.metric-mini-series {display:flex;align-items:center;gap:.5rem;margin-right:auto;}
+.metric-mini-series .spark {width:72px;height:30px;opacity:.7;}
+.assistant-providers {grid-template-columns:repeat(4,minmax(0,1fr));}
+.business-approval-help {padding:1.2rem;border:1px solid #becfc6;border-radius:18px;background:linear-gradient(120deg,#e8efeea8,#e1e9d4a8);}
+.business-approval-help .text-link {display:flex;gap:.5rem;margin:.7rem 0;}
+.tiktok-studio-import {padding:1.1rem 1.3rem;margin:1rem 0;}
+.tiktok-studio-import summary {cursor:pointer;font-weight:600;}
+.tiktok-studio-import p {font-size:.85rem;line-height:1.6;color:#526270;margin:.85rem 0;}
+.tiktok-studio-import .custom-dates {margin:1rem 0;}
+.review-paste-label {display:grid;gap:.5rem;margin:1rem 0;}
+.review-paste-label textarea {min-height:110px;border:1px solid #b9c9c7;border-radius:10px;padding:.75rem;}
+@media(max-width:1050px){.assistant-providers{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:560px){.assistant-providers{grid-template-columns:1fr;}.metric-mini-series{width:100%;}}
+@media(prefers-reduced-motion:reduce){.spark-line,.spark-area,.spark-pulse{animation:none;}.spark-pulse{display:none;}}

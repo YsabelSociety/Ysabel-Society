@@ -36,6 +36,28 @@ export function AudienceMap({
   tables: ReportTable[];
   channels: readonly string[];
 }) {
+  const reports = latestAudienceTables(tables, channels, 'country');
+  // Percentages from one audience must never be added to another platform's counts.
+  if (
+    channels.length > 1 &&
+    [...reports.values()].some((t) => t.columns.includes('percentage'))
+  )
+    return (
+      <div className="performance-map-grid">
+        {channels.map((c) => (
+          <AudienceMapView key={c} tables={tables} channels={[c]} />
+        ))}
+      </div>
+    );
+  return <AudienceMapView tables={tables} channels={channels} />;
+}
+function AudienceMapView({
+  tables,
+  channels,
+}: {
+  tables: ReportTable[];
+  channels: readonly string[];
+}) {
   const [countries, setCountries] = useState<Country[]>([]),
     [error, setError] = useState(''),
     [revision, setRevision] = useState(0),
@@ -110,7 +132,7 @@ export function AudienceMap({
     for (const [channel, report] of reports) {
       for (const row of report.rows) {
         const raw = String(row.country ?? row.location ?? '').trim();
-        const value = row.followers ?? row.activeUsers;
+        const value = row.followers ?? row.activeUsers ?? row.percentage;
         if (typeof value !== 'number' || !Number.isFinite(value) || value < 0)
           continue;
         const country = lookup.get(normalize(raw)),
@@ -134,8 +156,13 @@ export function AudienceMap({
     active =
       byCode.get(hover || selected) || rows.find((r) => r.id === selected),
     activeCountry = countries.find((c) => c.code === (hover || selected));
-  const unit =
-    channels.length === 1 && channels[0] === 'Website'
+  const percent = [...reports.values()].some((t) =>
+    t.columns.includes('percentage'),
+  );
+  const formatValue = (v: number) => (percent ? v.toFixed(1) + '%' : number(v));
+  const unit = percent
+    ? 'of followers'
+    : channels.length === 1 && channels[0] === 'Website'
       ? 'daily active users'
       : 'reported followers';
   const color =
@@ -297,7 +324,9 @@ export function AudienceMap({
                   aria-label={
                     country.name +
                     ': ' +
-                    (value ? number(value.total) + ' ' + unit : 'not supplied')
+                    (value
+                      ? formatValue(value.total) + ' ' + unit
+                      : 'not supplied')
                   }
                   onPointerEnter={() => setHover(country.code)}
                   onPointerLeave={() => setHover('')}
@@ -315,7 +344,9 @@ export function AudienceMap({
                 >
                   <title>
                     {country.name}:{' '}
-                    {value ? number(value.total) + ' ' + unit : 'not supplied'}
+                    {value
+                      ? formatValue(value.total) + ' ' + unit
+                      : 'not supplied'}
                   </title>
                 </path>
               );
@@ -344,14 +375,14 @@ export function AudienceMap({
           {active ? (
             <>
               <span>
-                {number(active.total)} {unit}
+                {formatValue(active.total)} {unit}
               </span>
               {channels.map((c) => (
                 <small key={c}>
                   {c}:{' '}
                   {active.values[c] === undefined
                     ? 'Not supplied'
-                    : number(active.values[c])}
+                    : formatValue(active.values[c])}
                 </small>
               ))}
             </>
@@ -385,16 +416,16 @@ export function AudienceMap({
           />
         </label>
         <p>
-          Teal to plum shows increasing audience counts. Grey countries have no
-          supplied value.
+          Teal to plum shows increasing audience concentration. Grey countries
+          have no supplied value.
         </p>
       </div>
       <div className="map-color-legend" aria-label="Audience count color scale">
         {mapColors.map((c, i) => (
           <span key={c}>
             <i style={{ background: c }} />
-            {number(Math.ceil(maximum * (i / 6) ** 2))}
-            {i === 5 ? '–' + number(maximum) : '+'}
+            {formatValue(maximum * (i / 6) ** 2)}
+            {i === 5 ? '–' + formatValue(maximum) : '+'}
           </span>
         ))}
       </div>
@@ -437,7 +468,9 @@ export function AudienceMap({
                   </th>
                   {channels.map((c) => (
                     <td key={c}>
-                      {r.values[c] === undefined ? '—' : number(r.values[c])}
+                      {r.values[c] === undefined
+                        ? '—'
+                        : formatValue(r.values[c])}
                     </td>
                   ))}
                 </tr>

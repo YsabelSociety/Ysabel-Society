@@ -46,6 +46,7 @@ import { Picker } from './controls';
 import { useMinimalMotion } from './use-motion';
 import { AudienceMap } from './audience-map';
 import { PostPerformance } from './post-performance';
+import { Spark } from './charts';
 
 export class ChartBoundary extends Component<
   { children: ReactNode },
@@ -206,6 +207,22 @@ export function MetricCard({
         </button>
       </div>
       <div className="metric-card-controls">
+        <div className="metric-mini-series">
+          {channels.map((c) => (
+            <span
+              key={c}
+              style={{
+                color: COLORS[CHANNELS.indexOf(c as (typeof CHANNELS)[number])],
+              }}
+            >
+              <Spark
+                values={points.map((p) =>
+                  typeof p[c] === 'number' ? (p[c] as number) : null,
+                )}
+              />
+            </span>
+          ))}
+        </div>
         <Picker
           label={label + ' interval'}
           value={granularity}
@@ -300,7 +317,7 @@ export function MetricCard({
                         (max: number) =>
                           Math.ceil(max + Math.max(5, max * 0.005)),
                       ]
-                    : [0, 'auto']
+                    : [(min: number) => Math.min(0, min), 'auto']
                 }
                 allowDecimals={false}
               />
@@ -453,7 +470,10 @@ export function AudienceBreakdown({
                 <div>
                   <span className="metric-eyebrow">{channels.join(' · ')}</span>
                   <h2>{group.label}</h2>
-                  <p>Reported follower demographic snapshot</p>
+                  <p>
+                    Reported follower demographics · counts or platform
+                    percentages
+                  </p>
                 </div>
               </div>
               <div className="gender-bars">
@@ -472,7 +492,9 @@ export function AudienceBreakdown({
                     </span>
                     <strong>
                       {typeof group[c] === 'number'
-                        ? number(group[c] as number)
+                        ? reports.get(c)?.columns.includes('percentage')
+                          ? Number(group[c]).toFixed(1) + '%'
+                          : number(group[c] as number)
                         : 'Not supplied'}
                     </strong>
                     <div>
@@ -483,12 +505,16 @@ export function AudienceBreakdown({
                               ? Math.max(
                                   1,
                                   (Number(group[c]) /
-                                    Math.max(
-                                      ...channels.map((p) =>
-                                        Number(group[p] || 0),
-                                      ),
-                                      1,
-                                    )) *
+                                    (reports
+                                      .get(c)
+                                      ?.columns.includes('percentage')
+                                      ? 100
+                                      : Math.max(
+                                          ...channels.map((p) =>
+                                            Number(group[p] || 0),
+                                          ),
+                                          1,
+                                        ))) *
                                     100,
                                 ) + '%'
                               : '0%',
@@ -552,7 +578,7 @@ export function SocialPerformance({
   channel: string;
   loading?: boolean;
 }) {
-  const [basis, setBasis] = useState<PerformanceBasis>('Published content'),
+  const [basisChoice, setBasisChoice] = useState('Latest available'),
     [layout, setLayout] = useState('Together'),
     [format, setFormat] = useState('All content');
   const channels = useMemo(
@@ -563,6 +589,18 @@ export function SocialPerformance({
     () => selectContent(posts, channels, range, format),
     [posts, channels, range, format],
   );
+  const basis: PerformanceBasis =
+    basisChoice === 'Latest available'
+      ? channels.every((c) =>
+          rows.some(
+            (r) =>
+              r.channel === c &&
+              (!r.available || r.available.includes('views')),
+          ),
+        )
+        ? 'Daily activity'
+        : 'Published content'
+      : (basisChoice as PerformanceBasis);
   const groups =
     layout === 'Separate platforms' ? channels.map((c) => [c]) : [channels];
   const summaries = [
@@ -590,6 +628,12 @@ export function SocialPerformance({
         ? number(values.reduce((a, b) => a + b, 0))
         : 'Unavailable',
       partial: values.length > 0 && values.length < channels.length,
+      spark: points.map((p) => {
+        const v = channels
+          .map((c) => p[c])
+          .filter((v): v is number => typeof v === 'number');
+        return v.length ? v.reduce((a, b) => a + b, 0) : null;
+      }),
     };
   });
   return (
@@ -604,9 +648,13 @@ export function SocialPerformance({
         <div className="inline-controls">
           <Picker
             label="Performance measurement"
-            value={basis}
-            onChange={(v) => setBasis(v as PerformanceBasis)}
-            options={['Published content', 'Daily activity']}
+            value={basisChoice}
+            onChange={setBasisChoice}
+            options={[
+              'Latest available',
+              'Daily activity',
+              'Published content',
+            ]}
           />
           {channels.length > 1 && (
             <Picker
@@ -634,6 +682,7 @@ export function SocialPerformance({
       <div className="stat-row performance-totals" aria-busy={loading}>
         {summaries.map((s) => (
           <div key={s.metric} data-metric={s.metric}>
+            <Spark values={s.spark} />
             <span>
               {s.metric === 'views'
                 ? 'Total content views'

@@ -335,7 +335,7 @@ export function WebsiteReports({
                 </p>
                 <a
                   className="text-link"
-                  href="/marketingdata/connections?connect=google"
+                  href="/marketingdata/connections?connect=ga4"
                 >
                   Import website reports
                 </a>

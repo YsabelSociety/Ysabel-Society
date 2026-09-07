@@ -8,6 +8,8 @@ export type CommunityRecord = {
   kind: 'message' | 'mention' | 'review' | 'profile';
   accountId: string;
   time: string;
+  timeLabel?: string;
+  timePrecision?: 'relative';
   conversationId?: string;
   participantId?: string;
   name?: string;
@@ -71,6 +73,7 @@ export function inWindow(
   range: Range,
   timezone: string,
 ) {
+  if (record.timePrecision === 'relative') return false;
   const date = localDate(record.time, timezone);
   return date >= range.start && date <= range.end;
 }
@@ -325,6 +328,12 @@ export function parseCommunityCSV(
       kind,
       accountId: 'file',
       time: new Date(row.time).toISOString(),
+      ...(kind === 'review' && row.time_precision === 'relative'
+        ? {
+            timePrecision: 'relative' as const,
+            timeLabel: row.time_label?.slice(0, 100),
+          }
+        : {}),
       conversationId: row.conversation_id?.slice(0, 300),
       participantId: row.participant_id?.slice(0, 300),
       name: row.name?.slice(0, 200),

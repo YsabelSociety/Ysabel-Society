@@ -40,7 +40,17 @@ export async function persistImport(
     .prepare(
       'SELECT date,normalized FROM account_metrics_daily WHERE account_id=? AND date>=? AND date<=?',
     )
-    .bind(account, range.start, new Date().toISOString().slice(0, 10))
+    .bind(
+      account,
+      [range.start, ...result.daily.map((r) => r.date)].sort()[0],
+      [
+        range.end,
+        new Date().toISOString().slice(0, 10),
+        ...result.daily.map((r) => r.date),
+      ]
+        .sort()
+        .at(-1),
+    )
     .all<{ date: string; normalized: string }>();
   const old = new Map(
     previous.results.map((r) => [r.date, JSON.parse(r.normalized) as Daily]),

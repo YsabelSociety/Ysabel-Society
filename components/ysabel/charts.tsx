@@ -23,28 +23,65 @@ import {
 } from '@/lib/analytics';
 import { Picker } from './controls';
 import { Maximize2, ArrowUpRight } from 'lucide-react';
-export function Spark({ values: input }: { values?: number[] }) {
-  const data = input ?? [];
-  if (!data.length) return null;
-  const min = Math.min(...data),
-    max = Math.max(...data);
-  const values = data.map((v) => 38 - ((v - min) / (max - min || 1)) * 28);
+import { sparkline } from '@/lib/sparkline';
+export function Spark({
+  values = [],
+}: {
+  values?: (number | null | undefined)[];
+}) {
+  const id = useId().replace(/:/g, ''),
+    geometry = sparkline(values),
+    last = geometry.points.at(-1);
   return (
-    <svg className="spark" viewBox="0 0 120 45" aria-hidden="true">
+    <svg
+      className="spark"
+      viewBox="0 0 120 45"
+      aria-hidden="true"
+      data-empty={!last}
+    >
+      <defs>
+        <linearGradient id={'spark-' + id} x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="currentColor" stopOpacity=".3" />
+          <stop offset="1" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
       <path
-        d={values
-          .map(
-            (y, i) =>
-              (i ? 'L' : 'M') +
-              ((i / Math.max(values.length - 1, 1)) * 120).toFixed(3) +
-              ',' +
-              y.toFixed(3),
-          )
-          .join(' ')}
-        fill="none"
+        d="M3,43H117"
         stroke="currentColor"
-        strokeWidth="1.4"
+        strokeOpacity=".14"
+        strokeWidth=".6"
       />
+      {last && (
+        <>
+          <path
+            className="spark-area"
+            d={geometry.areas}
+            fill={'url(#spark-' + id + ')'}
+          />
+          <path
+            className="spark-line"
+            d={geometry.path}
+            pathLength="1"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          {geometry.points.length < 3 &&
+            geometry.points.map((p, i) => (
+              <circle key={i} cx={p.x} cy={p.y} r="1.8" fill="currentColor" />
+            ))}
+          <circle
+            className="spark-pulse"
+            cx={last.x}
+            cy={last.y}
+            r="3.5"
+            fill="currentColor"
+          />
+          <circle cx={last.x} cy={last.y} r="1.8" fill="currentColor" />
+        </>
+      )}
     </svg>
   );
 }

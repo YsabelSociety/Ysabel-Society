@@ -68,7 +68,9 @@ function useCommunity(kind: string) {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    void fetch('/marketingdata/api/community?kind=' + kind, { signal: controller.signal })
+    void fetch('/marketingdata/api/community?kind=' + kind, {
+      signal: controller.signal,
+    })
       .then(async (r) => {
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
@@ -349,7 +351,10 @@ function ImportAccess({
                     collects pages of reviews; continue if more history is
                     available.
                   </p>
-                  <a className="secondary" href="/marketingdata/connections?connect=google">
+                  <a
+                    className="secondary"
+                    href="/marketingdata/connections?connect=gbp"
+                  >
                     Connect Google Business <ArrowUpRight size={15} />
                   </a>
                   <a
@@ -379,7 +384,10 @@ function ImportAccess({
                     them; you can record a manually verified count from a
                     conversation.
                   </p>
-                  <a className="secondary" href="/marketingdata/connections?connect=meta">
+                  <a
+                    className="secondary"
+                    href="/marketingdata/connections?connect=meta"
+                  >
                     Update Meta access <ArrowUpRight size={15} />
                   </a>
                   <a
@@ -507,6 +515,20 @@ function ImportAccess({
               >
                 Preview import
               </button>
+              {kind === 'review' && (
+                <label className="review-paste-label">
+                  Paste review CSV
+                  <textarea
+                    aria-label="Paste review CSV"
+                    value={csv}
+                    maxLength={1400000}
+                    onChange={(e) => {
+                      setCsv(e.target.value);
+                      setPreview(null);
+                    }}
+                  />
+                </label>
+              )}
               {preview && (
                 <div className="community-import-preview">
                   <strong>{preview.count} records ready</strong>
@@ -1755,8 +1777,12 @@ export function GoogleReviews({
                 <div>
                   <strong>{r.name || 'Anonymous reviewer'}</strong>
                   <small>
-                    {new Date(r.time).toLocaleDateString()} ·{' '}
-                    {r.origin === 'api' ? 'Google' : 'Imported file'}
+                    {r.timePrecision === 'relative'
+                      ? r.timeLabel +
+                        ' when captured on ' +
+                        new Date(r.time).toLocaleDateString()
+                      : new Date(r.time).toLocaleDateString()}{' '}
+                    · {r.origin === 'api' ? 'Google' : 'Imported file'}
                   </small>
                 </div>
                 <span

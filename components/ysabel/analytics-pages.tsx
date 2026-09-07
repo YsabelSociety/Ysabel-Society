@@ -49,7 +49,7 @@ import {
   series,
 } from '@/lib/analytics';
 import { Picker, Help } from './controls';
-import { AnalyticsChart, Bars } from './charts';
+import { AnalyticsChart, Bars, Spark } from './charts';
 import { type WorkspaceData } from './use-workspace';
 import { MediaCards, Empty } from './content';
 import { SourceReports } from './source-reports';
@@ -58,6 +58,7 @@ import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
 import { HistoryImport } from './history-import';
+import { activitySeries } from '@/lib/activity-series';
 import {
   AudienceHistory,
   WebsiteMetricGraphs,
@@ -67,7 +68,12 @@ import {
 export function StatRow({
   items,
 }: {
-  items: { label: string; value: string; note?: string }[];
+  items: {
+    label: string;
+    value: string;
+    note?: string;
+    values?: (number | null)[];
+  }[];
 }) {
   return (
     <div className="stat-row">
@@ -79,6 +85,7 @@ export function StatRow({
           <span>{item.label}</span>
           <strong>{item.value}</strong>
           {item.note && <small>{item.note}</small>}
+          {item.values && <Spark values={item.values} />}
         </div>
       ))}
     </div>
@@ -478,6 +485,14 @@ export function PerformancePage({
             channel={channel}
             loading={loading}
           />
+          {live &&
+            (channel === 'All' || channel === 'TikTok') &&
+            tables.some((t) => t.source === 'tiktok') && (
+              <SourceReports
+                tables={tables.filter((t) => t.source === 'tiktok')}
+                title="TikTok Studio source reports"
+              />
+            )}
         </>
       )}
       <details className="surface performance-notes">
@@ -956,17 +971,28 @@ export function WebsitePage({
             label: 'Daily active users',
             value: number(users),
             note: 'Daily sum · not period-unique',
+            values: activitySeries(r, 'Website', 'users').map((p) => p.value),
           },
           {
             label: 'Sessions',
             value: metricAvailable(r, 'sessions') ? number(sessions) : '—',
+            values: activitySeries(r, 'Website', 'sessions').map(
+              (p) => p.value,
+            ),
           },
           {
             label: 'Engaged sessions',
             value: metricAvailable(r, 'engaged') ? number(engaged) : '—',
+            values: activitySeries(r, 'Website', 'engaged').map((p) => p.value),
           },
           {
             label: 'Engagement rate',
+            values: r.map((row) =>
+              row.sessions &&
+              (!row.available || row.available.includes('engaged'))
+                ? (row.engaged / row.sessions) * 100
+                : null,
+            ),
             value: sessions
               ? ((engaged / sessions) * 100).toFixed(1) + '%'
               : '—',
@@ -974,6 +1000,9 @@ export function WebsitePage({
           {
             label: 'Page views',
             value: metricAvailable(r, 'pageViews') ? number(pages) : '—',
+            values: activitySeries(r, 'Website', 'pageViews').map(
+              (p) => p.value,
+            ),
           },
         ]}
       />

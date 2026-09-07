@@ -13,8 +13,38 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://ysabelsociety.com/marketingdata/'),
   title: 'Ysabel Society — Digital Intelligence',
   description: 'The private digital intelligence workspace for Ysabel Society.',
+  alternates: { canonical: 'https://ysabelsociety.com/marketingdata' },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    siteName: 'Ysabel Society',
+    url: 'https://ysabelsociety.com/marketingdata',
+    title: 'Ysabel Society — Marketing Data',
+    description: 'All platforms. One private workspace.',
+    images: [
+      {
+        url: 'https://ysabelsociety.com/marketingdata/og.png',
+        width: 1731,
+        height: 909,
+        type: 'image/png',
+        alt: 'Ysabel Society — Marketing Data. All platforms. One private workspace.',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Ysabel Society — Marketing Data',
+    description: 'All platforms. One private workspace.',
+    images: [
+      {
+        url: 'https://ysabelsociety.com/marketingdata/og.png',
+        alt: 'Ysabel Society — Marketing Data. All platforms. One private workspace.',
+      },
+    ],
+  },
   robots: { index: false, follow: false },
   icons: {
     icon: '/marketingdata/ysabel-society-logo.png',

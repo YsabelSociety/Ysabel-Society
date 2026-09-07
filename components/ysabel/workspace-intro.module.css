@@ -6,13 +6,15 @@
   place-items: center;
   overflow: hidden;
   isolation: isolate;
-  background: radial-gradient(
-    ellipse at 50% 42%,
-    #e7e9dd 0%,
-    #c1c6af 35%,
-    #737b54 72%,
-    #39452b 100%
-  );
+  background:
+    radial-gradient(
+      ellipse at 48% 36%,
+      #454d2d 0%,
+      #343e24 31%,
+      transparent 65%
+    ),
+    radial-gradient(ellipse at 100% 5%, #394326 0, transparent 48%),
+    linear-gradient(160deg, #28331d, #151e11 87%);
   color: #263222;
   transition:
     opacity 650ms ease,
@@ -28,9 +30,9 @@
   background: conic-gradient(
     from 45deg,
     transparent 20%,
-    #ffffff30 36%,
+    #bbc59214 36%,
     transparent 49%,
-    #dce4c630 65%,
+    #909e6614 65%,
     transparent 80%
   );
   filter: blur(40px);

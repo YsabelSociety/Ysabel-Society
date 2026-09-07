@@ -86,6 +86,50 @@ function load(file) {
 }
 
 const community = load('lib/community.ts');
+const syncPlan = load('lib/community-sync-plan.ts');
+assert.deepEqual(syncPlan.communitySyncSources('all'), [
+  'facebook',
+  'instagram',
+  'tiktok',
+]);
+assert.deepEqual(syncPlan.communitySyncSources('tiktok'), ['tiktok']);
+assert.deepEqual(syncPlan.communitySyncSources('instagram'), ['instagram']);
+assert.deepEqual(syncPlan.communitySyncSources('gbp'), []);
+const storyFixture = {
+  id: 'story-event',
+  direction: 'in',
+  source: 'instagram',
+  kind: 'message',
+  accountId: 'fixture',
+  time: '2026-09-01T10:00:00Z',
+  text: '',
+  origin: 'api',
+};
+assert.equal(
+  syncPlan.explicitMessageMentions(storyFixture, [
+    { type: 'share' },
+    { type: 'story_reply' },
+  ]).length,
+  0,
+);
+assert.equal(
+  syncPlan.explicitMessageMentions({ ...storyFixture, direction: 'out' }, [
+    { type: 'story_mention' },
+  ]).length,
+  0,
+);
+const storyEvents = syncPlan.explicitMessageMentions(storyFixture, [
+  { type: 'story_mention', payload: { url: 'https://example.com/story' } },
+  { type: 'story_mention' },
+]);
+assert.equal(storyEvents.length, 1);
+assert.equal(storyEvents[0].profileUrl, 'https://example.com/story');
+assert.equal(
+  syncPlan.explicitMessageMentions(storyFixture, {
+    data: [{ type: 'story_repost', url: 'javascript:bad' }],
+  })[0].profileUrl,
+  '',
+);
 const analytics = load('lib/analytics.ts');
 assert.equal(community.followerTier(5000), '5K or fewer');
 assert.equal(community.followerTier(5001), '>5K–9.9K');
@@ -463,6 +507,59 @@ async function main() {
     .get().encrypted;
   assert.ok(!encrypted.includes('private message'));
   await assert.rejects(() => vault.unseal(encrypted, 'wrong-owner'));
+  await store.saveCommunityStatus(owner, {
+    source: 'facebook',
+    kind: 'message',
+    state: 'partial',
+    detail: 'First page saved',
+    cursor: 'older-page',
+    accountId: 'page-owner',
+    total: 99,
+  });
+  await store.saveCommunityStatus(owner, {
+    source: 'facebook',
+    kind: 'message',
+    state: 'syncing',
+    detail: 'In progress',
+  });
+  await store.saveCommunityStatus(owner, {
+    source: 'facebook',
+    kind: 'message',
+    state: 'needs-attention',
+    detail: 'Provider timed out',
+  });
+  let progress = sql
+    .prepare(
+      "SELECT * FROM community_sync WHERE owner=? AND source='facebook' AND kind='message'",
+    )
+    .get(owner);
+  assert.equal(
+    progress.cursor,
+    'older-page',
+    'transient status updates and failures preserve pagination',
+  );
+  assert.equal(progress.account_id, 'page-owner');
+  assert.equal(progress.total, 99);
+  await store.saveCommunityStatus('other-owner', {
+    source: 'facebook',
+    kind: 'message',
+    state: 'synced',
+    detail: 'Other account',
+    cursor: '',
+  });
+  await store.saveCommunityStatus(owner, {
+    source: 'facebook',
+    kind: 'message',
+    state: 'synced',
+    detail: 'Complete',
+    cursor: '',
+  });
+  progress = sql
+    .prepare(
+      "SELECT * FROM community_sync WHERE owner=? AND source='facebook' AND kind='message'",
+    )
+    .get(owner);
+  assert.equal(progress.cursor, null, 'explicit completion clears the cursor');
   await link('instagram', 'meta', 'ig-business');
   responder = async (url, init) => {
     if (url.endsWith('/me?fields=id')) return { id: 'fb-page' };
@@ -549,7 +646,14 @@ async function main() {
   );
   await assert.rejects(
     () => sync.runCommunitySync(owner, 'tiktok'),
-    /separately approved/,
+    /Business app review/,
+  );
+  assert.equal(
+    (await store.readCommunity(owner, 'message')).statuses.find(
+      (s) => s.source === 'tiktok' && s.kind === 'message',
+    ).state,
+    'needs-attention',
+    'unsupported access is persisted instead of silently skipped',
   );
   responder = async () =>
     Response.json(
@@ -609,7 +713,7 @@ async function main() {
   responder = async (url) => {
     const size = new URL(url).searchParams.get('limit');
     attemptedLimits.push(size);
-    return size === '10'
+    return size === '50'
       ? Response.json(
           { error: { code: 1, message: 'Reduce data' } },
           { status: 400 },
@@ -623,7 +727,7 @@ async function main() {
   );
   assert.deepEqual(
     attemptedLimits,
-    ['10', '2'],
+    ['50', '2'],
     'large Instagram requests retry with less data',
   );
   let messagePages = [];
@@ -813,6 +917,25 @@ async function main() {
         { error: { code: 100, message: 'Message no longer available' } },
         { status: 400 },
       );
+    if (url.includes('?fields=id,attachments')) {
+      const id = new URL(url).pathname.split('/').pop();
+      if (id === 'ig-in' || id === 'ig-out')
+        return {
+          id,
+          attachments: {
+            data: [
+              {
+                type: 'story_mention',
+                payload: { url: 'https://example.com/story' },
+              },
+            ],
+          },
+        };
+      return Response.json(
+        { error: { code: 100, message: 'Optional attachment unavailable' } },
+        { status: 400 },
+      );
+    }
     if (url.includes('?fields=id,created_time')) {
       const id = new URL(url).pathname.split('/').pop();
       const outgoing = id === 'ig-out';
@@ -859,6 +982,15 @@ async function main() {
   ).records.filter((r) => r.accountId === '178400001');
   assert.equal(directRecords.find((r) => r.id === 'ig-out').direction, 'out');
   assert.equal(directRecords.find((r) => r.id === 'ig-in').direction, 'in');
+  const directStories = (
+    await store.readCommunity(owner, 'mention')
+  ).records.filter((r) => r.accountId === '178400001');
+  assert.equal(
+    directStories.length,
+    1,
+    'direct Instagram imports incoming attachments without counting outgoing mentions',
+  );
+  assert.equal(directStories[0].mentionType, 'story_mention');
   assert.ok(
     directCalls.some((url) => url.includes('after=second-page')),
     'follow all conversation pages using cursor only',
@@ -898,6 +1030,82 @@ async function main() {
       e.message.includes('Meta 190') &&
       !e.message.includes('direct-ig-fixture') &&
       !e.message.includes('https://'),
+  );
+  await link('facebook', 'meta', 'fb-tags-page');
+  let facebookTagCalls = 0;
+  responder = async (url) => {
+    if (url.includes('/tagged?')) {
+      const after = new URL(url).searchParams.get('after');
+      facebookTagCalls++;
+      return {
+        data: [
+          {
+            id: after ? 'old-fb-tag' : 'new-fb-tag',
+            created_time: '2024-01-01T00:00:00Z',
+            tagged_time: '2026-09-01T10:00:00Z',
+            message: 'Public tagged post',
+            permalink_url: 'https://www.facebook.com/posts/fixture',
+          },
+        ],
+        ...(!after
+          ? {
+              paging: {
+                next: 'https://graph.facebook.com/v26.0/fb-tags-page/tagged?after=older',
+              },
+            }
+          : {}),
+      };
+    }
+    if (url.endsWith('/me?fields=id')) return { id: 'fb-tags-page' };
+    if (url.includes('/conversations?')) return { data: [] };
+    throw new Error('Unexpected Facebook mention request');
+  };
+  const fbMentions = await sync.runCommunitySync(
+    owner,
+    'facebook',
+    false,
+    false,
+    'mention',
+  );
+  assert.equal(fbMentions.imported, 2);
+  assert.equal(
+    facebookTagCalls,
+    2,
+    'Facebook tagged posts follow supported cursor pagination',
+  );
+  const facebookTags = (
+    await store.readCommunity(owner, 'mention')
+  ).records.filter((r) => r.source === 'facebook');
+  assert.equal(facebookTags.length, 2);
+  assert.equal(
+    facebookTags[0].time,
+    '2026-09-01T10:00:00.000Z',
+    'tag date is independent of post creation date',
+  );
+  assert.equal(
+    facebookTags[0].name,
+    'Profile unavailable',
+    'a restricted author is not invented',
+  );
+  responder = async () =>
+    Response.json(
+      { error: { code: 200, message: 'Access refused' } },
+      { status: 403 },
+    );
+  const failedMentions = await sync.runCommunitySync(
+    owner,
+    'facebook',
+    false,
+    false,
+    'mention',
+  );
+  assert.equal(failedMentions.needsAttention, true);
+  assert.equal(
+    (await store.readCommunity(owner, 'mention')).records.filter(
+      (r) => r.source === 'facebook',
+    ).length,
+    2,
+    'failed access keeps previously imported tags',
   );
   console.log(
     'PASS: inbox reply timing, strict influencer threshold, verified profile persistence, timezone grouping, review evidence, CSV validation, encryption and owner isolation, Meta sender identities and access failure, Google review pagination and upserts.',

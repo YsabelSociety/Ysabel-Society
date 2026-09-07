@@ -106,7 +106,7 @@ export async function saveCommunityStatus(
 ) {
   await database()
     .prepare(
-      'INSERT INTO community_sync(owner,source,kind,state,detail,updated_at,cursor,account_id,total) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,source,kind) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at,cursor=excluded.cursor,account_id=excluded.account_id,total=excluded.total',
+      'INSERT INTO community_sync(owner,source,kind,state,detail,updated_at,cursor,account_id,total) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,source,kind) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at,cursor=CASE WHEN ? THEN excluded.cursor ELSE community_sync.cursor END,account_id=CASE WHEN ? THEN excluded.account_id ELSE community_sync.account_id END,total=CASE WHEN ? THEN excluded.total ELSE community_sync.total END',
     )
     .bind(
       owner,
@@ -118,6 +118,9 @@ export async function saveCommunityStatus(
       status.cursor || null,
       status.accountId || null,
       status.total ?? null,
+      status.cursor !== undefined ? 1 : 0,
+      status.accountId !== undefined ? 1 : 0,
+      status.total !== undefined ? 1 : 0,
     )
     .run();
 }

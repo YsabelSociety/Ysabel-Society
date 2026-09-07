@@ -303,9 +303,28 @@ export async function instagramConversationMessages(
     const failed = details.filter((r) => r.error).length;
     if (details.length && failed === details.length)
       return { error: details[0].error, inaccessible: failed };
+    // Attachment access is independent of text access. A denied optional field
+    // must never make an otherwise readable conversation disappear.
+    const media = await instagramMessageBatch(
+      context,
+      details.flatMap((r) =>
+        r.body?.id
+          ? [encodeURIComponent(r.body.id) + '?fields=id,attachments']
+          : [],
+      ),
+    );
+    const attachments = new Map(
+      media.flatMap((r) =>
+        r.body?.id ? [[r.body.id, r.body.attachments] as const] : [],
+      ),
+    );
     return {
       body: {
-        data: details.flatMap((r) => (r.body ? [r.body] : [])),
+        data: details.flatMap((r) =>
+          r.body
+            ? [{ ...r.body, attachments: attachments.get(r.body.id) }]
+            : [],
+        ),
         paging: result.messages.paging,
       },
       inaccessible: failed,

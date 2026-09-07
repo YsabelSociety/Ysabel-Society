@@ -6,6 +6,10 @@ import { graphGet, graphBatch } from './report-meta';
 import { requestJSON } from './providers';
 import { conversationCursor } from '@/lib/message-pagination';
 import {
+  explicitMessageMentions,
+  facebookTaggedPosts,
+} from '@/lib/community-sync-plan';
+import {
   readInstagramMessaging,
   instagramMessageBatch,
   instagramConversationMessages,
@@ -329,30 +333,46 @@ export async function syncMessages(
           followers: null,
         };
         imported.push(item);
-        // Only explicit provider attachment types qualify; a shared post is not a story repost.
-        for (const a of m.attachments?.data ||
-          attachments[i]?.body?.data?.find((x: any) => x.id === m.id)
-            ?.attachments?.data ||
-          [])
-          if (['story_mention', 'story_repost'].includes(a.type))
-            imported.push({
-              ...item,
-              id: m.id + ':' + a.type,
-              kind: 'mention',
-              mentionType: a.type,
-              profileUrl: safeProfileURL(a.url),
-            });
+        imported.push(
+          ...explicitMessageMentions(
+            item,
+            m.attachments ||
+              attachments[i]?.body?.data?.find((x: any) => x.id === m.id)
+                ?.attachments,
+          ),
+        );
       }
     }
-    if (instagram && conversations.length && replies.every((r) => !!r.error))
+    if (conversations.length && replies.every((r) => !!r.error))
       throw new Error(
-        'INPUT:The Instagram conversation list is accessible, but message details failed: ' +
+        'INPUT:The conversation list is accessible, but message details failed: ' +
           replies[0].error,
       );
     await ensureStillLinked(owner, source, context.accountId);
     for (let start = pageStart; start < imported.length; start += 2000)
       await saveCommunity(owner, imported.slice(start, start + 2000));
     const next = conversationCursor(list.paging);
+    // Save a checkpoint after every persisted page. Progress and errors must
+    // not reset a manual history cursor, including during an automatic refresh.
+    const checkpoint =
+      automatic && previous?.account_id === context.accountId && previous.cursor
+        ? previous.cursor
+        : next &&
+            !instagram &&
+            source === 'instagram' &&
+            conversationNode !== String(page.id)
+          ? 'ig-node:' + next
+          : next;
+    await saveCommunityStatus(owner, {
+      source,
+      kind: 'message',
+      state: 'syncing',
+      detail:
+        conversationCount +
+        ' accessible conversations checked. Progress saved.',
+      accountId: context.accountId,
+      cursor: checkpoint,
+    });
     if (!next) {
       after = '';
       break;
@@ -439,7 +459,7 @@ export async function syncMessages(
       : '') +
     (partial ? ' Some history remains outside this import.' : '') +
     (after
-      ? ' More conversations are available. Use Load older conversations to continue.'
+      ? ' More pages can be checked. Use Load older conversations to continue; a paging cursor does not guarantee readable messages.'
       : '') +
     (source === 'instagram'
       ? ' No folder filter is applied: eligible Primary, General and Requests conversations are combined. Meta excludes Requests inactive for 30 days; folder labels may not be supplied. Use a Meta JSON download for older available message history.'
@@ -463,8 +483,91 @@ export async function syncMessages(
   });
   return {
     imported: imported.filter((r) => r.kind === 'message').length,
+    mentionsImported: imported.filter((r) => r.kind === 'mention').length,
+    needsAttention: !!instagram && conversationCount === 0,
     detail,
   };
+}
+export async function syncFacebookTags(
+  owner: string,
+  continueImport = false,
+  automatic = false,
+) {
+  const context = await linkedContext(owner, 'facebook');
+  const previous = await database()
+    .prepare(
+      "SELECT cursor,account_id FROM community_sync WHERE owner=? AND source='facebook' AND kind='mention'",
+    )
+    .bind(owner)
+    .first<{ cursor: string; account_id: string }>();
+  let after =
+    continueImport && previous?.account_id === context.accountId
+      ? previous.cursor || ''
+      : '';
+  let count = 0;
+  const seen = new Set<string>();
+  for (let page = 0; page < (automatic ? 1 : 5); page++) {
+    const response = await fetch(
+      'https://graph.facebook.com/' +
+        context.apiVersion +
+        '/' +
+        encodeURIComponent(context.externalId) +
+        '/tagged?' +
+        new URLSearchParams({
+          fields: 'id,message,created_time,tagged_time,permalink_url,from',
+          limit: '50',
+          ...(after ? { after } : {}),
+        }),
+      {
+        headers: { Authorization: 'Bearer ' + context.accessToken },
+        signal: AbortSignal.timeout(30000),
+      },
+    );
+    const body: any = await response.json();
+    if (!response.ok || body.error)
+      throw new Error(
+        'INPUT:Facebook tagged posts: ' +
+          metaMessageError(body.error, context.accessToken) +
+          ' Check pages_read_user_content and the Page access level.',
+      );
+    if (!Array.isArray(body.data))
+      throw new Error(
+        'INPUT:Facebook did not return a readable tagged-post list.',
+      );
+    const records = facebookTaggedPosts(body.data, context.accountId);
+    await ensureStillLinked(owner, 'facebook', context.accountId);
+    await saveCommunity(owner, records);
+    count += records.length;
+    const next = conversationCursor(body.paging);
+    const repeated = !!next && (seen.has(next) || next === after);
+    after = next;
+    await saveCommunityStatus(owner, {
+      source: 'facebook',
+      kind: 'mention',
+      state: 'syncing',
+      accountId: context.accountId,
+      cursor: after,
+      detail: count + ' tagged posts saved.',
+    });
+    if (!after || repeated) break;
+    seen.add(after);
+  }
+  const detail =
+    count +
+    ' Facebook tagged posts imported. ' +
+    (after
+      ? 'More pages remain. '
+      : 'All pages returned by Facebook were checked. ') +
+    'Private posts and most author details may not be supplied.';
+  await saveCommunityStatus(owner, {
+    source: 'facebook',
+    kind: 'mention',
+    state: after ? 'partial' : 'synced',
+    accountId: context.accountId,
+    cursor: after,
+    detail,
+  });
+  return { imported: count, more: !!after, detail };
 }
 export async function syncInstagramTags(owner: string, continueImport = false) {
   const context = await linkedContext(owner, 'instagram');
@@ -524,7 +627,18 @@ export async function syncInstagramTags(owner: string, continueImport = false) {
     await ensureStillLinked(owner, 'instagram', context.accountId);
     await saveCommunity(owner, records);
     count += records.length;
-    after = body.paging?.next ? body.paging?.cursors?.after || '' : '';
+    const next = conversationCursor(body.paging);
+    const repeated = !!next && next === after;
+    after = next;
+    await saveCommunityStatus(owner, {
+      source: 'instagram',
+      kind: 'mention',
+      state: 'syncing',
+      accountId: context.accountId,
+      cursor: after,
+      detail: count + ' tagged posts saved.',
+    });
+    if (repeated) break;
     if (!after) break;
   }
   const detail =
@@ -543,6 +657,70 @@ export async function syncInstagramTags(owner: string, continueImport = false) {
     detail,
   });
   return { imported: count, more: !!after, detail };
+}
+async function syncMetaMentions(
+  owner: string,
+  source: 'instagram' | 'facebook',
+  older: boolean,
+  automatic: boolean,
+) {
+  const details: string[] = [];
+  let imported = 0,
+    accessible = false,
+    more = false;
+  try {
+    const tags =
+      source === 'instagram'
+        ? await syncInstagramTags(owner, older || automatic)
+        : await syncFacebookTags(owner, older || automatic, automatic);
+    imported += tags.imported;
+    more = tags.more;
+    accessible = true;
+    details.push(tags.detail);
+  } catch (e) {
+    details.push(
+      e instanceof Error && e.message.startsWith('INPUT:')
+        ? e.message.slice(6)
+        : 'Tagged-post import could not complete. Saved records are retained.',
+    );
+  }
+  // Story mentions are inbox attachments, not results of the tagged-post edge.
+  // Automatic refresh already checks the inbox separately.
+  if (!automatic) {
+    try {
+      const messages = await runCommunitySync(owner, source, older, false);
+      if ('mentionsImported' in messages) {
+        imported += Number(messages.mentionsImported || 0);
+        accessible ||= !messages.needsAttention;
+        details.push(
+          messages.mentionsImported +
+            ' explicit story events captured from messages.',
+        );
+      }
+      if ('detail' in messages) details.push(String(messages.detail));
+      if ('skipped' in messages)
+        details.push(
+          'The inbox is already being checked; its story events appear when that import completes.',
+        );
+    } catch (e) {
+      details.push(
+        e instanceof Error && e.message.startsWith('INPUT:')
+          ? e.message.slice(6)
+          : 'Message-based mentions could not be checked.',
+      );
+    }
+  }
+  details.push(
+    'Caption mentions and past story reposts are not supplied by tagged-post imports. Continuous story-event collection is not configured.',
+  );
+  const detail = details.join(' ');
+  await saveCommunityStatus(owner, {
+    source,
+    kind: 'mention',
+    state: accessible ? 'partial' : 'needs-attention',
+    detail,
+  });
+  return { imported, more, detail, needsAttention: !accessible };
 }
 export async function syncReviews(owner: string, continueImport = false) {
   const context = await linkedContext(owner, 'gbp'),
@@ -661,18 +839,17 @@ export async function runCommunitySync(
   automatic = false,
   requestedKind?: 'mention',
   force = false,
-) {
+): Promise<{
+  imported?: number;
+  mentionsImported?: number;
+  detail?: string;
+  more?: boolean;
+  skipped?: boolean;
+  needsAttention?: boolean;
+}> {
   const kind = requestedKind || (source === 'gbp' ? 'review' : 'message'),
     db = database(),
     now = new Date().toISOString();
-  if (kind === 'mention' && source !== 'instagram')
-    throw new Error(
-      'INPUT:Automatic tagged-post import is available for Instagram. Use an export for other mention history.',
-    );
-  if (source === 'tiktok')
-    throw new Error(
-      'INPUT:TikTok inbox access requires separately approved Business Messaging API access. Import a reviewed message export in the meantime; Display API sign-in does not grant messaging access.',
-    );
   const lock = await db
     .prepare(
       "INSERT INTO community_sync(owner,source,kind,state,detail,updated_at) VALUES(?,?,?,'syncing','Import in progress',?) ON CONFLICT(owner,source,kind) DO UPDATE SET state='syncing',updated_at=excluded.updated_at WHERE (community_sync.state<>'syncing' OR community_sync.updated_at<?) AND (?=0 OR community_sync.updated_at<?)",
@@ -689,8 +866,22 @@ export async function runCommunitySync(
     .run();
   if (!lock.meta.changes) return { skipped: true };
   try {
+    if (source === 'tiktok') {
+      const grant = await readVault(owner, 'grant', 'tiktok-business');
+      throw new Error(
+        'INPUT:' +
+          (grant
+            ? 'TikTok Business authorization is saved, but live message and mention imports have not been activated or verified. '
+            : 'TikTok message and mention access is not authorized. Complete the Business app review and the separate messaging security review, then authorize the account in TikTok messages & mentions setup. ') +
+          'The existing profile/video connection cannot read private messages or mentions. Saved file imports are retained.',
+      );
+    }
     return kind === 'mention'
-      ? await syncInstagramTags(owner, continueImport || automatic)
+      ? source === 'gbp'
+        ? (() => {
+            throw new Error('INPUT:Choose a social platform for mentions.');
+          })()
+        : await syncMetaMentions(owner, source, continueImport, automatic)
       : source === 'gbp'
         ? await syncReviews(owner, continueImport || automatic)
         : await syncMessages(owner, source, continueImport, automatic);

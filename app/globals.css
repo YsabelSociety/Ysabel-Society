@@ -6092,7 +6092,8 @@ h1 {
   display: grid;
   gap: 12px;
 }
-.community-coverage > div {
+.community-coverage > div,
+.community-coverage > details {
   padding: 20px 24px;
   background: linear-gradient(
     120deg,

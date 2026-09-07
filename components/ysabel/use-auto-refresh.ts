@@ -69,8 +69,11 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
         const tasks = [
           { source: 'facebook' },
           { source: 'instagram' },
+          { source: 'tiktok' },
           { source: 'gbp' },
+          { source: 'facebook', kind: 'mention' },
           { source: 'instagram', kind: 'mention' },
+          { source: 'tiktok', kind: 'mention' },
         ];
         for (const task of tasks) {
           if (controller.signal.aborted) return;
@@ -81,7 +84,10 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
             body: JSON.stringify({ op: 'auto', force, ...task }),
             signal: controller.signal,
           });
-          if (!response.ok)
+          const result = (await response.json()) as {
+            needsAttention?: boolean;
+          };
+          if (!response.ok || result.needsAttention)
             issues.push(SOURCE_CHANNELS[task.source] + ' community');
         }
         if (!controller.signal.aborted) {

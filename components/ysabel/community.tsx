@@ -54,6 +54,7 @@ import {
   type ReviewDateSelection,
 } from '@/lib/review-dates';
 import { reviewDateLabel } from '@/lib/review-report';
+import { communitySyncSources } from '@/lib/community-sync-plan';
 
 async function communityAction(body: unknown) {
   const r = await fetch('/marketingdata/api/community', {
@@ -61,6 +62,10 @@ async function communityAction(body: unknown) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+  if (!r.headers.get('content-type')?.includes('application/json'))
+    throw new Error(
+      'The import did not finish. Saved messages and history progress are retained; retry to continue.',
+    );
   const data: any = await r.json();
   if (!r.ok) throw new Error(data.error || 'Unable to complete this action.');
   return data;
@@ -232,28 +237,31 @@ function AccessStatus({
     <div className="community-coverage">
       {relevant.length ? (
         relevant.map((s) => (
-          <div key={s.source + ':' + s.kind}>
-            <strong>
-              {COMMUNITY_NAMES[s.source as CommunitySource]} ·{' '}
-              {s.state === 'synced'
-                ? 'Imported'
-                : s.state === 'partial'
-                  ? 'Limited history'
-                  : s.state === 'file'
-                    ? 'File import'
-                    : s.state === 'syncing'
-                      ? 'Importing'
-                      : s.state === 'needs-attention'
-                        ? 'Needs attention'
-                        : 'Needs access'}
-            </strong>
+          <details key={s.source + ':' + s.kind}>
+            <summary>
+              <strong>
+                {COMMUNITY_NAMES[s.source as CommunitySource]} ·{' '}
+                {s.state === 'synced'
+                  ? 'Imported'
+                  : s.state === 'partial'
+                    ? 'Limited history'
+                    : s.state === 'file'
+                      ? 'File import'
+                      : s.state === 'syncing'
+                        ? 'Importing'
+                        : s.state === 'needs-attention'
+                          ? 'Needs attention'
+                          : 'Needs access'}{' '}
+                · View details
+              </strong>
+            </summary>
             <p>{s.detail}</p>
             {s.syncedAt && (
               <small>
                 Last checked {new Date(s.syncedAt).toLocaleString()}
               </small>
             )}
-          </div>
+          </details>
         ))
       ) : (
         <div>
@@ -452,12 +460,14 @@ function ImportAccess({
                   <p>
                     These are separate events. A tagged story mention is not
                     counted as a repost. The Mentions page can import available
-                    Instagram tagged posts separately. Only explicit records
+                    Facebook and Instagram tagged posts, plus explicit story
+                    events from readable messages. Only explicit records
                     supplied by the platform or your import are counted. A
                     general shared post does not prove a story repost. Complete
                     story monitoring requires an approved event receiver; it is
-                    not active on this private site. Untagged, expired and
-                    private stories may remain unavailable.
+                    not configured. Facebook tags require
+                    pages_read_user_content. Untagged, expired and private
+                    stories may remain unavailable.
                   </p>
                 </>
               )}
@@ -1084,6 +1094,11 @@ export function CommunityPage({
     [archive, setArchive] = useState(false),
     [setup, setSetup] = useState(false),
     [busy, setBusy] = useState(false),
+    [syncResults, setSyncResults] = useState<
+      { source: CommunitySource; detail: string }[]
+    >([]),
+    [mentionType, setMentionType] = useState('All types'),
+    [mentionDates, setMentionDates] = useState('Selected dates'),
     [selected, setSelected] = useState<any>(null);
   useEffect(() => {
     if (!busy) return;
@@ -1101,8 +1116,27 @@ export function CommunityPage({
     (r) =>
       r.kind === 'mention' &&
       (source === 'all' || r.source === source) &&
-      inWindow(r, range, timezone),
+      (mentionDates === 'All imported history' || inWindow(r, range, timezone)),
   );
+  const visibleMentions = records.filter(
+    (r) =>
+      mentionType === 'All types' ||
+      {
+        story_mention: 'Story mentions',
+        story_repost: 'Story reposts',
+        post_mention: 'Post mentions',
+        post_tag: 'Tagged posts',
+      }[r.mentionType || 'post_tag'] === mentionType,
+  );
+  const mentionCount = (type: CommunityRecord['mentionType']) =>
+    data.records.some(
+      (r) =>
+        r.kind === 'mention' &&
+        r.mentionType === type &&
+        (source === 'all' || r.source === source),
+    )
+      ? records.filter((r) => r.mentionType === type).length
+      : null;
   const ready =
     data.records.some(
       (r) => r.kind === kind && (source === 'all' || r.source === source),
@@ -1116,29 +1150,49 @@ export function CommunityPage({
   async function sync(older = false) {
     setBusy(true);
     data.setError('');
-    const errors = [];
-    for (const s of mode === 'mentions'
-      ? ['instagram']
-      : source === 'all'
-        ? ['facebook', 'instagram']
-        : [source]) {
-      if (
-        older &&
-        !data.statuses.some(
+    setSyncResults([]);
+    const targets = communitySyncSources(source).filter(
+      (s) =>
+        !older ||
+        data.statuses.some(
           (status) =>
-            status.source === s && status.kind === kind && status.more,
-        )
-      )
-        continue;
-      try {
-        await communityAction({ op: 'sync', source: s, kind, continue: older });
-      } catch (e) {
-        errors.push((e as Error).message);
-      }
-      data.refresh();
-    }
+            status.source === s &&
+            (status.kind === kind ||
+              (mode === 'mentions' && status.kind === 'message')) &&
+            status.more,
+        ),
+    );
+    await Promise.allSettled(
+      targets.map(async (s) => {
+        try {
+          const result = await communityAction({
+            op: 'sync',
+            source: s,
+            kind,
+            continue: older,
+          });
+          setSyncResults((items) => [
+            ...items,
+            {
+              source: s,
+              detail: result.skipped
+                ? 'An import is already running. Saved records stay visible while it completes.'
+                : (result.needsAttention ? 'Access needs attention. ' : '') +
+                  Number(result.imported || 0) +
+                  ' records returned. ' +
+                  (result.detail || ''),
+            },
+          ]);
+        } catch (e) {
+          setSyncResults((items) => [
+            ...items,
+            { source: s, detail: (e as Error).message },
+          ]);
+        }
+        data.refresh();
+      }),
+    );
     data.refresh();
-    if (errors.length) data.setError(errors.join(' '));
     setBusy(false);
   }
   const conversations = (
@@ -1198,7 +1252,7 @@ export function CommunityPage({
           <Settings2 size={16} />
           Access & import
         </button>
-        {(mode === 'inbox' || source === 'all' || source === 'instagram') && (
+        {
           <button
             className="primary"
             disabled={busy}
@@ -1208,13 +1262,22 @@ export function CommunityPage({
             {busy
               ? 'Importing…'
               : mode === 'inbox'
-                ? 'Sync inboxes'
-                : 'Import Instagram tags'}
+                ? source === 'all'
+                  ? 'Sync all inboxes'
+                  : 'Sync ' +
+                    COMMUNITY_NAMES[source as CommunitySource] +
+                    ' inbox'
+                : source === 'all'
+                  ? 'Sync all mentions'
+                  : 'Sync ' +
+                    COMMUNITY_NAMES[source as CommunitySource] +
+                    ' mentions'}
           </button>
-        )}
+        }
         {data.statuses.some(
           (s) =>
-            s.kind === kind &&
+            (s.kind === kind ||
+              (mode === 'mentions' && s.kind === 'message')) &&
             s.more &&
             (source === 'all' || s.source === source),
         ) && (
@@ -1225,7 +1288,7 @@ export function CommunityPage({
           >
             {mode === 'inbox'
               ? 'Load older conversations'
-              : 'Continue tagged-post import'}
+              : 'Load older mentions'}
           </button>
         )}
         {mode === 'inbox' && (
@@ -1234,6 +1297,24 @@ export function CommunityPage({
           </button>
         )}
       </div>
+      <AccessStatus statuses={data.statuses} kind={kind} source={source} />
+      {!!syncResults.length && (
+        <div
+          className="community-coverage"
+          role="status"
+          aria-label="Results of this sync"
+        >
+          {syncResults.map((result) => (
+            <details key={result.source}>
+              <summary>
+                <strong>{COMMUNITY_NAMES[result.source]}</strong> ·{' '}
+                {result.detail.split('. ')[0]}
+              </summary>
+              <p>{result.detail}</p>
+            </details>
+          ))}
+        </div>
+      )}
       {data.error && (
         <div className="save-error" role="alert">
           {data.error}
@@ -1274,12 +1355,23 @@ export function CommunityPage({
           />
           <Activity records={model.received} timezone={timezone} />
           <div className="inbox-coverage-note">
-            <strong>Facebook + Instagram · one inbox</strong>
+            <strong>
+              {source === 'all'
+                ? 'All captured conversations · one inbox'
+                : COMMUNITY_NAMES[source as CommunitySource] + ' inbox'}
+            </strong>
             <p>
-              All API-accessible folders are requested together. Instagram
-              excludes Requests inactive for 30 days and restricts older message
-              details. Use a Meta JSON download to add available older history.
-              Folder names are shown only when supplied in your import.
+              {source === 'tiktok' ? (
+                'TikTok profile and video statistics do not include messages. Business messaging approval and account authorization are separate. Imported message files appear here once supplied.'
+              ) : (
+                <>
+                  All API-accessible folders are requested together. Instagram
+                  excludes Requests inactive for 30 days and restricts older
+                  message details. Use a Meta JSON download to add available
+                  older history. Folder names are shown only when supplied in
+                  your import.
+                </>
+              )}
             </p>
           </div>
           <section className="surface community-panel">
@@ -1459,8 +1551,11 @@ export function CommunityPage({
               ))
             ) : (
               <p className="community-empty">
-                No matching conversations have been captured. Check access or
-                import an export to populate this view.
+                {data.loading
+                  ? 'Loading saved conversations…'
+                  : model.conversations.length
+                    ? 'No conversations match these filters. Choose All conversations to include older imported messages, or clear the profile and folder filters.'
+                    : 'No conversations have been imported for this platform. Open its access status above to see the current blocker, or use Access & import.'}
               </p>
             )}
             {conversations.length > 200 && (
@@ -1477,50 +1572,60 @@ export function CommunityPage({
             items={[
               {
                 label: 'Story mentions',
-                value: records.some((r) => r.mentionType === 'story_mention')
-                  ? records.filter((r) => r.mentionType === 'story_mention')
-                      .length
-                  : null,
-                detail: 'Explicit tags in a user’s story · selected dates',
+                value: mentionCount('story_mention'),
+                detail: 'Explicit story events · ' + mentionDates.toLowerCase(),
               },
               {
                 label: 'Story reposts',
-                value: records.some((r) => r.mentionType === 'story_repost')
-                  ? records.filter((r) => r.mentionType === 'story_repost')
-                      .length
-                  : null,
+                value: mentionCount('story_repost'),
                 detail: 'Explicit repost records · not inferred from a share',
               },
               {
                 label: 'Post mentions',
-                value: records.some((r) => r.mentionType === 'post_mention')
-                  ? records.filter((r) => r.mentionType === 'post_mention')
-                      .length
-                  : null,
+                value: mentionCount('post_mention'),
                 detail: 'Tracked separately from stories',
               },
               {
                 label: 'Tagged posts',
-                value: ready
-                  ? records.filter((r) => r.mentionType === 'post_tag').length
-                  : null,
+                value: mentionCount('post_tag'),
                 detail:
-                  'Photo/video tags returned by Instagram · selected dates',
+                  'Platform-supplied post tags · ' + mentionDates.toLowerCase(),
               },
             ]}
           />
-          <Activity records={records} timezone={timezone} />
+          <div className="community-toolbar">
+            <Picker
+              label="Mention type"
+              value={mentionType}
+              onChange={setMentionType}
+              options={[
+                'All types',
+                'Story mentions',
+                'Story reposts',
+                'Post mentions',
+                'Tagged posts',
+              ]}
+            />
+            <Picker
+              label="Mention dates"
+              value={mentionDates}
+              onChange={setMentionDates}
+              options={['Selected dates', 'All imported history']}
+            />
+          </div>
+          <Activity records={visibleMentions} timezone={timezone} />
           <section className="surface community-panel">
             <h2>Mention history</h2>
             <p className="source-asof">
-              Tagged-post import retrieves available historical photo/video
-              tags. Story mentions, caption mentions and reposts remain
-              separate; a general share is not a story repost. Automatic
-              story-event collection is not active. A dash means coverage is
-              unavailable, not that nobody mentioned you.
+              Sync checks available Facebook and Instagram tagged posts and
+              explicit story events in readable messages. TikTok needs its
+              separate Business access. Caption mentions and story reposts
+              require explicit records; shares are not counted as reposts.
+              Continuous story monitoring is not configured. A dash means no
+              verified records of that type have been imported.
             </p>
-            {records.length ? (
-              records.slice(0, 300).map((r) => (
+            {visibleMentions.length ? (
+              visibleMentions.slice(0, 300).map((r) => (
                 <article
                   className="conversation-card"
                   key={r.source + ':' + r.accountId + ':' + r.id}
@@ -1548,10 +1653,12 @@ export function CommunityPage({
               ))
             ) : (
               <p className="community-empty">
-                No mention records imported for these dates.
+                {data.loading
+                  ? 'Loading saved mentions…'
+                  : 'No imported mentions match these filters. Check the platform access status above, or choose All imported history to include older records.'}
               </p>
             )}
-            {records.length > 300 && (
+            {visibleMentions.length > 300 && (
               <p>
                 Showing the newest 300 matching mentions. Select a shorter date
                 range to see others.
@@ -1560,7 +1667,6 @@ export function CommunityPage({
           </section>
         </>
       )}
-      <AccessStatus statuses={data.statuses} kind={kind} source={source} />
       {archive && (
         <MetaArchiveImport
           onClose={() => setArchive(false)}

@@ -10,6 +10,17 @@ export const marketingSessions = sqliteTable('marketing_sessions', {
   owner: text('owner').notNull(),
   expiresAt: integer('expires_at').notNull(),
 });
+export const refreshJobs = sqliteTable('refresh_jobs', {
+  owner: text('owner').primaryKey(),
+  id: text('id').notNull(),
+  origin: text('origin').notNull(),
+  status: text('status').notNull(),
+  payload: text('payload').notNull(),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+  lease: text('lease'),
+  leaseUntil: integer('lease_until').notNull().default(0),
+});
 export const marketingLoginLimits = sqliteTable(
   'marketing_login_limits',
   {

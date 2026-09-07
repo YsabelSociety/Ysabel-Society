@@ -45,6 +45,8 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
+import { SyncDetails } from './sync-details';
 import {
   Command,
   CommandDialog,
@@ -487,553 +489,580 @@ export default function Workspace({
       h < 12 ? 'Good morning.' : h < 18 ? 'Good afternoon.' : 'Good evening.',
     );
   }, [data.settings.timezone]);
+  const intro = useWorkspaceIntro(
+    !!data.error || !!source.error || (data.ready && !source.loading),
+  );
   return (
-    <TooltipProvider>
-      <SidebarProvider
-        className="workspace-shell"
-        data-section={page}
-        mobileBreakpoint={640}
-        open={true}
-      >
-        <Sidebar
-          className="ys-sidebar"
-          side="left"
-          aria-label="Workspace navigation"
-        >
-          <SidebarHeader>
-            <button
-              onClick={() => navigate('Overview')}
-              aria-label="Ysabel Society overview"
+    <>
+      {intro.visible && <WorkspaceIntro leaving={intro.leaving} />}
+      <div inert={intro.visible} aria-hidden={intro.visible || undefined}>
+        <TooltipProvider>
+          <SidebarProvider
+            className="workspace-shell"
+            data-section={page}
+            mobileBreakpoint={640}
+            open={true}
+          >
+            <Sidebar
+              className="ys-sidebar"
+              side="left"
+              aria-label="Workspace navigation"
             >
-              <BrandLogo />
-            </button>
-            <div className="brand-caption">DIGITAL INTELLIGENCE</div>
-          </SidebarHeader>
-          <SidebarContent>
-            {groups.map((group) => (
-              <SidebarGroup key={group.label}>
-                <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
-                <SidebarMenu>
-                  {group.items.map(([name, Icon]: any) => (
-                    <SidebarMenuItem key={name}>
-                      <SidebarMenuButton
-                        data-nav={name}
-                        isActive={page === name}
-                        onClick={() => navigate(name)}
-                      >
-                        <Icon size={17} />
-                        <span>{name}</span>
-                        {page === name && <span className="nav-dot" />}
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </SidebarGroup>
-            ))}
-          </SidebarContent>
-          <SidebarFooter>
-            <button
-              className="sync-status"
-              onClick={() => navigate('Connections')}
-            >
-              <i />
-              {source.mode === 'live'
-                ? source.sourceStatus.some(
-                    (s) => s.status === 'Needs Attention',
-                  )
-                  ? 'Connections need attention'
-                  : 'Source reports'
-                : 'Demo workspace'}
-              <span>
-                {source.mode === 'live'
-                  ? 'Check imports and access'
-                  : 'Sample data · 5 Sep 2026'}
-              </span>
-            </button>
-            <button className="profile" onClick={() => navigate('Admin Panel')}>
-              <span className="avatar">YS</span>
-              <span>
-                Ysabel Society<small>Open admin panel</small>
-              </span>
-              <ChevronRight size={14} />
-            </button>
-          </SidebarFooter>
-        </Sidebar>
-        <main className="workspace">
-          <header className="topbar">
-            <div className="workspace-picker">
-              <SidebarTrigger
-                className="mobile-trigger"
-                aria-label="Open workspace sidebar"
-              />
-              <span className="workspace-location">{page}</span>
-            </div>
-            <div className="top-actions">
-              <button
-                className="secondary sync-now"
-                disabled={!data.ready || syncState.running}
-                onClick={() => void syncState.sync()}
-                aria-label="Sync all connected platforms now"
-              >
-                <RefreshCw
-                  size={16}
-                  className={syncState.running ? 'sync-spinning' : ''}
-                />
-                {syncState.running ? 'Syncing…' : 'Sync now'}
-              </button>
-              <button
-                className="admin-launch"
-                onClick={async () => {
-                  const response = await fetch('/marketingdata/api/session', {
-                    method: 'DELETE',
-                  });
-                  if (response.ok) location.assign('/marketingdata/login');
-                }}
-                aria-label="Sign out"
-              >
-                Sign out
-              </button>
-              <button
-                className="admin-launch"
-                onClick={() => navigate('Admin Panel')}
-                aria-label="Open admin panel"
-                aria-current={page === 'Admin Panel' ? 'page' : undefined}
-              >
-                <ShieldCheck size={16} />
-                <span>Admin panel</span>
-              </button>
-              <button
-                className="demo-badge"
-                onClick={() => navigate('Data Sources')}
-              >
-                <i />
-                {source.mode === 'live' ? 'Live sources' : 'Demo Data'}
-              </button>
-              <button
-                className="search-button"
-                aria-label="Search workspace"
-                onClick={() => setCommand(true)}
-              >
-                <Search size={17} />
-                <span>Search anything</span>
-                <kbd>⌘ K</kbd>
-              </button>
-              <button
-                className="avatar small"
-                aria-label="Open admin panel"
-                onClick={() => navigate('Admin Panel')}
-              >
-                YS
-              </button>
-            </div>
-          </header>
-          <div className="page-body">
-            <div className="breadcrumb">
-              Workspace <ChevronRight size={12} />
-              <span>{page}</span>
-            </div>
-            <div className="page-heading">
-              <div>
-                <div className="eyebrow">
-                  <Sun size={13} />{' '}
-                  {page === 'Overview'
-                    ? 'YOUR DAILY PERSPECTIVE'
-                    : 'YSABEL SOCIETY / ' + page.toUpperCase()}
-                </div>
-                <h1>{heading[0]}</h1>
-                <p>
-                  {page === 'Overview' ? greeting + ' ' : ''}
-                  {heading[1]}
-                </p>
-              </div>
-              {page !== 'Admin Panel' && (
+              <SidebarHeader>
                 <button
-                  className="secondary"
-                  onClick={() => setExportOpen(true)}
+                  onClick={() => navigate('Overview')}
+                  aria-label="Ysabel Society overview"
                 >
-                  <ArrowDownToLine size={15} /> Export report
+                  <BrandLogo />
                 </button>
-              )}
-            </div>
-            {page !== 'Admin Panel' && (
-              <div className="filter-row">
-                <div className="inline-controls">
-                  <CalendarDays size={15} />
-                  <Picker
-                    value={date}
-                    onChange={setDate}
-                    options={dateOptions}
-                    label="Date range"
-                  />
-                  <span className="date-caption">
-                    {new Date(range.start + 'T12:00:00Z').toLocaleDateString(
-                      'en',
-                      { month: 'short', day: 'numeric' },
-                    )}{' '}
-                    –{' '}
-                    {new Date(range.end + 'T12:00:00Z').toLocaleDateString(
-                      'en',
-                      {
-                        month: 'short',
-                        day: 'numeric',
-                        year: 'numeric',
-                      },
-                    )}
+                <div className="brand-caption">DIGITAL INTELLIGENCE</div>
+              </SidebarHeader>
+              <SidebarContent>
+                {groups.map((group) => (
+                  <SidebarGroup key={group.label}>
+                    <SidebarGroupLabel>{group.label}</SidebarGroupLabel>
+                    <SidebarMenu>
+                      {group.items.map(([name, Icon]: any) => (
+                        <SidebarMenuItem key={name}>
+                          <SidebarMenuButton
+                            data-nav={name}
+                            isActive={page === name}
+                            onClick={() => navigate(name)}
+                          >
+                            <Icon size={17} />
+                            <span>{name}</span>
+                            {page === name && <span className="nav-dot" />}
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  </SidebarGroup>
+                ))}
+              </SidebarContent>
+              <SidebarFooter>
+                <button
+                  className="sync-status"
+                  onClick={() => navigate('Connections')}
+                >
+                  <i />
+                  {source.mode === 'live'
+                    ? source.sourceStatus.some(
+                        (s) => s.status === 'Needs Attention',
+                      )
+                      ? 'Connections need attention'
+                      : 'Source reports'
+                    : 'Demo workspace'}
+                  <span>
+                    {source.mode === 'live'
+                      ? 'Check imports and access'
+                      : 'Sample data · 5 Sep 2026'}
                   </span>
-                  <span className="divider" />
-                  <GitCompareArrows size={15} />
-                  <Picker
-                    value={comparison}
-                    onChange={setComparison}
-                    options={[
-                      'Previous Period',
-                      'Previous Month',
-                      'Previous Year',
-                      'No Comparison',
-                    ]}
-                    label="Comparison"
+                </button>
+                <button
+                  className="profile"
+                  onClick={() => navigate('Admin Panel')}
+                >
+                  <span className="avatar">YS</span>
+                  <span>
+                    Ysabel Society<small>Open admin panel</small>
+                  </span>
+                  <ChevronRight size={14} />
+                </button>
+              </SidebarFooter>
+            </Sidebar>
+            <main className="workspace">
+              <header className="topbar">
+                <div className="workspace-picker">
+                  <SidebarTrigger
+                    className="mobile-trigger"
+                    aria-label="Open workspace sidebar"
                   />
-                  {date !== 'Last 7 Days' && (
+                  <span className="workspace-location">{page}</span>
+                </div>
+                <div className="top-actions">
+                  <button
+                    className="secondary sync-now"
+                    disabled={!data.ready || syncState.running}
+                    onClick={() => void syncState.sync()}
+                    aria-label="Sync all connected platforms now"
+                  >
+                    <RefreshCw
+                      size={16}
+                      className={syncState.running ? 'sync-spinning' : ''}
+                    />
+                    {syncState.running ? 'Syncing…' : 'Sync now'}
+                  </button>
+                  <button
+                    className="admin-launch"
+                    onClick={async () => {
+                      const response = await fetch(
+                        '/marketingdata/api/session',
+                        {
+                          method: 'DELETE',
+                        },
+                      );
+                      if (response.ok) location.assign('/marketingdata/login');
+                    }}
+                    aria-label="Sign out"
+                  >
+                    Sign out
+                  </button>
+                  <button
+                    className="admin-launch"
+                    onClick={() => navigate('Admin Panel')}
+                    aria-label="Open admin panel"
+                    aria-current={page === 'Admin Panel' ? 'page' : undefined}
+                  >
+                    <ShieldCheck size={16} />
+                    <span>Admin panel</span>
+                  </button>
+                  <button
+                    className="demo-badge"
+                    onClick={() => navigate('Data Sources')}
+                  >
+                    <i />
+                    {source.mode === 'live' ? 'Live sources' : 'Demo Data'}
+                  </button>
+                  <button
+                    className="search-button"
+                    aria-label="Search workspace"
+                    onClick={() => setCommand(true)}
+                  >
+                    <Search size={17} />
+                    <span>Search anything</span>
+                    <kbd>⌘ K</kbd>
+                  </button>
+                  <button
+                    className="avatar small"
+                    aria-label="Open admin panel"
+                    onClick={() => navigate('Admin Panel')}
+                  >
+                    YS
+                  </button>
+                </div>
+              </header>
+              <div className="page-body">
+                <div className="breadcrumb">
+                  Workspace <ChevronRight size={12} />
+                  <span>{page}</span>
+                </div>
+                <div className="page-heading">
+                  <div>
+                    <div className="eyebrow">
+                      <Sun size={13} />{' '}
+                      {page === 'Overview'
+                        ? 'YOUR DAILY PERSPECTIVE'
+                        : 'YSABEL SOCIETY / ' + page.toUpperCase()}
+                    </div>
+                    <h1>{heading[0]}</h1>
+                    <p>
+                      {page === 'Overview' ? greeting + ' ' : ''}
+                      {heading[1]}
+                    </p>
+                  </div>
+                  {page !== 'Admin Panel' && (
                     <button
-                      className="clear-filters"
-                      onClick={() => {
-                        setDate('Last 7 Days');
-                        setComparison('Previous Period');
-                      }}
+                      className="secondary"
+                      onClick={() => setExportOpen(true)}
                     >
-                      Clear filters <X size={11} />
+                      <ArrowDownToLine size={15} /> Export report
                     </button>
                   )}
                 </div>
-                <button
-                  className="freshness"
-                  onClick={() => navigate('Connections')}
-                >
-                  <span className="small-dot" />{' '}
-                  {source.loading
-                    ? 'Updating…'
-                    : source.mode === 'live'
-                      ? source.coverage.length
-                        ? 'Imported source data'
-                        : 'No imported data yet'
-                      : 'Preview data'}
-                </button>
-              </div>
-            )}
-            {page !== 'Admin Panel' && date === 'Custom Range' && (
-              <div className="custom-dates">
-                <label>
-                  From
-                  <input
-                    type="date"
-                    value={custom.start}
-                    max={custom.end}
-                    onChange={(e) =>
-                      e.target.value &&
-                      e.target.value <= custom.end &&
-                      setCustom({ ...custom, start: e.target.value })
-                    }
-                  />
-                </label>
-                <label>
-                  To
-                  <input
-                    type="date"
-                    value={custom.end}
-                    min={custom.start}
-                    onChange={(e) =>
-                      e.target.value &&
-                      e.target.value >= custom.start &&
-                      setCustom({ ...custom, end: e.target.value })
-                    }
-                  />
-                </label>
-              </div>
-            )}
-            {data.error && (
-              <div className="save-error" role="alert">
-                <InfoSymbol />
-                {data.error}
-                <button onClick={() => void data.load()}>Retry</button>
-              </div>
-            )}
-            {source.mode === 'live' && syncState.status && (
-              <div className="sync-feedback" role="status" aria-live="polite">
-                <span>{syncState.status}</span>
-                {syncState.lastChecked && (
-                  <small>
-                    Checked{' '}
-                    {new Date(syncState.lastChecked).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </small>
-                )}
-              </div>
-            )}
-            {source.error && (
-              <div className="save-error" role="alert">
-                {source.error}
-              </div>
-            )}
-            <div className="view-content" key={page}>
-              {page === 'Admin Panel' && (
-                <AdminPanel
-                  data={data}
-                  onSelect={setPost}
-                  onNavigate={navigate}
-                />
-              )}
-              {page === 'Overview' && (
-                <Overview
-                  live={source.mode === 'live'}
-                  range={range}
-                  rows={rows}
-                  previous={previous}
-                  setPage={navigate}
-                  posts={visiblePosts}
-                  onSelect={setPost}
-                  onMetric={setMetric}
-                />
-              )}
-              {page === 'Performance' && (
-                <PerformancePage
-                  rows={rows}
-                  previous={previous}
-                  data={analyticsData}
-                  loading={source.loading}
-                  range={range}
-                  unit={unit}
-                  live={source.mode === 'live'}
-                  websiteConnection={source.sourceStatus.find(
-                    (s) => s.channel === 'Website',
-                  )}
-                  websiteRealtime={source.websiteRealtime}
-                  tables={source.tables}
-                />
-              )}
-              {page === 'Content Intelligence' && (
-                <ContentIntelligence
-                  data={analyticsData}
-                  unit={unit}
-                  range={range}
-                  onSelect={setPost}
-                />
-              )}
-              {page === 'Audience' && (
-                <AudiencePage
-                  range={range}
-                  rows={rows}
-                  previous={previous}
-                  live={source.mode === 'live'}
-                  tables={source.tables}
-                  loading={source.loading}
-                />
-              )}
-              {page === 'Website' && (
-                <WebsitePage
-                  rows={rows}
-                  previous={previous}
-                  live={source.mode === 'live'}
-                  status={source.sourceStatus.find(
-                    (s) => s.channel === 'Website',
-                  )}
-                  realtime={source.websiteRealtime}
-                />
-              )}
-              {page === 'Website' && source.mode === 'live' && (
-                <SourceReports
-                  tables={source.tables}
-                  group="website"
-                  title="Website source reports"
-                />
-              )}
-              {page === 'Google Business' && (
-                <>
-                  <GoogleReviews
-                    range={range}
-                    timezone={data.settings.timezone}
-                  >
-                    {source.mode === 'live' && (
-                      <SourceReports
-                        tables={source.tables}
-                        group="google"
-                        title="Google Business reports"
+                {page !== 'Admin Panel' && (
+                  <div className="filter-row">
+                    <div className="inline-controls">
+                      <CalendarDays size={15} />
+                      <Picker
+                        value={date}
+                        onChange={setDate}
+                        options={dateOptions}
+                        label="Date range"
                       />
+                      <span className="date-caption">
+                        {new Date(
+                          range.start + 'T12:00:00Z',
+                        ).toLocaleDateString('en', {
+                          month: 'short',
+                          day: 'numeric',
+                        })}{' '}
+                        –{' '}
+                        {new Date(range.end + 'T12:00:00Z').toLocaleDateString(
+                          'en',
+                          {
+                            month: 'short',
+                            day: 'numeric',
+                            year: 'numeric',
+                          },
+                        )}
+                      </span>
+                      <span className="divider" />
+                      <GitCompareArrows size={15} />
+                      <Picker
+                        value={comparison}
+                        onChange={setComparison}
+                        options={[
+                          'Previous Period',
+                          'Previous Month',
+                          'Previous Year',
+                          'No Comparison',
+                        ]}
+                        label="Comparison"
+                      />
+                      {date !== 'Last 7 Days' && (
+                        <button
+                          className="clear-filters"
+                          onClick={() => {
+                            setDate('Last 7 Days');
+                            setComparison('Previous Period');
+                          }}
+                        >
+                          Clear filters <X size={11} />
+                        </button>
+                      )}
+                    </div>
+                    <button
+                      className="freshness"
+                      onClick={() => navigate('Connections')}
+                    >
+                      <span className="small-dot" />{' '}
+                      {source.loading
+                        ? 'Updating…'
+                        : source.mode === 'live'
+                          ? source.coverage.length
+                            ? 'Imported source data'
+                            : 'No imported data yet'
+                          : 'Preview data'}
+                    </button>
+                  </div>
+                )}
+                {page !== 'Admin Panel' && date === 'Custom Range' && (
+                  <div className="custom-dates">
+                    <label>
+                      From
+                      <input
+                        type="date"
+                        value={custom.start}
+                        max={custom.end}
+                        onChange={(e) =>
+                          e.target.value &&
+                          e.target.value <= custom.end &&
+                          setCustom({ ...custom, start: e.target.value })
+                        }
+                      />
+                    </label>
+                    <label>
+                      To
+                      <input
+                        type="date"
+                        value={custom.end}
+                        min={custom.start}
+                        onChange={(e) =>
+                          e.target.value &&
+                          e.target.value >= custom.start &&
+                          setCustom({ ...custom, end: e.target.value })
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
+                {data.error && (
+                  <div className="save-error" role="alert">
+                    <InfoSymbol />
+                    {data.error}
+                    <button onClick={() => void data.load()}>Retry</button>
+                  </div>
+                )}
+                {source.mode === 'live' && syncState.status && (
+                  <div
+                    className="sync-feedback"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <span>{syncState.status}</span>
+                    {syncState.lastChecked && (
+                      <small>
+                        Checked{' '}
+                        {new Date(syncState.lastChecked).toLocaleTimeString(
+                          [],
+                          {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          },
+                        )}
+                      </small>
                     )}
-                  </GoogleReviews>
-                </>
-              )}
-              {(page === 'Inbox' || page === 'Mentions') && (
-                <CommunityPage
-                  mode={page === 'Inbox' ? 'inbox' : 'mentions'}
-                  range={range}
-                  timezone={data.settings.timezone}
+                  </div>
+                )}
+                <SyncDetails
+                  job={syncState.job}
+                  schedule={syncState.schedule}
                 />
-              )}
-              {page === 'Insights' && (
-                <InsightsPage
-                  live={source.mode === 'live'}
-                  rows={rows}
-                  previous={previous}
-                  posts={visiblePosts}
-                  onNavigate={navigate}
-                />
-              )}
-              {page === 'Comparisons' && (
-                <ComparisonsPage
-                  range={range}
-                  rows={rows}
-                  previous={previous}
-                />
-              )}
-              {page === 'Reports' && (
-                <ReportsPage data={data} range={range} unit={unit} />
-              )}
-              {page === 'Connections' && (
-                <ConnectionsPage notify={data.notify} />
-              )}
-              {page === 'Data Sources' && <DataSourcesPage />}
-              {page === 'Settings' && <SettingsPage data={data} />}
-            </div>
-            <footer className="page-footer">
-              <span>
-                YSABEL SOCIETY <i /> DIGITAL INTELLIGENCE
-              </span>
-              <span>Private by design. Informed by data.</span>
-            </footer>
-          </div>
-        </main>
-        <CommandDialog
-          open={command}
-          onOpenChange={setCommand}
-          title="Ysabel Society command search"
-          description="Navigate, search content, or create a report."
-        >
-          <Command>
-            <CommandInput placeholder="Where would you like to go?" />
-            <CommandList>
-              <CommandEmpty>No matching pages or content.</CommandEmpty>
-              <CommandGroup heading="Workspace">
-                {names.map((n) => (
-                  <CommandItem
-                    key={n}
-                    value={'Go to ' + n}
-                    onSelect={() => navigate(n)}
-                  >
-                    {n}
-                    <ArrowUpRight size={13} />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-              <CommandGroup heading="Content">
-                {data.posts.map((p) => (
-                  <CommandItem
-                    key={p.id}
-                    value={p.title + ' ' + p.platform + ' ' + p.campaign}
-                    onSelect={() => {
-                      setPost(p);
-                      setCommand(false);
-                    }}
-                  >
-                    {p.title}
-                    <small>{p.platform}</small>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-              <CommandGroup heading="Actions">
-                <CommandItem
-                  onSelect={() => {
-                    setExportOpen(true);
-                    setCommand(false);
-                  }}
-                >
-                  Create an export
-                </CommandItem>
-                {dateOptions.map((d) => (
-                  <CommandItem
-                    key={d}
-                    value={'Date range ' + d}
-                    onSelect={() => {
-                      setDate(d);
-                      setCommand(false);
-                    }}
-                  >
-                    Change date range: {d}
-                  </CommandItem>
-                ))}
-                <CommandItem onSelect={() => navigate('Connections')}>
-                  Sync data / Connections
-                </CommandItem>
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </CommandDialog>
-        <Dialog open={!!metric} onOpenChange={(v) => !v && setMetric(null)}>
-          <DialogContent className="metric-dialog">
-            <DialogHeader>
-              <DialogTitle>
-                {METRICS.find((m) => m.key === metric)?.label}
-              </DialogTitle>
-              <DialogDescription>
-                {METRICS.find((m) => m.key === metric)?.source}
-              </DialogDescription>
-            </DialogHeader>
-            <strong className="metric-detail-value">
-              {metric
-                ? metricAvailable(rows, metric)
-                  ? compact(total(rows, metric as any))
-                  : 'Not supplied'
-                : ''}
-            </strong>
-            <p className="muted">
-              {METRICS.find((m) => m.key === metric)?.definition}
-            </p>
-            <div className="availability-row">
-              <span>Selected period</span>
-              <span>
-                {range.start} — {range.end}
-              </span>
-            </div>
-            <div className="availability-row">
-              <span>Comparison value</span>
-              <span>
-                {metric && metricAvailable(previous, metric)
-                  ? compact(total(previous, metric as any))
-                  : 'No comparison selected'}
-              </span>
-            </div>
-            <p className="footnote">
-              {source.mode === 'live'
-                ? 'Connected observations only. Unavailable measures stay blank in CSV exports.'
-                : 'Deterministic demo observations. All source counts remain accessible in CSV exports.'}
-            </p>
-          </DialogContent>
-        </Dialog>
-        <PostDetail
-          post={
-            post ? (data.posts.find((p) => p.id === post.id) ?? post) : null
-          }
-          onClose={() => setPost(null)}
-          data={data}
-        />
-        <ExportDialog
-          open={exportOpen}
-          onClose={() => setExportOpen(false)}
-          rows={rows}
-          posts={visiblePosts}
-          range={range}
-          unit={unit}
-          mode={source.mode}
-        />
-        {data.notice && (
-          <div className="toast" role="status">
-            <Check size={15} />
-            {data.notice}
-          </div>
-        )}
-      </SidebarProvider>
-    </TooltipProvider>
+                {source.error && (
+                  <div className="save-error" role="alert">
+                    {source.error}
+                  </div>
+                )}
+                <div className="view-content" key={page}>
+                  {page === 'Admin Panel' && (
+                    <AdminPanel
+                      data={data}
+                      onSelect={setPost}
+                      onNavigate={navigate}
+                    />
+                  )}
+                  {page === 'Overview' && (
+                    <Overview
+                      live={source.mode === 'live'}
+                      range={range}
+                      rows={rows}
+                      previous={previous}
+                      setPage={navigate}
+                      posts={visiblePosts}
+                      onSelect={setPost}
+                      onMetric={setMetric}
+                    />
+                  )}
+                  {page === 'Performance' && (
+                    <PerformancePage
+                      rows={rows}
+                      previous={previous}
+                      data={analyticsData}
+                      loading={source.loading}
+                      range={range}
+                      unit={unit}
+                      live={source.mode === 'live'}
+                      websiteConnection={source.sourceStatus.find(
+                        (s) => s.channel === 'Website',
+                      )}
+                      websiteRealtime={source.websiteRealtime}
+                      tables={source.tables}
+                    />
+                  )}
+                  {page === 'Content Intelligence' && (
+                    <ContentIntelligence
+                      data={analyticsData}
+                      unit={unit}
+                      range={range}
+                      onSelect={setPost}
+                    />
+                  )}
+                  {page === 'Audience' && (
+                    <AudiencePage
+                      range={range}
+                      rows={rows}
+                      previous={previous}
+                      live={source.mode === 'live'}
+                      tables={source.tables}
+                      loading={source.loading}
+                    />
+                  )}
+                  {page === 'Website' && (
+                    <WebsitePage
+                      rows={rows}
+                      previous={previous}
+                      live={source.mode === 'live'}
+                      status={source.sourceStatus.find(
+                        (s) => s.channel === 'Website',
+                      )}
+                      realtime={source.websiteRealtime}
+                    />
+                  )}
+                  {page === 'Website' && source.mode === 'live' && (
+                    <SourceReports
+                      tables={source.tables}
+                      group="website"
+                      title="Website source reports"
+                    />
+                  )}
+                  {page === 'Google Business' && (
+                    <>
+                      <GoogleReviews
+                        range={range}
+                        timezone={data.settings.timezone}
+                      >
+                        {source.mode === 'live' && (
+                          <SourceReports
+                            tables={source.tables}
+                            group="google"
+                            title="Google Business reports"
+                          />
+                        )}
+                      </GoogleReviews>
+                    </>
+                  )}
+                  {(page === 'Inbox' || page === 'Mentions') && (
+                    <CommunityPage
+                      mode={page === 'Inbox' ? 'inbox' : 'mentions'}
+                      range={range}
+                      timezone={data.settings.timezone}
+                    />
+                  )}
+                  {page === 'Insights' && (
+                    <InsightsPage
+                      live={source.mode === 'live'}
+                      rows={rows}
+                      previous={previous}
+                      posts={visiblePosts}
+                      onNavigate={navigate}
+                    />
+                  )}
+                  {page === 'Comparisons' && (
+                    <ComparisonsPage
+                      range={range}
+                      rows={rows}
+                      previous={previous}
+                    />
+                  )}
+                  {page === 'Reports' && (
+                    <ReportsPage data={data} range={range} unit={unit} />
+                  )}
+                  {page === 'Connections' && (
+                    <ConnectionsPage notify={data.notify} />
+                  )}
+                  {page === 'Data Sources' && <DataSourcesPage />}
+                  {page === 'Settings' && <SettingsPage data={data} />}
+                </div>
+                <footer className="page-footer">
+                  <span>
+                    YSABEL SOCIETY <i /> DIGITAL INTELLIGENCE
+                  </span>
+                  <span>Private by design. Informed by data.</span>
+                </footer>
+              </div>
+            </main>
+            <CommandDialog
+              open={command}
+              onOpenChange={setCommand}
+              title="Ysabel Society command search"
+              description="Navigate, search content, or create a report."
+            >
+              <Command>
+                <CommandInput placeholder="Where would you like to go?" />
+                <CommandList>
+                  <CommandEmpty>No matching pages or content.</CommandEmpty>
+                  <CommandGroup heading="Workspace">
+                    {names.map((n) => (
+                      <CommandItem
+                        key={n}
+                        value={'Go to ' + n}
+                        onSelect={() => navigate(n)}
+                      >
+                        {n}
+                        <ArrowUpRight size={13} />
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandGroup heading="Content">
+                    {data.posts.map((p) => (
+                      <CommandItem
+                        key={p.id}
+                        value={p.title + ' ' + p.platform + ' ' + p.campaign}
+                        onSelect={() => {
+                          setPost(p);
+                          setCommand(false);
+                        }}
+                      >
+                        {p.title}
+                        <small>{p.platform}</small>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                  <CommandGroup heading="Actions">
+                    <CommandItem
+                      onSelect={() => {
+                        setExportOpen(true);
+                        setCommand(false);
+                      }}
+                    >
+                      Create an export
+                    </CommandItem>
+                    {dateOptions.map((d) => (
+                      <CommandItem
+                        key={d}
+                        value={'Date range ' + d}
+                        onSelect={() => {
+                          setDate(d);
+                          setCommand(false);
+                        }}
+                      >
+                        Change date range: {d}
+                      </CommandItem>
+                    ))}
+                    <CommandItem onSelect={() => navigate('Connections')}>
+                      Sync data / Connections
+                    </CommandItem>
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </CommandDialog>
+            <Dialog open={!!metric} onOpenChange={(v) => !v && setMetric(null)}>
+              <DialogContent className="metric-dialog">
+                <DialogHeader>
+                  <DialogTitle>
+                    {METRICS.find((m) => m.key === metric)?.label}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {METRICS.find((m) => m.key === metric)?.source}
+                  </DialogDescription>
+                </DialogHeader>
+                <strong className="metric-detail-value">
+                  {metric
+                    ? metricAvailable(rows, metric)
+                      ? compact(total(rows, metric as any))
+                      : 'Not supplied'
+                    : ''}
+                </strong>
+                <p className="muted">
+                  {METRICS.find((m) => m.key === metric)?.definition}
+                </p>
+                <div className="availability-row">
+                  <span>Selected period</span>
+                  <span>
+                    {range.start} — {range.end}
+                  </span>
+                </div>
+                <div className="availability-row">
+                  <span>Comparison value</span>
+                  <span>
+                    {metric && metricAvailable(previous, metric)
+                      ? compact(total(previous, metric as any))
+                      : 'No comparison selected'}
+                  </span>
+                </div>
+                <p className="footnote">
+                  {source.mode === 'live'
+                    ? 'Connected observations only. Unavailable measures stay blank in CSV exports.'
+                    : 'Deterministic demo observations. All source counts remain accessible in CSV exports.'}
+                </p>
+              </DialogContent>
+            </Dialog>
+            <PostDetail
+              post={
+                post ? (data.posts.find((p) => p.id === post.id) ?? post) : null
+              }
+              onClose={() => setPost(null)}
+              data={data}
+            />
+            <ExportDialog
+              open={exportOpen}
+              onClose={() => setExportOpen(false)}
+              rows={rows}
+              posts={visiblePosts}
+              range={range}
+              unit={unit}
+              mode={source.mode}
+            />
+            {data.notice && (
+              <div className="toast" role="status">
+                <Check size={15} />
+                {data.notice}
+              </div>
+            )}
+          </SidebarProvider>
+        </TooltipProvider>
+      </div>
+    </>
   );
 }
 function InfoSymbol() {

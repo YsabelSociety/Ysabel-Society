@@ -225,8 +225,8 @@ function AdminDashboard({
             <button
               className="icon-button"
               disabled={loading}
-              onClick={refresh}
-              aria-label="Refresh connection status"
+              onClick={() => window.dispatchEvent(new Event('ysabel:sync-now'))}
+              aria-label="Sync all connected platforms now"
             >
               <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
             </button>

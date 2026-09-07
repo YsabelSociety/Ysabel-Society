@@ -4,11 +4,13 @@ import { LockKeyhole, ArrowRight } from 'lucide-react';
 import { BrandLogo } from './brand-logo';
 import { LoginScene } from './login-scene';
 import { appPath, safeReturnPath } from '@/lib/app-path';
+import { INTRO_KEY, WorkspaceIntro } from './workspace-intro';
 export default function LoginForm() {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   return (
     <main className="login-shell">
+      {busy && <WorkspaceIntro signingIn />}
       <LoginScene />
       <section className="login-access">
         <div className="login-card">
@@ -36,6 +38,11 @@ export default function LoginForm() {
                   throw new Error(
                     body.error || 'Sign-in is temporarily unavailable.',
                   );
+                try {
+                  sessionStorage.setItem(INTRO_KEY, String(Date.now()));
+                } catch {
+                  /* Optional transition marker. */
+                }
                 location.assign(
                   safeReturnPath(
                     new URLSearchParams(location.search).get('returnTo'),

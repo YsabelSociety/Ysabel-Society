@@ -19,7 +19,7 @@ async function proxy(request: Request) {
     const value = request.headers.get(key);
     if (value) headers.set(key, value);
   }
-  const cookies = (request.headers.get("cookie") || "").split(";").map(v => v.trim()).filter(v => /^(ys_marketing_session|ys_oauth_(google|meta|tiktok))=/.test(v));
+  const cookies = (request.headers.get("cookie") || "").split(";").map(v => v.trim()).filter(v => /^(ys_marketing_(session|admin)|ys_oauth_(google|meta|tiktok))=/.test(v));
   if (cookies.length) headers.set("cookie", cookies.join("; "));
   try {
     const result = await fetch(upstream, {

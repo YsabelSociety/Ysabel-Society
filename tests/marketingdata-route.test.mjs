@@ -34,3 +34,14 @@ test('an interrupted refresh is reported as a failure', async t => {
   assert.equal(response.status, 504);
   assert.match((await response.json()).error, /may still be finishing/);
 });
+
+test('the dashboard PIN grant reaches its server without forwarding other admin cookies', async t => {
+  t.mock.method(globalThis, 'fetch', async (target, init) => {
+    assert.equal(target.pathname, '/marketingdata/api/admin-access');
+    assert.equal(init.headers.get('cookie'), 'ys_marketing_session=sample; ys_marketing_admin=signed-grant');
+    return Response.json({ unlocked: true }, { headers: { 'Set-Cookie': 'ys_marketing_admin=; HttpOnly; Secure; SameSite=Strict; Max-Age=0; Path=/marketingdata' } });
+  });
+  const response = await GET(new Request('https://ysabelsociety.com/marketingdata/api/admin-access', { headers: { cookie: 'ys_marketing_session=sample; ys_marketing_admin=signed-grant; ys_marketing_administrator=unrelated; site_admin=unrelated' } }));
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get('set-cookie'), /HttpOnly; Secure; SameSite=Strict; Max-Age=0/);
+});

@@ -64,11 +64,15 @@ export default function Overview({
           const metricRows =
               m.key === 'search'
                 ? rows.filter((r) => r.channel === 'Google Business')
-                : rows,
+                : m.key === 'sessions'
+                  ? rows.filter((r) => r.channel === 'Website')
+                  : rows,
             previousRows =
               m.key === 'search'
                 ? previous.filter((r) => r.channel === 'Google Business')
-                : previous,
+                : m.key === 'sessions'
+                  ? previous.filter((r) => r.channel === 'Website')
+                  : previous,
             value = total(metricRows, m.key),
             prior = total(previousRows, m.key),
             delta = change(value, prior),
@@ -131,7 +135,7 @@ export default function Overview({
             const c = CHANNELS[idx],
               v = total(
                 rows.filter((r) => r.channel === c),
-                idx === 4 ? 'users' : 'views',
+                idx === 4 ? 'sessions' : 'views',
               );
             return (
               <button
@@ -147,7 +151,7 @@ export default function Overview({
                   <strong>
                     {metricAvailable(
                       rows.filter((r) => r.channel === c),
-                      idx === 4 ? 'users' : 'views',
+                      idx === 4 ? 'sessions' : 'views',
                     )
                       ? compact(v)
                       : idx === 2 && tiktokContent
@@ -156,7 +160,7 @@ export default function Overview({
                   </strong>{' '}
                   {idx === 2 && tiktokContent
                     ? 'lifetime views on videos published in this period.'
-                    : (idx === 4 ? 'daily active users' : 'content views') +
+                    : (idx === 4 ? 'website visits' : 'content views') +
                       ' this period.'}
                 </p>
                 <span>
@@ -188,13 +192,13 @@ export default function Overview({
                 ? 0
                 : total(
                     previous.filter((r) => r.channel === c),
-                    i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                    i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                   ),
             available =
               (c === 'TikTok' && tiktokContent) ||
               metricAvailable(
                 cr,
-                i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
               );
           return (
             <button
@@ -225,7 +229,7 @@ export default function Overview({
                     : compact(
                         total(
                           cr,
-                          i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                          i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                         ),
                       )
                   : '—'}
@@ -237,7 +241,7 @@ export default function Overview({
                     : 'Daily content views'
                   : i === 3
                     ? 'Google Search views'
-                    : 'Daily active users'}
+                    : 'Website visits'}
               </span>
               <div className="channel-footer">
                 {available ? (
@@ -246,18 +250,18 @@ export default function Overview({
                       <span className="positive">
                         {total(
                           cr,
-                          i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                          i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                         ) >= prior
                           ? '↗'
                           : '↘'}{' '}
                         {change(
                           total(
                             cr,
-                            i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                            i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                           ),
                           total(
                             previous.filter((r) => r.channel === c),
-                            i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                            i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                           ),
                         ).toFixed(1)}
                         %
@@ -268,7 +272,7 @@ export default function Overview({
                     <Spark
                       values={series(
                         cr,
-                        i < 3 ? 'views' : i === 3 ? 'search' : 'users',
+                        i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                       ).map((d) => Number(d.total))}
                     />
                   </>

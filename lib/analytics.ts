@@ -16,6 +16,7 @@ export type Metric =
   | 'engagements'
   | 'followers'
   | 'users'
+  | 'sessions'
   | 'actions'
   | 'search'
   | 'conversions';
@@ -61,11 +62,11 @@ export const METRICS: {
       'Latest follower count across social accounts. A person may follow multiple accounts.',
   },
   {
-    key: 'users',
-    label: 'Website users',
+    key: 'sessions',
+    label: 'Website visits',
     source: 'Google Analytics 4',
     definition:
-      'Sum of daily active users in this preview. Multi-day unique totals require a period-level GA4 query.',
+      'Visits to ysabelsociety.com reported as Google Analytics 4 sessions during the selected dates. A returning visitor can start more than one session.',
   },
   {
     key: 'search',

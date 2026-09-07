@@ -1,5 +1,6 @@
 import { CONNECTOR_GROUPS, connectorGroup } from '@/lib/connector-catalog';
 import { recentSyncWindow } from '@/lib/sync-window';
+import { requireAdmin } from '@/lib/server/admin-access';
 import {
   database,
   identity,
@@ -25,7 +26,7 @@ import {
 } from '@/lib/server/connector-sync';
 export async function GET(req: Request) {
   try {
-    const user = await identity(),
+    const user = await requireAdmin(),
       owner = user.userId;
     const links = await database()
       .prepare('SELECT * FROM connector_links WHERE owner=?')
@@ -124,6 +125,7 @@ export async function POST(req: Request) {
         await syncLinkedSource(owner, requireText(body.source, 30), body.range),
       );
     }
+    await requireAdmin(req);
     if (body.op === 'autoSync') {
       if (typeof body.enabled !== 'boolean')
         throw new Error('INPUT:Choose a refresh preference.');

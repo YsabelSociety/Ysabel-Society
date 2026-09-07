@@ -1,4 +1,5 @@
 import { identity, json, apiError } from '@/lib/server/db';
+import { requireAdmin } from '@/lib/server/admin-access';
 import {
   connectInstagramMessaging,
   readInstagramMessaging,
@@ -7,7 +8,7 @@ import {
 
 export async function GET() {
   try {
-    const grant = await readInstagramMessaging((await identity()).userId);
+    const grant = await readInstagramMessaging((await requireAdmin()).userId);
     return json(
       grant
         ? {
@@ -23,7 +24,7 @@ export async function GET() {
 }
 export async function POST(req: Request) {
   try {
-    const owner = (await identity(req)).userId;
+    const owner = (await requireAdmin(req)).userId;
     const raw = await req.text();
     if (raw.length > 10000)
       throw new Error('INPUT:Connection details are too long.');

@@ -1,0 +1,75 @@
+.gate {
+  max-width: 490px;
+  margin: 40px auto 70px;
+  padding: clamp(24px, 5vw, 46px);
+  border-radius: 28px;
+  background: linear-gradient(135deg, #f8fafbd9, #dce5e9c9 55%, #d0dbcdbd);
+  text-align: center;
+}
+.gate h2 {
+  margin: 20px 0 10px;
+  font-size: 1.55rem;
+}
+.gate p {
+  color: #53615b;
+  line-height: 1.6;
+  font-size: 14px;
+}
+.seal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 20px;
+  color: #435c48;
+  background: linear-gradient(145deg, #fff, #c4d2c7);
+  box-shadow: 0 8px 26px #3c584014;
+}
+.gate form {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+.gate label {
+  text-align: left;
+  font-size: 14px;
+}
+.gate input {
+  width: 100%;
+  height: 56px;
+  border: 1px solid #aab9b2;
+  border-radius: 13px;
+  background: #ffffffb0;
+  color: #314437;
+  text-align: center;
+  font-size: 24px;
+  letter-spacing: 12px;
+  padding-left: 12px;
+}
+.gate input:focus-visible {
+  outline: 2px solid #567c65;
+  outline-offset: 3px;
+}
+.gate button {
+  justify-content: center;
+  min-height: 46px;
+}
+.gate .error {
+  margin: 0;
+  color: #9b3d45;
+}
+.unlocked {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+  font-size: 13px;
+  color: #4d6757;
+}
+.unlocked span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}

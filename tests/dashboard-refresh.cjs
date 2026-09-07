@@ -84,6 +84,155 @@ function load(file, hooks, cache = new Map()) {
   return m.exports;
 }
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+function verifyIntro() {
+  const source = ts.createSourceFile(
+    'intro.tsx',
+    fs.readFileSync(
+      path.join(root, 'components/ysabel/workspace-intro.tsx'),
+      'utf8',
+    ),
+    ts.ScriptTarget.ES2022,
+    true,
+    ts.ScriptKind.TSX,
+  );
+  const subset = source.statements
+    .filter(
+      (s) =>
+        (ts.isFunctionDeclaration(s) &&
+          ['WorkspaceIntro', 'useWorkspaceIntro'].includes(s.name?.text)) ||
+        (ts.isVariableStatement(s) &&
+          s.declarationList.declarations.some(
+            (d) => d.name.getText(source) === 'INTRO_TIMING',
+          )),
+    )
+    .map((s) => s.getText(source))
+    .join('\n');
+  const compiled = ts.transpileModule(subset, {
+    compilerOptions: {
+      module: ts.ModuleKind.CommonJS,
+      jsx: ts.JsxEmit.ReactJSX,
+      target: ts.ScriptTarget.ES2022,
+    },
+  }).outputText;
+  const original = {
+    setTimeout: global.setTimeout,
+    clearTimeout: global.clearTimeout,
+    matchMedia: global.matchMedia,
+    sessionStorage: global.sessionStorage,
+  };
+  let now = 0,
+    nextId = 0;
+  const timers = new Map();
+  global.setTimeout = (fn, delay = 0) => {
+    const id = ++nextId;
+    timers.set(id, { fn, time: now + delay });
+    return id;
+  };
+  global.clearTimeout = (id) => timers.delete(id);
+  global.matchMedia = () => ({ matches: false });
+  global.sessionStorage = { removeItem() {} };
+  const advance = (ms) => {
+    now += ms;
+    for (const [id, t] of [...timers])
+      if (t.time <= now) {
+        timers.delete(id);
+        t.fn();
+      }
+  };
+  function setup(ready) {
+    const h = harness(),
+      m = { exports: {} };
+    new Function(
+      'require',
+      'module',
+      'exports',
+      'useState',
+      'useEffect',
+      'styles',
+      'RefreshCw',
+      'INTRO_KEY',
+      compiled,
+    )(
+      require,
+      m,
+      m.exports,
+      h.hooks.useState,
+      h.hooks.useEffect,
+      new Proxy({}, { get: (_, name) => String(name) }),
+      () => null,
+      'test-intro',
+    );
+    return {
+      h,
+      m,
+      render: (value) =>
+        h.render(() =>
+          m.exports.useWorkspaceIntro(value === undefined ? ready : value),
+        ),
+    };
+  }
+  try {
+    const fast = setup(true),
+      timing = fast.m.exports.INTRO_TIMING;
+    assert(fast.render().visible);
+    advance(timing.minimum);
+    fast.render();
+    advance(timing.settle - 1);
+    assert.equal(fast.render().leaving, false);
+    advance(1);
+    assert.equal(fast.render().leaving, true);
+    advance(timing.exit - 1);
+    assert.equal(fast.render().visible, true);
+    advance(1);
+    assert.equal(fast.render().visible, false);
+    assert.equal(
+      fast.render(false).visible,
+      false,
+      'Background refresh does not reopen the intro',
+    );
+    fast.h.cleanup();
+    const slow = setup(false);
+    slow.render();
+    advance(30000);
+    assert.equal(
+      slow.render().visible,
+      true,
+      'Slow or failed data cannot time out into an empty dashboard',
+    );
+    slow.render(true);
+    advance(timing.settle);
+    assert.equal(slow.render(true).leaving, true);
+    assert.equal(
+      slow.render(false).leaving,
+      false,
+      'A changed date range cancels an in-progress reveal',
+    );
+    advance(timing.exit + 1);
+    assert.equal(slow.render(false).visible, true);
+    slow.render(true);
+    advance(timing.settle);
+    slow.render(true);
+    advance(timing.exit);
+    assert.equal(slow.render(true).visible, false);
+    const html = renderToStaticMarkup(
+      React.createElement(slow.m.exports.WorkspaceIntro, {
+        error: 'Request failed',
+        onRetry() {},
+      }),
+    );
+    assert(
+      !html.includes('<img'),
+      'No static logo appears in the loading overlay',
+    );
+    assert(
+      html.includes('Retry loading') && html.includes('role="alert"'),
+      'Loading failures offer a retry',
+    );
+    slow.h.cleanup();
+  } finally {
+    Object.assign(global, original);
+  }
+}
 async function main() {
   global.window = new EventTarget();
   global.document = new EventTarget();
@@ -120,6 +269,11 @@ async function main() {
   pending[0].resolve(Response.json(payload(100)));
   await settle();
   assert.equal(render().rows[0].views, 100);
+  assert.equal(
+    render().ready,
+    true,
+    'Initial reports are ready only after a successful response',
+  );
   window.dispatchEvent(new Event('ysabel:sources-updated'));
   const background = render();
   assert.equal(
@@ -156,6 +310,11 @@ async function main() {
   );
   range = { start: '2026-08-01', end: '2026-08-07' };
   const changed = render();
+  assert.equal(
+    changed.ready,
+    false,
+    'A previous result must not end the intro for a newly selected range',
+  );
   assert.equal(
     changed.loading,
     true,
@@ -273,6 +432,7 @@ async function main() {
     !html.includes('Chart loads as you scroll') &&
       !html.includes('Loading source data'),
   );
+  verifyIntro();
   console.log(
     'Dashboard refresh: loaded charts persist, scrolling is read-free, new periods stay scoped, failed refreshes retain data, inbox batches do not reload analytics, and off-screen charts render immediately.',
   );

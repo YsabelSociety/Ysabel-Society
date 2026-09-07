@@ -7,6 +7,7 @@ import {
   requireDate,
 } from '@/lib/server/db';
 import { POSTS, CHANNELS, UNITS, BRAND_NAME, type Post } from '@/lib/analytics';
+import { requireAdmin } from '@/lib/server/admin-access';
 export async function GET() {
   try {
     const user = await identity();
@@ -52,7 +53,11 @@ export async function GET() {
     return json({
       posts: content.results
         .map((r: any) => ({
-          ...JSON.parse(r.payload, (_, value) => typeof value === 'string' && /^\/(api|media)\//.test(value) ? '/marketingdata' + value : value),
+          ...JSON.parse(r.payload, (_, value) =>
+            typeof value === 'string' && /^\/(api|media)\//.test(value)
+              ? '/marketingdata' + value
+              : value,
+          ),
           unit: BRAND_NAME,
           position: r.position,
         }))
@@ -82,6 +87,8 @@ export async function POST(req: Request) {
     const db = database(),
       now = new Date().toISOString();
     const op = body.op;
+    if (['settings', 'savePost', 'deletePost', 'reorder'].includes(op))
+      await requireAdmin(req);
     if (op === 'savePost') {
       const input = body.post;
       const id = requireText(input.id, 80);

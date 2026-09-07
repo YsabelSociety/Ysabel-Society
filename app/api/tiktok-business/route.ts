@@ -1,4 +1,5 @@
 import { identity, apiError, json } from '@/lib/server/db';
+import { requireAdmin } from '@/lib/server/admin-access';
 import {
   businessConnectionStatus,
   saveBusinessApp,
@@ -6,7 +7,7 @@ import {
 } from '@/lib/server/tiktok-business';
 export async function GET(req: Request) {
   try {
-    const user = await identity();
+    const user = await requireAdmin();
     return json(await businessConnectionStatus(user.userId, req));
   } catch (e) {
     return apiError(e);
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
 }
 export async function POST(req: Request) {
   try {
-    const user = await identity(req),
+    const user = await requireAdmin(req),
       raw = await req.text();
     if (raw.length > 12000)
       throw new Error('INPUT:Connection settings are too large.');

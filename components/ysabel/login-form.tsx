@@ -27,6 +27,7 @@ export default function LoginForm() {
               try {
                 const response = await fetch(appPath('/api/session'), {
                   method: 'POST',
+                  signal: AbortSignal.timeout(30000),
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
                     username: data.get('username'),

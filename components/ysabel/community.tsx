@@ -58,6 +58,8 @@ import {
 } from '@/lib/review-dates';
 import { reviewDateLabel } from '@/lib/review-report';
 import { communitySyncSources } from '@/lib/community-sync-plan';
+import { AdminGate } from './admin-gate';
+type LoadState = { kind: string; ready: boolean; error: string };
 
 async function communityAction(body: unknown) {
   const r = await fetch('/marketingdata/api/community', {
@@ -86,13 +88,17 @@ function useCommunity(kind: string) {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
+    setError('');
     void fetch('/marketingdata/api/community?kind=' + kind, {
-      signal: controller.signal,
+      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
     })
       .then(async (r) => {
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
-        setData(d);
+        if (!controller.signal.aborted) {
+          setData(d);
+          setError('');
+        }
       })
       .catch((e) => {
         if (!controller.signal.aborted) setError(e.message);
@@ -363,233 +369,238 @@ function ImportAccess({
             messages are sent from this workspace.
           </DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="access">
-          <TabsList className="page-tabs">
-            <TabsTrigger value="access">Platform access</TabsTrigger>
-            {kind === 'message' && (
-              <TabsTrigger value="instagram">Direct Instagram</TabsTrigger>
-            )}
-            <TabsTrigger value="file">Import CSV</TabsTrigger>
-          </TabsList>
-          <TabsContent value="access">
-            <div className="community-help">
-              {kind === 'review' ? (
-                <>
-                  <h3>Google reviews</h3>
-                  <p>
-                    Connect a Google account with access to the verified
-                    Business Profile. The Business Profile reviews API and
-                    business.manage authorization are required. “Import reviews”
-                    collects pages of reviews; continue if more history is
-                    available.
-                  </p>
-                  <a
-                    className="secondary"
-                    href="/marketingdata/connections?connect=gbp"
-                  >
-                    Connect Google Business <ArrowUpRight size={15} />
-                  </a>
-                  <a
-                    href="https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Google review requirements
-                  </a>
-                </>
-              ) : (
-                <>
-                  <h3>Facebook & Instagram messages</h3>
-                  <p>
-                    In the existing Meta app, add <code>pages_messaging</code>{' '}
-                    for Facebook, <code>instagram_manage_messages</code> for
-                    Instagram and <code>pages_manage_metadata</code>. Include
-                    them in Facebook Login for Business, then authorize again.
-                    Your Page role must allow messaging. Advanced Access, App
-                    Review and business verification may be required for
-                    customer conversations.
-                  </p>
-                  <p>
-                    The import checks recent accessible messages. Message
-                    history and request folders have platform limits. Follower
-                    counts and profile photos appear only when Meta supplies
-                    them; you can record a manually verified count from a
-                    conversation.
-                  </p>
-                  <a
-                    className="secondary"
-                    href="/marketingdata/connections?connect=meta"
-                  >
-                    Update Meta access <ArrowUpRight size={15} />
-                  </a>
-                  <a
-                    href="https://www.postman.com/meta/messenger-platform-api/folder/22794852-255610cd-47f5-4f4d-b3fa-71aec360be9a"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Meta messaging requirements
-                  </a>
-                  <h3>TikTok</h3>
-                  <a
-                    className="secondary"
-                    href="/marketingdata/tiktok-business"
-                  >
-                    Set up TikTok messages & mentions <ArrowUpRight size={15} />
-                  </a>
-                  <p>
-                    The current TikTok Display API connection does not include
-                    direct messages. TikTok Business Messaging is separately
-                    approved. This workspace supports reviewed TikTok message
-                    exports; an automatic TikTok messaging adapter is not
-                    connected.
-                  </p>
-                  <a
-                    href="https://business-api.tiktok.com/portal/docs"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    TikTok Business Messaging access
-                  </a>
-                  <h3>Instagram approval</h3>
-                  <p>
-                    If Meta reports that conversations involve users without an
-                    app role, request Advanced Access to
-                    instagram_manage_messages. In the app’s Instagram
-                    permissions, choose Actions → Add to App Review. Meta may
-                    require business verification, access verification and Tech
-                    Provider status. Meta describes the Tech Provider decision
-                    as irreversible; review that step before accepting it.
-                    Granting a permission in a login configuration is not the
-                    same as Meta approving live access.
-                  </p>
-                  <a
-                    className="secondary"
-                    href="https://developers.facebook.com/apps/"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    Open Meta app review <ArrowUpRight size={15} />
-                  </a>
-                  <h3>Story mentions, tags & reposts</h3>
-                  <p>
-                    These are separate events. A tagged story mention is not
-                    counted as a repost. The Mentions page can import available
-                    Facebook and Instagram tagged posts, plus explicit story
-                    events from readable messages. Only explicit records
-                    supplied by the platform or your import are counted. A
-                    general shared post does not prove a story repost. Complete
-                    story monitoring requires an approved event receiver; it is
-                    not configured. Facebook tags require
-                    pages_read_user_content. Untagged, expired and private
-                    stories may remain unavailable.
-                  </p>
-                </>
+        <AdminGate title="Connection access and imports">
+          <Tabs defaultValue="access">
+            <TabsList className="page-tabs">
+              <TabsTrigger value="access">Platform access</TabsTrigger>
+              {kind === 'message' && (
+                <TabsTrigger value="instagram">Direct Instagram</TabsTrigger>
               )}
-            </div>
-          </TabsContent>
-          {kind === 'message' && (
-            <TabsContent value="instagram">
-              <InstagramMessaging onSaved={onSaved} />
+              <TabsTrigger value="file">Import CSV</TabsTrigger>
+            </TabsList>
+            <TabsContent value="access">
+              <div className="community-help">
+                {kind === 'review' ? (
+                  <>
+                    <h3>Google reviews</h3>
+                    <p>
+                      Connect a Google account with access to the verified
+                      Business Profile. The Business Profile reviews API and
+                      business.manage authorization are required. “Import
+                      reviews” collects pages of reviews; continue if more
+                      history is available.
+                    </p>
+                    <a
+                      className="secondary"
+                      href="/marketingdata/connections?connect=gbp"
+                    >
+                      Connect Google Business <ArrowUpRight size={15} />
+                    </a>
+                    <a
+                      href="https://developers.google.com/my-business/reference/rest/v4/accounts.locations.reviews/list"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Google review requirements
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <h3>Facebook & Instagram messages</h3>
+                    <p>
+                      In the existing Meta app, add <code>pages_messaging</code>{' '}
+                      for Facebook, <code>instagram_manage_messages</code> for
+                      Instagram and <code>pages_manage_metadata</code>. Include
+                      them in Facebook Login for Business, then authorize again.
+                      Your Page role must allow messaging. Advanced Access, App
+                      Review and business verification may be required for
+                      customer conversations.
+                    </p>
+                    <p>
+                      The import checks recent accessible messages. Message
+                      history and request folders have platform limits. Follower
+                      counts and profile photos appear only when Meta supplies
+                      them; you can record a manually verified count from a
+                      conversation.
+                    </p>
+                    <a
+                      className="secondary"
+                      href="/marketingdata/connections?connect=meta"
+                    >
+                      Update Meta access <ArrowUpRight size={15} />
+                    </a>
+                    <a
+                      href="https://www.postman.com/meta/messenger-platform-api/folder/22794852-255610cd-47f5-4f4d-b3fa-71aec360be9a"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Meta messaging requirements
+                    </a>
+                    <h3>TikTok</h3>
+                    <a
+                      className="secondary"
+                      href="/marketingdata/tiktok-business"
+                    >
+                      Set up TikTok messages & mentions{' '}
+                      <ArrowUpRight size={15} />
+                    </a>
+                    <p>
+                      The current TikTok Display API connection does not include
+                      direct messages. TikTok Business Messaging is separately
+                      approved. This workspace supports reviewed TikTok message
+                      exports; an automatic TikTok messaging adapter is not
+                      connected.
+                    </p>
+                    <a
+                      href="https://business-api.tiktok.com/portal/docs"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      TikTok Business Messaging access
+                    </a>
+                    <h3>Instagram approval</h3>
+                    <p>
+                      If Meta reports that conversations involve users without
+                      an app role, request Advanced Access to
+                      instagram_manage_messages. In the app’s Instagram
+                      permissions, choose Actions → Add to App Review. Meta may
+                      require business verification, access verification and
+                      Tech Provider status. Meta describes the Tech Provider
+                      decision as irreversible; review that step before
+                      accepting it. Granting a permission in a login
+                      configuration is not the same as Meta approving live
+                      access.
+                    </p>
+                    <a
+                      className="secondary"
+                      href="https://developers.facebook.com/apps/"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Meta app review <ArrowUpRight size={15} />
+                    </a>
+                    <h3>Story mentions, tags & reposts</h3>
+                    <p>
+                      These are separate events. A tagged story mention is not
+                      counted as a repost. The Mentions page can import
+                      available Facebook and Instagram tagged posts, plus
+                      explicit story events from readable messages. Only
+                      explicit records supplied by the platform or your import
+                      are counted. A general shared post does not prove a story
+                      repost. Complete story monitoring requires an approved
+                      event receiver; it is not configured. Facebook tags
+                      require pages_read_user_content. Untagged, expired and
+                      private stories may remain unavailable.
+                    </p>
+                  </>
+                )}
+              </div>
             </TabsContent>
-          )}
-          <TabsContent value="file">
-            <div className="community-help">
-              <p>
-                Use the template columns below. A message is one row, including
-                outgoing replies. Re-importing an identical ID updates the
-                record. File records remain separate from API records, so avoid
-                importing overlapping history from both methods.
-              </p>
-              {kind !== 'review' && (
-                <Picker
-                  label="Import platform"
-                  value={COMMUNITY_NAMES[selected]}
-                  options={['Facebook', 'Instagram', 'TikTok']}
-                  onChange={(v) => {
-                    setSelected(
-                      Object.keys(COMMUNITY_NAMES).find(
-                        (k) => COMMUNITY_NAMES[k as CommunitySource] === v,
-                      ) as CommunitySource,
-                    );
-                    setPreview(null);
-                  }}
-                />
-              )}
-              <button className="secondary" onClick={template}>
-                Download CSV template
-              </button>
-              <code className="community-csv-columns">{headers}</code>
-              <p>
-                Use ISO timestamps with a timezone, e.g.
-                2026-09-06T14:00:00+02:00.{' '}
-                {kind === 'message'
-                  ? 'Direction is in or out. Leave followers blank when unknown.'
-                  : kind === 'mention'
-                    ? 'mention_type is story_mention, story_repost or post_mention.'
-                    : 'Rating is 1–5; blank reply means no reply was supplied.'}
-              </p>
-              <label className="secondary file-picker">
-                <Upload size={15} />
-                Choose CSV
-                <input
-                  aria-label="Choose community CSV"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    if (!f) return;
-                    if (f.size > 1400000) {
-                      setError('Use a CSV under 1.4 MB.');
-                      return;
-                    }
-                    setCsv(await f.text());
-                    setPreview(null);
-                    setError('');
-                  }}
-                />
-              </label>
-              <button
-                className="secondary"
-                disabled={!csv || busy}
-                onClick={() => void act('preview')}
-              >
-                Preview import
-              </button>
-              {kind === 'review' && (
-                <label className="review-paste-label">
-                  Paste review CSV
-                  <textarea
-                    aria-label="Paste review CSV"
-                    value={csv}
-                    maxLength={1400000}
-                    onChange={(e) => {
-                      setCsv(e.target.value);
+            {kind === 'message' && (
+              <TabsContent value="instagram">
+                <InstagramMessaging onSaved={onSaved} />
+              </TabsContent>
+            )}
+            <TabsContent value="file">
+              <div className="community-help">
+                <p>
+                  Use the template columns below. A message is one row,
+                  including outgoing replies. Re-importing an identical ID
+                  updates the record. File records remain separate from API
+                  records, so avoid importing overlapping history from both
+                  methods.
+                </p>
+                {kind !== 'review' && (
+                  <Picker
+                    label="Import platform"
+                    value={COMMUNITY_NAMES[selected]}
+                    options={['Facebook', 'Instagram', 'TikTok']}
+                    onChange={(v) => {
+                      setSelected(
+                        Object.keys(COMMUNITY_NAMES).find(
+                          (k) => COMMUNITY_NAMES[k as CommunitySource] === v,
+                        ) as CommunitySource,
+                      );
                       setPreview(null);
                     }}
                   />
+                )}
+                <button className="secondary" onClick={template}>
+                  Download CSV template
+                </button>
+                <code className="community-csv-columns">{headers}</code>
+                <p>
+                  Use ISO timestamps with a timezone, e.g.
+                  2026-09-06T14:00:00+02:00.{' '}
+                  {kind === 'message'
+                    ? 'Direction is in or out. Leave followers blank when unknown.'
+                    : kind === 'mention'
+                      ? 'mention_type is story_mention, story_repost or post_mention.'
+                      : 'Rating is 1–5; blank reply means no reply was supplied.'}
+                </p>
+                <label className="secondary file-picker">
+                  <Upload size={15} />
+                  Choose CSV
+                  <input
+                    aria-label="Choose community CSV"
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (f.size > 1400000) {
+                        setError('Use a CSV under 1.4 MB.');
+                        return;
+                      }
+                      setCsv(await f.text());
+                      setPreview(null);
+                      setError('');
+                    }}
+                  />
                 </label>
-              )}
-              {preview && (
-                <div className="community-import-preview">
-                  <strong>{preview.count} records ready</strong>
-                  {preview.preview.map((r: CommunityRecord) => (
-                    <p key={r.id}>
-                      {r.time} · {r.name || r.username || r.id} ·{' '}
-                      {r.text.slice(0, 150)}
-                    </p>
-                  ))}
-                  <button
-                    className="primary"
-                    disabled={busy}
-                    onClick={() => void act('import')}
-                  >
-                    Import {preview.count} records
-                  </button>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+                <button
+                  className="secondary"
+                  disabled={!csv || busy}
+                  onClick={() => void act('preview')}
+                >
+                  Preview import
+                </button>
+                {kind === 'review' && (
+                  <label className="review-paste-label">
+                    Paste review CSV
+                    <textarea
+                      aria-label="Paste review CSV"
+                      value={csv}
+                      maxLength={1400000}
+                      onChange={(e) => {
+                        setCsv(e.target.value);
+                        setPreview(null);
+                      }}
+                    />
+                  </label>
+                )}
+                {preview && (
+                  <div className="community-import-preview">
+                    <strong>{preview.count} records ready</strong>
+                    {preview.preview.map((r: CommunityRecord) => (
+                      <p key={r.id}>
+                        {r.time} · {r.name || r.username || r.id} ·{' '}
+                        {r.text.slice(0, 150)}
+                      </p>
+                    ))}
+                    <button
+                      className="primary"
+                      disabled={busy}
+                      onClick={() => void act('import')}
+                    >
+                      Import {preview.count} records
+                    </button>
+                  </div>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </AdminGate>
         {error && (
           <p className="save-error" role="alert">
             {error}
@@ -1090,10 +1101,12 @@ export function CommunityPage({
   mode,
   range,
   timezone,
+  onLoadState,
 }: {
   mode: 'inbox' | 'mentions';
   range: Range;
   timezone: string;
+  onLoadState?: (state: LoadState) => void;
 }) {
   const kind = mode === 'inbox' ? 'message' : 'mention',
     data = useCommunity(kind),
@@ -1114,6 +1127,13 @@ export function CommunityPage({
     [mentionType, setMentionType] = useState('All types'),
     [mentionDates, setMentionDates] = useState('Selected dates'),
     [selected, setSelected] = useState<any>(null);
+  useEffect(() => {
+    onLoadState?.({
+      kind,
+      ready: !data.loading && !data.error,
+      error: data.error,
+    });
+  }, [kind, data.loading, data.error, onLoadState]);
   useEffect(() => {
     if (!busy) return;
     const timer = setInterval(
@@ -1721,10 +1741,12 @@ export function GoogleReviews({
   range,
   timezone,
   children,
+  onLoadState,
 }: {
   range: Range;
   timezone: string;
   children?: React.ReactNode;
+  onLoadState?: (state: LoadState) => void;
 }) {
   const data = useCommunity('review'),
     [dates, setDates] = useState<ReviewDateSelection>({
@@ -1740,6 +1762,13 @@ export function GoogleReviews({
     [setup, setSetup] = useState(false),
     [busy, setBusy] = useState(false),
     [page, setPage] = useState(1);
+  useEffect(() => {
+    onLoadState?.({
+      kind: 'review',
+      ready: !data.loading && !data.error,
+      error: data.error,
+    });
+  }, [data.loading, data.error, onLoadState]);
   const all = data.records
       .filter((r) => r.kind === 'review')
       .sort(compareReviewsNewest),

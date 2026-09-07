@@ -17,7 +17,7 @@ export function apiError(error: unknown) {
   const status =
     message === 'UNAUTHORIZED'
       ? 401
-      : message === 'FORBIDDEN'
+      : message === 'FORBIDDEN' || message === 'ADMIN_PIN_REQUIRED'
         ? 403
         : message.startsWith('INPUT:')
           ? 400
@@ -25,15 +25,17 @@ export function apiError(error: unknown) {
   return Response.json(
     {
       error:
-        status === 400
-          ? message.slice(6)
-          : status === 401
-            ? 'Sign in to continue.'
-            : status === 403
-              ? 'This request could not be verified.'
-              : 'The workspace could not save this change. Please try again.',
+        message === 'ADMIN_PIN_REQUIRED'
+          ? 'Enter the administrator PIN to continue.'
+          : status === 400
+            ? message.slice(6)
+            : status === 401
+              ? 'Sign in to continue.'
+              : status === 403
+                ? 'This request could not be verified.'
+                : 'The workspace could not save this change. Please try again.',
     },
-    { status },
+    { status, headers: { 'Cache-Control': 'no-store' } },
   );
 }
 export const json = (value: unknown) =>

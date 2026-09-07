@@ -1,4 +1,5 @@
 import { database, identity, apiError, json, secrets } from '@/lib/server/db';
+import { requireAdmin } from '@/lib/server/admin-access';
 import { PROVIDER_CONFIG, adapters } from '@/lib/server/providers';
 import { iso } from '@/lib/analytics';
 import {
@@ -7,7 +8,7 @@ import {
 } from '@/lib/server/connector-sync';
 export async function GET() {
   try {
-    const user = await identity();
+    const user = await requireAdmin();
     const db = database();
     const accounts = await db
       .prepare(
@@ -54,7 +55,7 @@ export async function GET() {
 }
 export async function POST(req: Request) {
   try {
-    const user = await identity(req),
+    const user = await requireAdmin(req),
       body = (await req.json()) as any;
     const config = PROVIDER_CONFIG.find((p) => p.id === body.id);
     if (!config) throw new Error('INPUT:Choose a known source.');

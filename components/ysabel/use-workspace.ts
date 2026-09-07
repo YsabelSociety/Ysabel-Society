@@ -27,6 +27,7 @@ export function useWorkspace() {
     [busy, setBusy] = useState(false);
   const notify = useCallback((text: string) => setNotice(text), []);
   const load = useCallback(async () => {
+    setError('');
     try {
       const r = await fetch('/marketingdata/api/state', {
         signal: AbortSignal.timeout(30000),

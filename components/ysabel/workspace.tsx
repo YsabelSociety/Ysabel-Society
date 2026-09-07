@@ -47,6 +47,7 @@ import {
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
 import { SyncSettings } from './sync-details';
+import { AdminGate } from './admin-gate';
 import {
   Command,
   CommandDialog,
@@ -489,12 +490,43 @@ export default function Workspace({
       h < 12 ? 'Good morning.' : h < 18 ? 'Good afternoon.' : 'Good evening.',
     );
   }, [data.settings.timezone]);
+  const [communityLoad, setCommunityLoad] = useState({
+    kind: '',
+    ready: false,
+    error: '',
+  });
+  const communityKind =
+    page === 'Google Business'
+      ? 'review'
+      : page === 'Inbox'
+        ? 'message'
+        : page === 'Mentions'
+          ? 'mention'
+          : '';
+  const communityReady =
+    !communityKind ||
+    (communityLoad.kind === communityKind && communityLoad.ready);
+  const initialError =
+    (!data.ready ? data.error : '') ||
+    (!source.ready ? source.error : '') ||
+    (communityKind === communityLoad.kind ? communityLoad.error : '');
   const intro = useWorkspaceIntro(
-    !!data.error || !!source.error || (data.ready && !source.loading),
+    data.ready && source.ready && communityReady && !initialError,
   );
+  const retryInitialLoad = () => {
+    void data.load();
+    window.dispatchEvent(new Event('ysabel:sources-updated'));
+    window.dispatchEvent(new Event('ysabel:community-updated'));
+  };
   return (
     <>
-      {intro.visible && <WorkspaceIntro leaving={intro.leaving} />}
+      {intro.visible && (
+        <WorkspaceIntro
+          leaving={intro.leaving}
+          error={initialError}
+          onRetry={retryInitialLoad}
+        />
+      )}
       <div inert={intro.visible} aria-hidden={intro.visible || undefined}>
         <TooltipProvider>
           <SidebarProvider
@@ -780,12 +812,14 @@ export default function Workspace({
                 )}
                 <div className="view-content" key={page}>
                   {page === 'Admin Panel' && (
-                    <AdminPanel
-                      data={data}
-                      onSelect={setPost}
-                      onNavigate={navigate}
-                      syncSettings={<SyncSettings {...syncState} />}
-                    />
+                    <AdminGate title="Admin panel">
+                      <AdminPanel
+                        data={data}
+                        onSelect={setPost}
+                        onNavigate={navigate}
+                        syncSettings={<SyncSettings {...syncState} />}
+                      />
+                    </AdminGate>
                   )}
                   {page === 'Overview' && (
                     <Overview
@@ -856,6 +890,7 @@ export default function Workspace({
                       <GoogleReviews
                         range={range}
                         timezone={data.settings.timezone}
+                        onLoadState={setCommunityLoad}
                       >
                         {source.mode === 'live' && (
                           <SourceReports
@@ -872,6 +907,7 @@ export default function Workspace({
                       mode={page === 'Inbox' ? 'inbox' : 'mentions'}
                       range={range}
                       timezone={data.settings.timezone}
+                      onLoadState={setCommunityLoad}
                     />
                   )}
                   {page === 'Insights' && (
@@ -894,16 +930,35 @@ export default function Workspace({
                     <ReportsPage data={data} range={range} unit={unit} />
                   )}
                   {page === 'Connections' && (
-                    <ConnectionsPage notify={data.notify} />
+                    <AdminGate title="Connections">
+                      <ConnectionsPage notify={data.notify} />
+                    </AdminGate>
                   )}
-                  {page === 'Data Sources' && <DataSourcesPage />}
-                  {page === 'Settings' && <SettingsPage data={data} />}
+                  {page === 'Data Sources' && (
+                    <AdminGate title="Data Sources">
+                      <DataSourcesPage />
+                    </AdminGate>
+                  )}
+                  {page === 'Settings' && (
+                    <AdminGate title="Settings">
+                      <SettingsPage data={data} />
+                    </AdminGate>
+                  )}
                 </div>
                 <footer className="page-footer">
                   <span>
                     YSABEL SOCIETY <i /> DIGITAL INTELLIGENCE
                   </span>
-                  <span>Private by design. Informed by data.</span>
+                  <span>
+                    App developed and created by{' '}
+                    <a
+                      href="https://arberhalili.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      arberhalili.com
+                    </a>
+                  </span>
                 </footer>
               </div>
             </main>

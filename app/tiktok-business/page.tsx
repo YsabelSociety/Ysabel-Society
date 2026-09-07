@@ -1,5 +1,6 @@
 import { requireChatGPTUser } from '../chatgpt-auth';
 import { TikTokBusinessSetup } from '@/components/ysabel/tiktok-business';
+import { AdminGate } from '@/components/ysabel/admin-gate';
 export const dynamic = 'force-dynamic';
 export default async function TikTokBusinessPage() {
   await requireChatGPTUser('/tiktok-business');
@@ -9,7 +10,9 @@ export default async function TikTokBusinessPage() {
         Back to inbox
       </a>
       <section className="surface community-panel" style={{ marginTop: 24 }}>
-        <TikTokBusinessSetup />
+        <AdminGate title="TikTok connection">
+          <TikTokBusinessSetup />
+        </AdminGate>
       </section>
     </main>
   );

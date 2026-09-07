@@ -1,4 +1,5 @@
 import { SOURCE_CHANNELS, CONNECTOR_GROUPS } from '@/lib/connector-catalog';
+import { requireAdmin } from '@/lib/server/admin-access';
 import {
   database,
   identity,
@@ -17,7 +18,7 @@ import { graphGet } from '@/lib/server/report-meta';
 import { validateImportSize } from '@/lib/reporting';
 export async function GET(req: Request) {
   try {
-    const owner = (await identity()).userId,
+    const owner = (await requireAdmin()).userId,
       source = new URL(req.url).searchParams.get('source');
     if (!source || !SOURCE_CHANNELS[source])
       throw new Error('INPUT:Choose a supported source.');
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
 }
 export async function POST(req: Request) {
   try {
-    const owner = (await identity(req)).userId;
+    const owner = (await requireAdmin(req)).userId;
     if (Number(req.headers.get('content-length') || 0) > 3500000)
       throw new Error('INPUT:Use a file smaller than 3 MB.');
     const body = (await req.json()) as Record<string, unknown>;

@@ -1,4 +1,5 @@
 import { identity, apiError } from '@/lib/server/db';
+import { requireAdmin } from '@/lib/server/admin-access';
 import { connectorGroup } from '@/lib/connector-catalog';
 import { beginOAuth } from '@/lib/server/connector-oauth';
 export async function POST(
@@ -6,7 +7,7 @@ export async function POST(
   { params }: { params: Promise<{ provider: string }> },
 ) {
   try {
-    const user = await identity(req),
+    const user = await requireAdmin(req),
       group = connectorGroup((await params).provider),
       result = await beginOAuth(user.userId, group.id, req);
     return Response.json(

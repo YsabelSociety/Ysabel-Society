@@ -40,6 +40,7 @@ export function useSourceAnalytics(
   useEffect(() => {
     const abort = new AbortController();
     setLoading(true);
+    setError('');
     async function run() {
       try {
         const read = async (r: Range) => {
@@ -115,6 +116,7 @@ export function useSourceAnalytics(
     posts: current?.posts ?? [],
     tables: current?.tables ?? [],
     comparisonLimited: current?.comparisonLimited ?? false,
+    ready: !!current,
     // A background import must not replace already-loaded charts with skeletons.
     // A new date/filter key still waits for its own correctly scoped result.
     loading: !current && loading,

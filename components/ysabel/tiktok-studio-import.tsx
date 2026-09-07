@@ -49,6 +49,10 @@ export function TikTokStudioImport() {
             <input
               type="date"
               value={range[key]}
+              onInput={(e) => {
+                const value = e.currentTarget.value;
+                setRange((current) => ({ ...current, [key]: value }));
+              }}
               onChange={(e) => setRange({ ...range, [key]: e.target.value })}
             />
           </label>

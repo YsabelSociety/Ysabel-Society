@@ -1,18 +1,29 @@
 import {
   compareReviewsNewest,
-  inWindow,
   reviewTopics,
   safeProfileURL,
   type CommunityRecord,
 } from './community';
 import { type Range } from './analytics';
+import { reviewMatchesDates, reviewDateBounds } from './review-dates';
 
 export type ReviewReportFilters = {
   stars: number[];
-  topic: 'Food & drinks' | 'Food' | 'Drinks' | 'All topics';
+  topic:
+    | 'Food & drinks'
+    | 'Food'
+    | 'Drinks'
+    | 'Service & staff'
+    | 'Atmosphere'
+    | 'Waiting time'
+    | 'Price & value'
+    | 'Cleanliness'
+    | 'All topics';
   evidence: 'Criticism detected' | 'All matching reviews';
   period: 'All imported reviews' | 'Selected dates';
   search: string;
+  approximateDates?: boolean;
+  periodLabel?: string;
 };
 export type ReportReview = CommunityRecord & ReturnType<typeof reviewTopics>;
 export type ReviewReport = {
@@ -42,7 +53,11 @@ export function makeReviewReport(
   generatedAt = new Date().toISOString(),
 ): ReviewReport {
   const topics =
-    filters.topic === 'Food & drinks' ? ['Food', 'Drinks'] : [filters.topic];
+    filters.topic === 'Food & drinks'
+      ? ['Food', 'Drinks']
+      : filters.topic === 'Service & staff'
+        ? ['Service']
+        : [filters.topic];
   const rows = records
     .filter(
       (r) =>
@@ -53,7 +68,7 @@ export function makeReviewReport(
     .filter(
       (r) =>
         filters.period === 'All imported reviews' ||
-        inWindow(r, range, timezone),
+        reviewMatchesDates(r, range, timezone, filters.approximateDates),
     )
     .map((r) => ({ ...r, ...reviewTopics(r) }))
     .filter((r) => {
@@ -101,7 +116,7 @@ export function makeReviewReport(
 
 export function reviewDateLabel(r: CommunityRecord, timezone: string) {
   if (r.timePrecision === 'relative')
-    return `${r.timeLabel || 'Date not supplied'} when captured on ${new Intl.DateTimeFormat('en-GB', { timeZone: timezone, dateStyle: 'medium' }).format(new Date(r.time))}`;
+    return `${r.timeLabel || 'Date not supplied'} when captured on ${new Intl.DateTimeFormat('en-GB', { timeZone: timezone, dateStyle: 'medium' }).format(new Date(r.time))}${reviewDateBounds(r, timezone) ? ' · Approximate interval ' + reviewDateBounds(r, timezone)!.start + ' – ' + reviewDateBounds(r, timezone)!.end : ''}`;
   return new Intl.DateTimeFormat('en-GB', {
     timeZone: timezone,
     dateStyle: 'medium',
@@ -123,7 +138,7 @@ export function reviewLink(r: CommunityRecord) {
   return null;
 }
 export function reviewFilterLabel(report: ReviewReport) {
-  return `${[...report.filters.stars].sort().join(', ')} stars · ${report.filters.topic} · ${report.filters.evidence} · ${report.filters.period === 'Selected dates' ? report.range.start + ' – ' + report.range.end : 'All imported reviews'}${report.filters.search ? ' · Search: ' + report.filters.search : ''}`;
+  return `${[...report.filters.stars].sort().join(', ')} stars · ${report.filters.topic} · ${report.filters.evidence} · ${report.filters.periodLabel || (report.filters.period === 'Selected dates' ? report.range.start + ' – ' + report.range.end : 'All imported reviews')}${report.filters.period === 'Selected dates' ? (report.filters.approximateDates ? ' · Includes possible matches from approximate date intervals; these may overlap adjacent periods' : ' · Exact dates only') : ''}${report.filters.search ? ' · Search: ' + report.filters.search : ''}`;
 }
 export function reportCSV(report: ReviewReport) {
   const cell = (value: unknown) => {
@@ -235,5 +250,5 @@ export function reportHTML(
     )
     .join(
       '',
-    )}</div><h2>Most frequent criticism in this selection</h2><div class="issues">${issues || '<p>No explicit criticism matched the supported wording.</p>'}</div><p class="notice">Topic and criticism labels are wording-based suggestions. Verify the full comment before acting. Counts are reviews mentioning an issue; one review can mention several. A low rating alone is not proof of a food or drink complaint. Relative dates are preserved as shown by Google and excluded from exact date ranges.${missingPhotos ? ` ${missingPhotos} profile photo${missingPhotos === 1 ? ' was' : 's were'} not available to embed.` : ' Profile photos are embedded for offline use.'}</p>${groups}</main><script nonce="ysabel-print">document.getElementById('print-report').addEventListener('click',function(){window.print()});</script></body></html>`;
+    )}</div><h2>Most frequent criticism in this selection</h2><div class="issues">${issues || '<p>No explicit criticism matched the supported wording.</p>'}</div><p class="notice">Topic and criticism labels are context-based suggestions. Verify the full comment before acting. Counts are reviews mentioning an issue; one review can mention several. A low rating alone is not proof of a food or drink complaint. Relative dates retain Google’s original label. When enabled, approximate interval matches may overlap neighbouring periods; they are not exact daily counts.${missingPhotos ? ` ${missingPhotos} profile photo${missingPhotos === 1 ? ' was' : 's were'} not available to embed.` : ' Profile photos are embedded for offline use.'}</p>${groups}</main><script nonce="ysabel-print">document.getElementById('print-report').addEventListener('click',function(){window.print()});</script></body></html>`;
 }

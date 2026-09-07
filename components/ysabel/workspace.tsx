@@ -854,16 +854,17 @@ export default function Workspace({
                   <GoogleReviews
                     range={range}
                     timezone={data.settings.timezone}
-                  />
-                  <GooglePage rows={rows} live={source.mode === 'live'} />
+                  >
+                    <GooglePage rows={rows} live={source.mode === 'live'} />
+                    {source.mode === 'live' && (
+                      <SourceReports
+                        tables={source.tables}
+                        group="google"
+                        title="Google Business reports"
+                      />
+                    )}
+                  </GoogleReviews>
                 </>
-              )}
-              {page === 'Google Business' && source.mode === 'live' && (
-                <SourceReports
-                  tables={source.tables}
-                  group="google"
-                  title="Google Business reports"
-                />
               )}
               {(page === 'Inbox' || page === 'Mentions') && (
                 <CommunityPage

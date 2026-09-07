@@ -4,6 +4,7 @@ import { readVault } from './connector-vault';
 import { readDirect, directContext } from './connection-direct';
 import { graphGet, graphBatch } from './report-meta';
 import { requestJSON } from './providers';
+import { conversationCursor } from '@/lib/message-pagination';
 import {
   readInstagramMessaging,
   instagramMessageBatch,
@@ -50,9 +51,7 @@ export async function readConversationList(
             ? '1'
             : attempt === 1
               ? '2'
-              : source === 'instagram'
-                ? '10'
-                : String(Math.min(50, Math.max(1, pageSize))),
+              : String(Math.min(50, Math.max(1, pageSize))),
         ...(after ? { after } : {}),
       }),
     {
@@ -180,13 +179,16 @@ export async function syncMessages(
         : '',
     partial = false,
     inaccessible = 0,
-    conversationCount = 0;
+    conversationCount = 0,
+    pagesChecked = 0;
+  const started = Date.now();
+  const seenCursors = new Set<string>();
   let conversationNode = String(page.id);
   if (!instagram && source === 'instagram' && after.startsWith('ig-node:')) {
     conversationNode = context.externalId;
     after = after.slice(8);
   }
-  const batches = automatic ? 1 : 10;
+  const batches = automatic ? 1 : instagram ? 50 : 10;
   for (let batch = 0; batch < batches; batch++) {
     let list: any;
     try {
@@ -231,6 +233,7 @@ export async function syncMessages(
         'INPUT:Meta did not return a readable conversation list. Check messaging access and reconnect.',
       );
     const conversations = list.data;
+    pagesChecked++;
     conversationCount += conversations.length;
     await saveCommunityStatus(owner, {
       source,
@@ -349,12 +352,23 @@ export async function syncMessages(
     await ensureStillLinked(owner, source, context.accountId);
     for (let start = pageStart; start < imported.length; start += 2000)
       await saveCommunity(owner, imported.slice(start, start + 2000));
-    after = list.paging?.cursors?.after || '';
-    if (!list.paging?.next || !after) {
+    const next = conversationCursor(list.paging);
+    if (!next) {
       after = '';
       break;
     }
+    if (next === after || seenCursors.has(next)) {
+      partial = true;
+      after = next;
+      break;
+    }
+    seenCursors.add(next);
+    after = next;
     if (batch === batches - 1) partial = true;
+    if (instagram && Date.now() - started > 25000) {
+      partial = true;
+      break;
+    }
     if (imported.length >= 1800) {
       partial = true;
       break;
@@ -417,7 +431,9 @@ export async function syncMessages(
       : '') +
     (instagram ? 'Direct Instagram connection. ' : '') +
     conversationCount +
-    ' accessible conversations checked. Up to 20 recent messages per conversation; older captured records are retained. Counts describe captured messages, not a complete inbox history.' +
+    ' accessible conversations checked across ' +
+    pagesChecked +
+    ' pages. Up to 20 recent messages per conversation; older captured records are retained. Counts describe captured messages, not a complete inbox history.' +
     (inaccessible
       ? ' ' + inaccessible + ' conversations or messages were inaccessible.'
       : '') +
@@ -436,12 +452,14 @@ export async function syncMessages(
     detail,
     accountId: context.accountId,
     cursor:
-      after &&
-      !instagram &&
-      source === 'instagram' &&
-      conversationNode !== String(page.id)
-        ? 'ig-node:' + after
-        : after,
+      automatic && previous?.account_id === context.accountId && previous.cursor
+        ? previous.cursor
+        : after &&
+            !instagram &&
+            source === 'instagram' &&
+            conversationNode !== String(page.id)
+          ? 'ig-node:' + after
+          : after,
   });
   return {
     imported: imported.filter((r) => r.kind === 'message').length,

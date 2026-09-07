@@ -46,6 +46,14 @@ import {
 import { number, type Range } from '@/lib/analytics';
 import { InstagramMessaging } from './instagram-messaging';
 import { ReviewReports } from './review-reports';
+import { ReviewDateControls } from './review-date-controls';
+import {
+  reviewMatchesDates,
+  reviewPeriodRange,
+  reviewPeriodLabel,
+  type ReviewDateSelection,
+} from '@/lib/review-dates';
+import { reviewDateLabel } from '@/lib/review-report';
 
 async function communityAction(body: unknown) {
   const r = await fetch('/marketingdata/api/community', {
@@ -1138,9 +1146,11 @@ export function CommunityPage({
                 ? c.selectedClient
                 : c.possibleClient && !c.selectedClient,
             )
-          : model.conversations.filter((c) =>
-              c.messages.some((r) => inWindow(r, range, timezone)),
-            )
+          : tab === 'history'
+            ? model.conversations
+            : model.conversations.filter((c) =>
+                c.messages.some((r) => inWindow(r, range, timezone)),
+              )
   ).filter(
     (c) =>
       matchesProfile(c.person, minimum, location) &&
@@ -1280,6 +1290,7 @@ export function CommunityPage({
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
               <TabsList className="page-tabs community-tabs">
                 <TabsTrigger value="all">Selected dates</TabsTrigger>
+                <TabsTrigger value="history">All conversations</TabsTrigger>
                 <TabsTrigger value="waiting">
                   Unanswered · all dates
                 </TabsTrigger>
@@ -1571,12 +1582,20 @@ export function CommunityPage({
 export function GoogleReviews({
   range,
   timezone,
+  children,
 }: {
   range: Range;
   timezone: string;
+  children?: React.ReactNode;
 }) {
   const data = useCommunity('review'),
-    [period, setPeriod] = useState('All reviews'),
+    [dates, setDates] = useState<ReviewDateSelection>({
+      mode: 'All dates',
+      anchor: range.end,
+      start: range.start,
+      end: range.end,
+      approximate: true,
+    }),
     [category, setCategory] = useState('All topics'),
     [stars, setStars] = useState('All ratings'),
     [search, setSearch] = useState(''),
@@ -1589,8 +1608,9 @@ export function GoogleReviews({
     status = data.statuses.find(
       (s) => s.source === 'gbp' && s.kind === 'review',
     );
-  const dated = all.filter(
-    (r) => period === 'All reviews' || inWindow(r, range, timezone),
+  const reviewRange = reviewPeriodRange(dates, range);
+  const dated = all.filter((r) =>
+    reviewMatchesDates(r, reviewRange, timezone, dates.approximate),
   );
   const reviews = dated
     .map((r) => ({ ...r, ...reviewTopics(r) }))
@@ -1629,16 +1649,12 @@ export function GoogleReviews({
       setBusy(false);
     }
   }
-  useEffect(() => setPage(1), [period, category, stars, search]);
+  useEffect(
+    () => setPage(1),
+    [dates, range.start, range.end, category, stars, search],
+  );
   return (
     <section className="community-view google-reviews">
-      <ReviewReports
-        records={all}
-        range={range}
-        timezone={timezone}
-        loading={data.loading}
-        truncated={data.truncated}
-      />
       <div className="section-head">
         <div>
           <h2>Guest reviews</h2>
@@ -1670,15 +1686,20 @@ export function GoogleReviews({
           {data.error}
         </div>
       )}
+      <ReviewDateControls value={dates} onChange={setDates} dashboard={range} />
+      {reviewRange && dated.some((r) => r.timePrecision === 'relative') && (
+        <p className="source-asof">
+          {dated.filter((r) => r.timePrecision === 'relative').length} of{' '}
+          {dated.length} date matches are approximate. Each review keeps
+          Google’s original date label.
+        </p>
+      )}
       <CountCards
         items={[
           {
             label: 'Imported reviews',
             value: ready ? dated.length : null,
-            detail:
-              period === 'All reviews'
-                ? 'All imported dates'
-                : 'Selected date range',
+            detail: reviewPeriodLabel(dates, range),
           },
           {
             label: 'Food-related reviews',
@@ -1698,10 +1719,10 @@ export function GoogleReviews({
       <div className="surface community-panel">
         <h3>What guests criticize most</h3>
         <p className="source-asof">
-          Suggested from explicit negative wording in review sentences. Reviews
-          may mention several topics. This is a keyword-based aid, not a
-          complete sentiment assessment; open the original text to verify. A low
-          rating alone does not prove a food complaint.
+          Suggestions consider dishes, ingredients, drinks, staff behaviour and
+          the surrounding language, including negation and mixed feedback.
+          Review the quoted evidence before acting. One review can raise several
+          issues; a low rating alone does not identify the cause.
         </p>
         {ranked.length ? (
           <div className="review-issues">
@@ -1731,12 +1752,6 @@ export function GoogleReviews({
         )}
       </div>
       <div className="community-toolbar">
-        <Picker
-          label="Review date scope"
-          value={period}
-          onChange={setPeriod}
-          options={['All reviews', 'Selected dates']}
-        />
         <Picker
           label="Review topic"
           value={category}
@@ -1789,12 +1804,8 @@ export function GoogleReviews({
                 <div>
                   <strong>{r.name || 'Anonymous reviewer'}</strong>
                   <small>
-                    {r.timePrecision === 'relative'
-                      ? r.timeLabel +
-                        ' when captured on ' +
-                        new Date(r.time).toLocaleDateString()
-                      : new Date(r.time).toLocaleDateString()}{' '}
-                    · {r.origin === 'api' ? 'Google' : 'Imported file'}
+                    {reviewDateLabel(r, timezone)} ·{' '}
+                    {r.origin === 'api' ? 'Google' : 'Imported file'}
                   </small>
                 </div>
                 <span
@@ -1871,6 +1882,16 @@ export function GoogleReviews({
         kind="review"
         source="gbp"
         onSaved={data.refresh}
+      />
+      {children}
+      <ReviewReports
+        records={all}
+        range={range}
+        timezone={timezone}
+        loading={data.loading}
+        truncated={data.truncated}
+        dates={dates}
+        onDatesChange={setDates}
       />
     </section>
   );

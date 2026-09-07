@@ -11,6 +11,12 @@ import {
 import { Picker } from './controls';
 import { type CommunityRecord } from '@/lib/community';
 import { type Range } from '@/lib/analytics';
+import { ReviewDateControls } from './review-date-controls';
+import {
+  reviewPeriodRange,
+  reviewPeriodLabel,
+  type ReviewDateSelection,
+} from '@/lib/review-dates';
 import {
   DEFAULT_REVIEW_FILTERS,
   makeReviewReport,
@@ -80,25 +86,37 @@ export function ReviewReports({
   timezone,
   loading,
   truncated,
+  dates,
+  onDatesChange,
 }: {
   records: CommunityRecord[];
   range: Range;
   timezone: string;
   loading: boolean;
   truncated?: boolean;
+  dates: ReviewDateSelection;
+  onDatesChange: (v: ReviewDateSelection) => void;
 }) {
-  const [filters, setFilters] = useState<ReviewReportFilters>({
+  const [localFilters, setFilters] = useState<ReviewReportFilters>({
     ...DEFAULT_REVIEW_FILTERS,
     stars: [1, 2, 3],
   });
-  const [title, setTitle] = useState('Food & drink review report');
+  const [title, setTitle] = useState('Guest feedback review report');
+  const selectedRange = reviewPeriodRange(dates, range);
+  const reportRange = selectedRange || range;
+  const filters: ReviewReportFilters = {
+    ...localFilters,
+    period: selectedRange ? 'Selected dates' : 'All imported reviews',
+    approximateDates: dates.approximate,
+    periodLabel: reviewPeriodLabel(dates, range),
+  };
   const [snapshot, setSnapshot] = useState<ReviewReport | null>(null);
   const [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(0),
     [message, setMessage] = useState('');
   const selection = useMemo(
-    () => makeReviewReport(records, filters, range, timezone, title),
-    [records, filters, range.start, range.end, timezone, title],
+    () => makeReviewReport(records, filters, reportRange, timezone, title),
+    [records, localFilters, dates, range.start, range.end, timezone, title],
   );
   const patch = (values: Partial<ReviewReportFilters>) =>
     setFilters((v) => ({ ...v, ...values }));
@@ -130,7 +148,9 @@ export function ReviewReports({
     }
   }
   const create = () => {
-    setSnapshot(makeReviewReport(records, filters, range, timezone, title));
+    setSnapshot(
+      makeReviewReport(records, filters, reportRange, timezone, title),
+    );
     setMessage('');
     setProgress(0);
   };
@@ -146,8 +166,8 @@ export function ReviewReports({
           </span>
           <h2>Critical review reports</h2>
           <p>
-            Separate low-rating feedback about food and drinks, then export the
-            complete selection.
+            Separate criticism about food, drinks, service and atmosphere, then
+            export the complete selection.
           </p>
         </div>
         <button
@@ -186,7 +206,7 @@ export function ReviewReports({
                 : makeReviewReport(
                     records,
                     { ...filters, stars: [star] },
-                    range,
+                    reportRange,
                     timezone,
                   ).rows.length}
             </strong>
@@ -202,7 +222,17 @@ export function ReviewReports({
         <Picker
           label="Report topic"
           value={filters.topic}
-          options={['Food & drinks', 'Food', 'Drinks', 'All topics']}
+          options={[
+            'Food & drinks',
+            'Food',
+            'Drinks',
+            'Service & staff',
+            'Atmosphere',
+            'Waiting time',
+            'Price & value',
+            'Cleanliness',
+            'All topics',
+          ]}
           onChange={(v) => patch({ topic: v as ReviewReportFilters['topic'] })}
         />
         <Picker
@@ -211,14 +241,6 @@ export function ReviewReports({
           options={['Criticism detected', 'All matching reviews']}
           onChange={(v) =>
             patch({ evidence: v as ReviewReportFilters['evidence'] })
-          }
-        />
-        <Picker
-          label="Report dates"
-          value={filters.period}
-          options={['All imported reviews', 'Selected dates']}
-          onChange={(v) =>
-            patch({ period: v as ReviewReportFilters['period'] })
           }
         />
         <input
@@ -237,12 +259,16 @@ export function ReviewReports({
           />
         </label>
       </div>
+      <ReviewDateControls
+        value={dates}
+        onChange={onDatesChange}
+        dashboard={range}
+        label="Report"
+      />
       <p className="source-asof">
-        {filters.period === 'Selected dates'
-          ? `${range.start} – ${range.end}. Reviews with approximate dates are excluded. `
-          : ''}
-        Criticism is suggested from wording. Choose “All matching reviews” to
-        include topic mentions without a detected complaint.
+        Criticism is suggested from context and related terms. Choose “All
+        matching reviews” to include topic mentions without a detected
+        complaint.
       </p>
       {truncated && (
         <p role="alert" className="save-error">

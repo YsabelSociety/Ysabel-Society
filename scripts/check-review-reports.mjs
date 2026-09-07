@@ -4,6 +4,12 @@ import assert from 'node:assert/strict';
 import ts from 'typescript';
 process.on('uncaughtException', (error) => {
   console.error(error.message);
+  console.error(
+    String(error.stack)
+      .split('\n')
+      .filter((line) => line.includes('check-review-reports.mjs'))
+      .join('\n'),
+  );
   process.exitCode = 1;
 });
 const cache = new Map();
@@ -48,6 +54,45 @@ const { allowedReviewPhoto, fetchReviewPhoto } = await import(
 );
 const range = { start: '2026-09-01', end: '2026-09-07' },
   tz = 'Europe/Tirane';
+const {
+  reviewPeriodRange,
+  shiftReviewPeriod,
+  reviewMatchesDates,
+  reviewDateBounds,
+} = await import(load('lib/review-dates.ts'));
+const dateSelection = {
+  mode: 'Daily',
+  anchor: '2024-02-29',
+  start: range.start,
+  end: range.end,
+  approximate: true,
+};
+assert.deepEqual(reviewPeriodRange(dateSelection, range), {
+  start: '2024-02-29',
+  end: '2024-02-29',
+});
+assert.deepEqual(
+  reviewPeriodRange({ ...dateSelection, mode: 'Monthly' }, range),
+  { start: '2024-02-01', end: '2024-02-29' },
+);
+assert.deepEqual(
+  reviewPeriodRange({ ...dateSelection, mode: 'Yearly' }, range),
+  { start: '2024-01-01', end: '2024-12-31' },
+);
+assert.deepEqual(
+  reviewPeriodRange(
+    { ...dateSelection, mode: 'Weekly', anchor: '2026-01-01' },
+    range,
+  ),
+  { start: '2025-12-29', end: '2026-01-04' },
+);
+assert.equal(
+  shiftReviewPeriod(
+    { ...dateSelection, mode: 'Monthly', anchor: '2026-01-31' },
+    1,
+  ).anchor,
+  '2026-02-01',
+);
 const base = {
   id: 'a',
   source: 'gbp',
@@ -90,6 +135,96 @@ const rows = [
     text: 'Cold drinks and good food. Lovely service.',
   },
 ];
+assert(
+  reviewMatchesDates(
+    { ...base, time: '2026-08-31T22:30:00Z' },
+    { start: '2026-09-01', end: '2026-09-01' },
+    tz,
+  ),
+);
+assert(
+  !reviewMatchesDates(
+    base,
+    { start: '2026-09-07', end: '2026-09-01' },
+    tz,
+    true,
+  ),
+);
+const approximateReview = {
+  ...base,
+  time: '2026-09-07T00:11:00Z',
+  timePrecision: 'relative',
+  timeLabel: '3 weeks ago',
+};
+const bounds = reviewDateBounds(approximateReview, tz);
+assert.equal(bounds.approximate, true);
+assert(
+  reviewMatchesDates(
+    approximateReview,
+    { start: '2026-08-01', end: '2026-08-31' },
+    tz,
+    true,
+  ),
+);
+assert(
+  !reviewMatchesDates(
+    approximateReview,
+    { start: '2026-08-01', end: '2026-08-31' },
+    tz,
+    false,
+  ),
+);
+assert(
+  !reviewMatchesDates(
+    { ...approximateReview, timeLabel: 'Some time ago' },
+    range,
+    tz,
+    true,
+  ),
+);
+assert.equal(
+  approximateReview.time,
+  '2026-09-07T00:11:00Z',
+  'Filtering must never replace capture time with an invented review timestamp',
+);
+for (const [text, topic] of [
+  ['The ribeye arrived. It was rubbery and dry.', 'Food'],
+  ['We ordered gnocchi. It was not fresh.', 'Food'],
+  ['Could not chew it. Sent it back.', 'Food'],
+  ['The mojito was mostly ice with hardly any alcohol.', 'Drinks'],
+  ['Nobody acknowledged us. We felt invisible.', 'Service'],
+  ['The hostess rolled her eyes and refused to help.', 'Service'],
+  ['We could not hear each other and had to shout to be heard.', 'Atmosphere'],
+  ['It smelled like an ashtray.', 'Atmosphere'],
+  ['We waited 45 minutes to order.', 'Waiting time'],
+  ['The glasses were stained. Sticky tables everywhere.', 'Cleanliness'],
+])
+  assert(
+    reviewTopics({ ...base, text }).criticisms.some((c) => c.topic === topic),
+    text + ' => ' + topic,
+  );
+for (const text of [
+  'The staff were not rude. The pasta was not bad.',
+  'Cold beer and a dry martini. Excellent.',
+  'We loved the loud music.',
+  'The staff were never dismissive.',
+])
+  assert.equal(reviewTopics({ ...base, text }).criticisms.length, 0, text);
+assert(
+  !reviewTopics({
+    ...base,
+    text: 'Delicious risotto but the hostess ignored us.',
+  }).criticisms.some((c) => c.topic === 'Food'),
+);
+assert.equal(
+  makeReviewReport(
+    [{ ...base, text: 'The hostess ignored us.' }],
+    { ...DEFAULT_REVIEW_FILTERS, topic: 'Service & staff' },
+    range,
+    tz,
+  ).rows.length,
+  1,
+);
 const filtered = makeReviewReport(rows, DEFAULT_REVIEW_FILTERS, range, tz);
 assert.deepEqual(
   new Set(filtered.rows.map((r) => r.id)),
@@ -278,3 +413,16 @@ assert.equal(image.bytes.length, 3);
 console.log(
   'PASS: rating/topic/date/criticism filters; complete report export; photo embedding; link provenance; HTML/CSV escaping; safe bounded image retrieval.',
 );
+
+const { conversationCursor } = await import(load('lib/message-pagination.ts'));
+assert.equal(
+  conversationCursor({
+    next: 'https://graph.instagram.com/v26.0/123/conversations?after=next-value&access_token=secret',
+  }),
+  'next-value',
+);
+assert.equal(
+  conversationCursor({ next: 'https://evil.test/?after=cursor' }),
+  '',
+);
+assert.equal(conversationCursor({ cursors: { after: 'orphan-cursor' } }), '');

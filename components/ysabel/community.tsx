@@ -408,6 +408,12 @@ function ImportAccess({
                     Meta messaging requirements
                   </a>
                   <h3>TikTok</h3>
+                  <a
+                    className="secondary"
+                    href="/marketingdata/tiktok-business"
+                  >
+                    Set up TikTok messages & mentions <ArrowUpRight size={15} />
+                  </a>
                   <p>
                     The current TikTok Display API connection does not include
                     direct messages. TikTok Business Messaging is separately

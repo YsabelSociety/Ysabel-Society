@@ -16,6 +16,7 @@ export type CommunityRecord = {
   username?: string;
   avatar?: string;
   profileUrl?: string;
+  reviewUrl?: string;
   followers?: number | null;
   followersObservedAt?: string;
   direction?: 'in' | 'out';
@@ -207,7 +208,11 @@ export function matchesProfile(
 const TOPICS: [string, RegExp][] = [
   [
     'Food',
-    /\b(food|dish|meal|steak|pasta|pizza|sushi|meat|fish|salad|dessert|taste|cooking|ushqim\w*|gatim\w*|mish\w*|peshk\w*|cibo|piatt\w*|carne|pesce|cucina)\b/i,
+    /\b(food|dish(?:es)?|meals?|steaks?|pasta|pizzas?|sushi|meat|fish|salmon|prawns?|salads?|desserts?|taste|cooking|ushqim\w*|gatim\w*|mish\w*|peshk\w*|cibo|piatt\w*|carne|pesce|cucina)\b/i,
+  ],
+  [
+    'Drinks',
+    /\b(drinks?|beverages?|cocktails?|mocktails?|wine|wines|beer|coffee|coffees|espresso|cappuccino|tea|juice|water|whisk[ey]*|margaritas?|pije\w*|kafe\w*|koktej\w*|verë|vera|birr\w*|bevande|vino|caffè|cocktail)\b/i,
   ],
   [
     'Service',
@@ -219,7 +224,7 @@ const TOPICS: [string, RegExp][] = [
   ],
   [
     'Price & value',
-    /\b(price\w*|expensive|overpriced|bill|cost\w*|value|shtrenjt\w*|çmim\w*|cmim\w*|prezz\w*|caro|cara|conto)\b/i,
+    /\b(price\w*|expensive|overpriced|bill|parking|cost\w*|value|shtrenjt\w*|çmim\w*|cmim\w*|prezz\w*|caro|cara|conto)\b/i,
   ],
   [
     'Atmosphere',
@@ -231,7 +236,7 @@ const TOPICS: [string, RegExp][] = [
   ],
 ];
 const NEGATIVE =
-  /\b(bad|poor|terrible|awful|disappoint\w*|cold|raw|burnt|overcook\w*|undercook\w*|salty|bland|rude|slow|dirty|overpriced|expensive|noisy|loud|wrong|forgot\w*|unfriendly|unhelpful|worst|unpleasant|miserable|inedible|keq\w*|ftoh\w*|shtrenjt\w*|pist\w*|vones\w*|dobët|dobet|pessim\w*|cattiv\w*|fredd\w*|crudo|bruciat\w*|caro|cara|sporco|sporca|scortese|lento|lenta)\b/i;
+  /\b(bad|poor|terrible|awful|disappoint\w*|cold|raw|burnt|overcook\w*|undercook\w*|salty|bland|tasteless|stale|greasy|watery|diluted|mediocre|leftover|falling apart|not worth|no taste|limited|unavailable|rude|slow|dirty|overpriced|expensive|noisy|loud|wrong|forgot\w*|unfriendly|unhelpful|worst|unpleasant|miserable|inedible|keq\w*|ftoh\w*|shtrenjt\w*|pist\w*|vones\w*|dobët|dobet|pessim\w*|cattiv\w*|fredd\w*|crudo|bruciat\w*|caro|cara|sporco|sporca|scortese|lento|lenta)\b/i;
 export function reviewTopics(review: CommunityRecord) {
   const categories = TOPICS.filter(([, re]) => re.test(review.text)).map(
     ([label]) => label,
@@ -243,7 +248,7 @@ export function reviewTopics(review: CommunityRecord) {
     ? review.text.split('(Original)')[0]
     : review.text;
   for (const sentence of analysisText.split(
-    /(?<=[.!?\n])\s+|\b(?:but|however|although|por|ma)\b/i,
+    /(?<=[.!?,\n])\s+|\b(?:but|however|although|por|ma)\b/i,
   )) {
     const check = sentence
       .replace(
@@ -265,11 +270,39 @@ export function reviewTopics(review: CommunityRecord) {
         .map((m) => ({ ...m, distance: Math.abs(m.index - negative.index!) }))
         .filter((m) => m.distance <= 80)
         .sort((a, b) => a.distance - b.distance)[0];
+      // A chilled drink is not itself a complaint.
+      if (
+        closest?.topic === 'Drinks' &&
+        negative[0].toLowerCase() === 'cold' &&
+        !/\btoo cold\b/i.test(check)
+      )
+        continue;
       if (closest && !criticisms.some((c) => c.topic === closest.topic))
         criticisms.push({
           topic: closest.topic,
           excerpt: sentence.trim().slice(0, 700),
         });
+      // Price adjectives can describe food/drinks too; a parking charge or
+      // the overall bill must not turn praise for food into a food complaint.
+      if (
+        closest?.topic === 'Price & value' &&
+        /^(?:overpriced|expensive)$/i.test(negative[0])
+      ) {
+        const subject = mentions
+          .filter((m) => m.index !== negative.index)
+          .map((m) => ({ ...m, distance: Math.abs(m.index - negative.index!) }))
+          .filter((m) => m.distance <= 60)
+          .sort((a, b) => a.distance - b.distance)[0];
+        if (
+          subject &&
+          ['Food', 'Drinks'].includes(subject.topic) &&
+          !criticisms.some((c) => c.topic === subject.topic)
+        )
+          criticisms.push({
+            topic: subject.topic,
+            excerpt: sentence.trim().slice(0, 700),
+          });
+      }
     }
   }
   return { categories: categories.length ? categories : ['Other'], criticisms };
@@ -389,6 +422,7 @@ export function parseCommunityCSV(
       username: row.username?.slice(0, 200),
       avatar: safeProfileURL(row.avatar),
       profileUrl: safeProfileURL(row.profile_url),
+      reviewUrl: safeProfileURL(row.review_url),
       followers,
       followersObservedAt:
         followers !== null ? new Date().toISOString() : undefined,

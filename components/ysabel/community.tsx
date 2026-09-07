@@ -45,6 +45,7 @@ import {
 } from '@/lib/community';
 import { number, type Range } from '@/lib/analytics';
 import { InstagramMessaging } from './instagram-messaging';
+import { ReviewReports } from './review-reports';
 
 async function communityAction(body: unknown) {
   const r = await fetch('/marketingdata/api/community', {
@@ -295,7 +296,7 @@ function ImportAccess({
       ? 'id,time,conversation_id,participant_id,direction,name,username,followers,avatar,profile_url,text'
       : kind === 'mention'
         ? 'id,time,participant_id,name,username,mention_type,profile_url,text'
-        : 'id,time,name,rating,text,reply,avatar';
+        : 'id,time,name,rating,text,reply,avatar,profile_url,review_url';
   function template() {
     const a = document.createElement('a'),
       url = URL.createObjectURL(
@@ -1631,6 +1632,13 @@ export function GoogleReviews({
   useEffect(() => setPage(1), [period, category, stars, search]);
   return (
     <section className="community-view google-reviews">
+      <ReviewReports
+        records={all}
+        range={range}
+        timezone={timezone}
+        loading={data.loading}
+        truncated={data.truncated}
+      />
       <div className="section-head">
         <div>
           <h2>Guest reviews</h2>
@@ -1736,6 +1744,7 @@ export function GoogleReviews({
           options={[
             'All topics',
             'Food',
+            'Drinks',
             'Service',
             'Waiting time',
             'Price & value',

@@ -81,6 +81,25 @@ export async function readCommunity(owner: string, kind: string) {
     truncated: r.results.length > 10000,
   };
 }
+export async function readGoogleReview(
+  owner: string,
+  accountId: string,
+  id: string,
+) {
+  const key = accountId + ':' + id;
+  const row = await database()
+    .prepare(
+      "SELECT encrypted FROM community_records WHERE owner=? AND source='gbp' AND kind='review' AND id=?",
+    )
+    .bind(owner, key)
+    .first<{ encrypted: string }>();
+  return row
+    ? unseal<CommunityRecord>(
+        row.encrypted,
+        owner + ':community:gbp:review:' + key,
+      )
+    : null;
+}
 export async function saveCommunityStatus(
   owner: string,
   status: CommunityStatus,

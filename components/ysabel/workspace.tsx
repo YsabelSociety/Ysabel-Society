@@ -84,7 +84,6 @@ import {
   PerformancePage,
   AudiencePage,
   WebsitePage,
-  GooglePage,
   ComparisonsPage,
   InsightsPage,
 } from './analytics-pages';
@@ -855,7 +854,6 @@ export default function Workspace({
                     range={range}
                     timezone={data.settings.timezone}
                   >
-                    <GooglePage rows={rows} live={source.mode === 'live'} />
                     {source.mode === 'live' && (
                       <SourceReports
                         tables={source.tables}

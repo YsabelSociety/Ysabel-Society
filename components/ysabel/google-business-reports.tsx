@@ -12,15 +12,14 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download } from 'lucide-react';
 import {
   GBP_METRICS,
   GBP_SUMMARY,
   GBP_ORIGINAL,
-  gbpDailyValue,
   gbpMonthlyPoints,
 } from '@/lib/google-business';
-import { type Daily, compact, number } from '@/lib/analytics';
+import { compact, number } from '@/lib/analytics';
 import { type ReportTable, finite } from '@/lib/reporting';
 import { Spark } from './charts';
 import { useMinimalMotion } from './use-motion';
@@ -113,150 +112,6 @@ function MetricCard({
       {points.length > 0 && <Spark values={points.map((p) => p.value)} />}
       <small>{note || metric.description}</small>
     </article>
-  );
-}
-export function GoogleBusinessMetrics({
-  rows,
-  live = false,
-}: {
-  rows: Daily[];
-  live?: boolean;
-}) {
-  const daily = rows
-    .filter((row) => row.channel === 'Google Business')
-    .sort((a, b) => a.date.localeCompare(b.date));
-  // Generate gaps only between known observations. Gaps never become zeroes.
-  const dates: string[] = [];
-  if (daily.length)
-    for (
-      let d = new Date(daily[0].date + 'T12:00:00Z');
-      d.toISOString().slice(0, 10) <= daily.at(-1)!.date;
-      d.setUTCDate(d.getUTCDate() + 1)
-    )
-      dates.push(d.toISOString().slice(0, 10));
-  const plots = GBP_METRICS.map((metric) => {
-    const points = dates.map((date) => {
-      const supplied = daily
-        .filter((row) => row.date === date)
-        .map((row) => gbpDailyValue(row, metric.key))
-        .filter((v): v is number => v !== null);
-      return {
-        date,
-        value: supplied.length ? supplied.reduce((a, b) => a + b, 0) : null,
-      };
-    });
-    const supplied = points.filter((p) => p.value !== null);
-    return {
-      metric,
-      points,
-      count: supplied.length,
-      value: supplied.length
-        ? supplied.reduce((n, p) => n + p.value!, 0)
-        : null,
-    };
-  });
-  return (
-    <div className={styles.section}>
-      <div className="section-head">
-        <div>
-          <span className="metric-eyebrow">
-            Google Business · Ysabel Society
-          </span>
-          <h2>Business Profile performance</h2>
-          <p className="muted">
-            Daily observations within your selected dashboard dates.
-          </p>
-        </div>
-        <a
-          className="secondary"
-          href="/marketingdata/connections?source=gbp&method=file"
-        >
-          <RefreshCw size={15} /> Connection & imports
-        </a>
-      </div>
-      {live && !daily.length ? (
-        <div className="surface padded">
-          <h3>No daily observations in the selected dates</h3>
-          <p className="muted">
-            Saved period totals are available in Google Business reports below.
-            Import a single-day Google export or connect approved reporting
-            access to populate daily charts.
-          </p>
-          <button
-            className="text-link"
-            onClick={() =>
-              document
-                .getElementById('google-business-reports')
-                ?.scrollIntoView({ behavior: 'smooth' })
-            }
-          >
-            View imported Google reports ↓
-          </button>
-        </div>
-      ) : (
-        <>
-          <p className={styles.coverage}>
-            {daily[0]?.date} – {daily.at(-1)?.date} ·{' '}
-            {new Set(daily.map((d) => d.date)).size} observed days. Totals
-            include only imported days; missing days remain gaps. Recent Google
-            values are provisional, including reported zeroes.
-          </p>
-          <div className={styles.cards}>
-            {plots.slice(0, 8).map((p) => (
-              <MetricCard
-                key={p.metric.key}
-                {...p}
-                note={
-                  p.count
-                    ? `${p.count} observed days · ${p.metric.description}`
-                    : 'Google has not supplied this metric for these dates.'
-                }
-              />
-            ))}
-          </div>
-          <div className={styles.grid}>
-            {plots
-              .filter((p) => p.count)
-              .map((p) => (
-                <DeferredChart
-                  key={p.metric.key}
-                  title={p.metric.label}
-                  loading={false}
-                >
-                  <section className="surface padded">
-                    <h3>{p.metric.label}</h3>
-                    <p className="footnote">{p.metric.description}</p>
-                    <MetricChart metric={p.metric} points={p.points} />
-                    <details>
-                      <summary>Daily values</summary>
-                      <table className={styles.table}>
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>{p.metric.label}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {p.points.map((point) => (
-                            <tr key={point.date}>
-                              <td>{point.date}</td>
-                              <td>
-                                {point.value === null
-                                  ? '—'
-                                  : number(point.value)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </details>
-                  </section>
-                </DeferredChart>
-              ))}
-          </div>
-        </>
-      )}
-    </div>
   );
 }
 function download(table: ReportTable) {

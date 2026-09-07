@@ -58,7 +58,6 @@ import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
 import { HistoryImport } from './history-import';
-import { GoogleBusinessMetrics } from './google-business-reports';
 import { activitySeries } from '@/lib/activity-series';
 import {
   AudienceHistory,
@@ -458,7 +457,6 @@ export function PerformancePage({
         </>
       ) : channel === 'Google Business' ? (
         <>
-          <GooglePage rows={r} live={live} />
           {live && (
             <SourceReports
               tables={tables.filter((t) => t.source === 'gbp')}
@@ -1161,15 +1159,6 @@ export function WebsitePage({
       )}
     </div>
   );
-}
-export function GooglePage({
-  rows,
-  live = false,
-}: {
-  rows: Daily[];
-  live?: boolean;
-}) {
-  return <GoogleBusinessMetrics rows={rows} live={live} />;
 }
 export function ComparisonsPage({
   range,

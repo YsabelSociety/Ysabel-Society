@@ -383,7 +383,7 @@ export function LoadingLogo({
             const nearest = Math.round(yaw / (Math.PI * 2)) * Math.PI * 2;
             yaw += (nearest - yaw) * ease;
           } else if (current.refreshing)
-            yaw += delta * (3.2 + shownProgress * 3.8);
+            yaw = Math.sin(t * 3.6) * 0.16;
           else if (compact) yaw += delta * (0.36 + shownProgress * 0.36);
           else yaw = 0.08 + Math.sin(t * 0.58) * 0.3;
         }
@@ -393,18 +393,18 @@ export function LoadingLogo({
           still
             ? 0
             : current.refreshing
-              ? motionTime * 0.68
+              ? t * 5.4
               : Math.sin(t * 0.31) * 0.014,
         );
         logo.position.y = compact ? 0 : 0.72;
         identityScale +=
-          ((current.refreshing ? 0.82 : 1) - identityScale) * ease;
+          ((current.refreshing ? 0.72 : 1) - identityScale) * ease;
         identity.scale.setScalar(identityScale);
         identity.position.y = still ? 0 : Math.sin(motionTime * 0.8) * 0.035;
         identity.rotation.x = still ? 0 : -pointer.y * 0.018;
         identity.rotation.y = still ? 0 : pointer.x * 0.022;
         ring.rotation.z =
-          still || !current.refreshing ? 0 : -motionTime * 1.65;
+          still || !current.refreshing ? 0 : -t * 7.2;
         letteringPhase.value = still
           ? 0
           : t * (current.refreshing ? 4.8 : 0.8);

@@ -1165,27 +1165,39 @@ export function CommunityPage({
     await Promise.allSettled(
       targets.map(async (s) => {
         try {
-          const result = await communityAction({
-            op: 'sync',
-            source: s,
-            kind,
-            continue: older,
-          });
-          setSyncResults((items) => [
-            ...items,
-            {
+          let returned = 0;
+          for (let batch = 0; batch < 10; batch++) {
+            const result = await communityAction({
+              op: 'sync',
               source: s,
-              detail: result.skipped
-                ? 'An import is already running. Saved records stay visible while it completes.'
-                : (result.needsAttention ? 'Access needs attention. ' : '') +
-                  Number(result.imported || 0) +
-                  ' records returned. ' +
-                  (result.detail || ''),
-            },
-          ]);
+              kind,
+              continue: older || batch > 0,
+            });
+            returned += Number(result.imported || 0);
+            setSyncResults((items) => [
+              ...items.filter((item) => item.source !== s),
+              {
+                source: s,
+                detail: result.skipped
+                  ? 'An import is already running. Saved records stay visible while it completes.'
+                  : (result.needsAttention ? 'Access needs attention. ' : '') +
+                    returned +
+                    ' records returned. ' +
+                    (result.detail || ''),
+              },
+            ]);
+            data.refresh();
+            if (
+              mode !== 'inbox' ||
+              !result.more ||
+              result.needsAttention ||
+              result.skipped
+            )
+              break;
+          }
         } catch (e) {
           setSyncResults((items) => [
-            ...items,
+            ...items.filter((item) => item.source !== s),
             { source: s, detail: (e as Error).message },
           ]);
         }

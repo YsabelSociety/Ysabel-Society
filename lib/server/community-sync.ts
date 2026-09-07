@@ -2,7 +2,7 @@ import { database } from './db';
 import { accessGrant, getApp, type Resource } from './connector-oauth';
 import { readVault } from './connector-vault';
 import { readDirect, directContext } from './connection-direct';
-import { graphGet, graphBatch } from './report-meta';
+import { graphGet } from './report-meta';
 import { requestJSON } from './providers';
 import { conversationCursor } from '@/lib/message-pagination';
 import {
@@ -60,7 +60,7 @@ export async function readConversationList(
       }),
     {
       headers: { Authorization: 'Bearer ' + context.accessToken },
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(18000),
     },
   );
   const body: any = await response.json();
@@ -164,7 +164,11 @@ export async function syncMessages(
   const instagram =
     source === 'instagram' ? await readInstagramMessaging(owner) : null;
   if (instagram) await ensureStillLinked(owner, source, instagram.accountId);
-  const context = instagram || (await linkedContext(owner, source));
+  const started = Date.now(),
+    deadline = started + 35000;
+  const context = instagram
+    ? { ...instagram, deadline }
+    : await linkedContext(owner, source);
   // A Page token identifies the Page used by the Facebook Login conversations API.
   const page = instagram
     ? { id: instagram.externalId }
@@ -185,14 +189,15 @@ export async function syncMessages(
     inaccessible = 0,
     conversationCount = 0,
     pagesChecked = 0;
-  const started = Date.now();
   const seenCursors = new Set<string>();
   let conversationNode = String(page.id);
   if (!instagram && source === 'instagram' && after.startsWith('ig-node:')) {
     conversationNode = context.externalId;
     after = after.slice(8);
   }
-  const batches = automatic ? 1 : instagram ? 50 : 10;
+  // Return small durable batches before the front proxy closes a long request.
+  // Empty Instagram pages can still be scanned, but a readable thread ends the batch.
+  const batches = automatic ? 1 : instagram ? 8 : 1;
   for (let batch = 0; batch < batches; batch++) {
     let list: any;
     try {
@@ -202,7 +207,7 @@ export async function syncMessages(
         source,
         after,
         0,
-        automatic ? 10 : 50,
+        instagram ? 1 : automatic ? 10 : 25,
       );
     } catch (e) {
       // Probe the linked Instagram node as well as the Page node. Both calls
@@ -249,7 +254,12 @@ export async function syncMessages(
         conversationCount +
         ' accessible conversations. The first import can take several minutes.',
     });
-    const replies: { body?: any; error?: string; inaccessible?: number }[] = [];
+    const replies: {
+      body?: any;
+      error?: string;
+      inaccessible?: number;
+      retryable?: boolean;
+    }[] = [];
     if (instagram) {
       for (let i = 0; i < conversations.length; i += 2)
         replies.push(
@@ -257,13 +267,16 @@ export async function syncMessages(
             conversations
               .slice(i, i + 2)
               .map((c: any) =>
-                instagramConversationMessages(instagram, String(c.id)),
+                instagramConversationMessages(
+                  { ...instagram, deadline },
+                  String(c.id),
+                ),
               ),
           )),
         );
     } else
       replies.push(
-        ...(await graphBatch(
+        ...(await communityMessageBatch(
           context,
           conversations.map(
             (c: any) =>
@@ -272,18 +285,20 @@ export async function syncMessages(
               (source === 'facebook' ? ',attachments' : '') +
               '&limit=20',
           ),
+          deadline,
         )),
       );
     // Optional attachment details must not prevent the core inbox from importing.
     const attachments =
       source === 'instagram' && !instagram
-        ? await graphBatch(
+        ? await communityMessageBatch(
             context,
             conversations.map(
               (c: any) =>
                 encodeURIComponent(c.id) +
                 '/messages?fields=id,attachments&limit=20',
             ),
+            deadline,
           )
         : [];
     const pageStart = imported.length;
@@ -351,11 +366,17 @@ export async function syncMessages(
     await ensureStillLinked(owner, source, context.accountId);
     for (let start = pageStart; start < imported.length; start += 2000)
       await saveCommunity(owner, imported.slice(start, start + 2000));
+    if (Date.now() >= deadline || replies.some((r) => r.retryable))
+      throw new Error(
+        'INPUT:The message batch reached its time limit. Readable messages were saved; retry this batch to check the remaining details.',
+      );
     const next = conversationCursor(list.paging);
     // Save a checkpoint after every persisted page. Progress and errors must
     // not reset a manual history cursor, including during an automatic refresh.
     const checkpoint =
-      automatic && previous?.account_id === context.accountId && previous.cursor
+      !continueImport &&
+      previous?.account_id === context.accountId &&
+      previous.cursor
         ? previous.cursor
         : next &&
             !instagram &&
@@ -385,7 +406,10 @@ export async function syncMessages(
     seenCursors.add(next);
     after = next;
     if (batch === batches - 1) partial = true;
-    if (instagram && Date.now() - started > 25000) {
+    if (
+      Date.now() - started > 18000 ||
+      (instagram && conversations.length > 0)
+    ) {
       partial = true;
       break;
     }
@@ -409,9 +433,12 @@ export async function syncMessages(
         ? 'name,username,profile_pic,follower_count'
         : 'first_name,last_name,profile_pic'),
   );
-  const profiles = instagram
-    ? await instagramMessageBatch(instagram, profilePaths)
-    : await graphBatch(context, profilePaths);
+  const profiles =
+    Date.now() > deadline - 8000
+      ? people.map(() => ({ body: undefined }))
+      : instagram
+        ? await instagramMessageBatch({ ...instagram, deadline }, profilePaths)
+        : await communityMessageBatch(context, profilePaths, deadline);
   for (let i = 0; i < people.length; i++) {
     const p = profiles[i].body;
     if (!p) continue;
@@ -472,7 +499,9 @@ export async function syncMessages(
     detail,
     accountId: context.accountId,
     cursor:
-      automatic && previous?.account_id === context.accountId && previous.cursor
+      !continueImport &&
+      previous?.account_id === context.accountId &&
+      previous.cursor
         ? previous.cursor
         : after &&
             !instagram &&
@@ -484,9 +513,75 @@ export async function syncMessages(
   return {
     imported: imported.filter((r) => r.kind === 'message').length,
     mentionsImported: imported.filter((r) => r.kind === 'mention').length,
+    more: !!(
+      after ||
+      (!continueImport &&
+        previous?.account_id === context.accountId &&
+        previous.cursor)
+    ),
     needsAttention: !!instagram && conversationCount === 0,
     detail,
   };
+}
+async function communityMessageBatch(
+  context: { accessToken: string; apiVersion?: string },
+  paths: string[],
+  deadline: number,
+) {
+  const results: { body?: any; error?: string; retryable?: boolean }[] = [];
+  for (let i = 0; i < paths.length; i += 40) {
+    const chunk = paths.slice(i, i + 40);
+    try {
+      if (Date.now() >= deadline) throw new Error('Batch time limit');
+      const response = await fetch(
+        'https://graph.facebook.com/' + context.apiVersion + '/',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: 'Bearer ' + context.accessToken,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            batch: JSON.stringify(
+              chunk.map((relative_url) => ({ method: 'GET', relative_url })),
+            ),
+          }),
+          signal: AbortSignal.timeout(
+            Math.max(1, Math.min(10000, deadline - Date.now())),
+          ),
+        },
+      );
+      const result: any = await response.json();
+      for (let j = 0; j < chunk.length; j++) {
+        const item = Array.isArray(result) ? result[j] : null;
+        let body: any;
+        try {
+          body = JSON.parse(item?.body || '{}');
+        } catch {
+          body = {};
+        }
+        results.push(
+          response.ok && item?.code >= 200 && item.code < 300 && !body.error
+            ? { body }
+            : {
+                error: metaMessageError(
+                  body.error || result.error,
+                  context.accessToken,
+                ),
+              },
+        );
+      }
+    } catch {
+      results.push(
+        ...chunk.map(() => ({
+          error:
+            'Meta message details did not finish within this batch. Retry to continue.',
+          retryable: true,
+        })),
+      );
+    }
+  }
+  return results;
 }
 export async function syncFacebookTags(
   owner: string,
@@ -859,7 +954,9 @@ export async function runCommunitySync(
       source,
       kind,
       now,
-      new Date(Date.now() - 600000).toISOString(),
+      new Date(
+        Date.now() - (kind === 'review' ? 600000 : 120000),
+      ).toISOString(),
       automatic && !force ? 1 : 0,
       new Date(Date.now() - 300000).toISOString(),
     )

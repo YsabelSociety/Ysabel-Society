@@ -74,10 +74,24 @@ export async function readCommunity(owner: string, kind: string) {
     .all<CommunityStatus>();
   return {
     records,
-    statuses: status.results.map(({ cursor, ...s }) => ({
-      ...s,
-      more: !!cursor,
-    })),
+    statuses: status.results.map(({ cursor, ...s }) => {
+      const interrupted =
+        s.kind !== 'review' &&
+        s.state === 'syncing' &&
+        !!s.syncedAt &&
+        Date.parse(s.syncedAt) < Date.now() - 120000;
+      return {
+        ...s,
+        ...(interrupted
+          ? {
+              state: 'needs-attention',
+              detail:
+                'The last import was interrupted. Saved records and history progress are retained. Sync again or load older records to continue.',
+            }
+          : {}),
+        more: !!cursor,
+      };
+    }),
     truncated: r.results.length > 10000,
   };
 }
@@ -106,7 +120,7 @@ export async function saveCommunityStatus(
 ) {
   await database()
     .prepare(
-      'INSERT INTO community_sync(owner,source,kind,state,detail,updated_at,cursor,account_id,total) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,source,kind) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at,cursor=CASE WHEN ? THEN excluded.cursor ELSE community_sync.cursor END,account_id=CASE WHEN ? THEN excluded.account_id ELSE community_sync.account_id END,total=CASE WHEN ? THEN excluded.total ELSE community_sync.total END',
+      'INSERT INTO community_sync(owner,source,kind,state,detail,updated_at,cursor,account_id,total) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT(owner,source,kind) DO UPDATE SET state=excluded.state,detail=excluded.detail,updated_at=excluded.updated_at,cursor=CASE WHEN ? THEN excluded.cursor WHEN ? AND excluded.account_id IS NOT community_sync.account_id THEN NULL ELSE community_sync.cursor END,account_id=CASE WHEN ? THEN excluded.account_id ELSE community_sync.account_id END,total=CASE WHEN ? THEN excluded.total ELSE community_sync.total END',
     )
     .bind(
       owner,
@@ -119,6 +133,7 @@ export async function saveCommunityStatus(
       status.accountId || null,
       status.total ?? null,
       status.cursor !== undefined ? 1 : 0,
+      status.accountId !== undefined ? 1 : 0,
       status.accountId !== undefined ? 1 : 0,
       status.total !== undefined ? 1 : 0,
     )

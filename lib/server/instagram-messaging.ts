@@ -12,6 +12,7 @@ export type InstagramMessageGrant = {
   username: string;
   connectedAt: string;
   instagramLogin: true;
+  deadline?: number;
 };
 
 export function metaMessageError(error: any, accessToken: string) {
@@ -28,17 +29,25 @@ export function metaMessageError(error: any, accessToken: string) {
 }
 
 export async function instagramMessageGet(
-  context: { accessToken: string; apiVersion: string },
+  context: { accessToken: string; apiVersion: string; deadline?: number },
   path: string,
 ) {
   if (!/^v\d{1,2}\.\d{1,2}$/.test(context.apiVersion))
     throw new Error('INPUT:Check the Instagram API version.');
+  if (context.deadline && Date.now() >= context.deadline)
+    throw new Error(
+      'INPUT:Instagram message batch reached its time limit. Retry to continue.',
+    );
   // Only server-created relative paths are used. Never follow a provider paging URL with a token.
   const response = await fetch(
     'https://graph.instagram.com/' + context.apiVersion + '/' + path,
     {
       headers: { Authorization: 'Bearer ' + context.accessToken },
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(
+        context.deadline
+          ? Math.max(1, Math.min(8000, context.deadline - Date.now()))
+          : 30000,
+      ),
     },
   );
   const body: any = await response.json();
@@ -328,6 +337,9 @@ export async function instagramConversationMessages(
         paging: result.messages.paging,
       },
       inaccessible: failed,
+      retryable: details.some((r) =>
+        /time limit|timed?\s*out|timeout|abort/i.test(r.error || ''),
+      ),
     };
   } catch (e) {
     return {
@@ -336,6 +348,7 @@ export async function instagramConversationMessages(
           ? e.message.replace(/^INPUT:/, '')
           : 'Instagram conversation failed.',
       inaccessible: 1,
+      retryable: /time limit|timed?\s*out|timeout|abort/i.test(String(e)),
     };
   }
 }

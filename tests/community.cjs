@@ -773,8 +773,15 @@ async function main() {
   await sync.syncMessages(owner, 'instagram', true);
   assert.equal(
     messagePages.at(-1),
-    11,
+    2,
     'older import resumes at the saved cursor',
+  );
+  for (let page = 0; page < 9; page++)
+    await sync.syncMessages(owner, 'instagram', true);
+  assert.equal(
+    messagePages.at(-1),
+    11,
+    'bounded calls eventually finish every returned conversation page',
   );
   assert.equal(
     (await store.readCommunity(owner, 'message')).statuses.find(
@@ -974,7 +981,13 @@ async function main() {
     'keep Facebook-linked analytics credential',
   );
   const directImport = await sync.syncMessages(owner, 'instagram');
-  assert.equal(directImport.imported, 3);
+  assert.equal(directImport.imported, 2);
+  assert.equal(directImport.more, true);
+  assert.equal(
+    (await sync.syncMessages(owner, 'instagram', true)).imported,
+    1,
+    'direct Instagram continues at the saved thread cursor',
+  );
   assert.match(directImport.detail, /Direct Instagram/);
   assert.match(directImport.detail, /inaccessible/);
   const directRecords = (
@@ -1030,6 +1043,19 @@ async function main() {
       e.message.includes('Meta 190') &&
       !e.message.includes('direct-ig-fixture') &&
       !e.message.includes('https://'),
+  );
+  await assert.rejects(
+    () =>
+      directInstagram.instagramMessageGet(
+        {
+          accessToken: 'unused-fixture',
+          apiVersion: 'v26.0',
+          deadline: Date.now() - 1,
+        },
+        'me',
+      ),
+    /time limit/,
+    'expired time budget prevents another provider request',
   );
   await link('facebook', 'meta', 'fb-tags-page');
   let facebookTagCalls = 0;
@@ -1106,6 +1132,21 @@ async function main() {
     ).length,
     2,
     'failed access keeps previously imported tags',
+  );
+  sql
+    .prepare(
+      "UPDATE community_sync SET state='syncing', updated_at=? WHERE owner=? AND source='tiktok' AND kind='message'",
+    )
+    .run(new Date(Date.now() - 180000).toISOString(), owner);
+  const interrupted = (
+    await store.readCommunity(owner, 'message')
+  ).statuses.find((s) => s.source === 'tiktok' && s.kind === 'message');
+  assert.equal(interrupted.state, 'needs-attention');
+  assert.match(interrupted.detail, /interrupted/);
+  await assert.rejects(
+    () => sync.runCommunitySync(owner, 'tiktok'),
+    /Business app review/,
+    'an expired import lock can be retried',
   );
   console.log(
     'PASS: inbox reply timing, strict influencer threshold, verified profile persistence, timezone grouping, review evidence, CSV validation, encryption and owner isolation, Meta sender identities and access failure, Google review pagination and upserts.',

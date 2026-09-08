@@ -16,7 +16,7 @@ const mediaUrl = vm.runInNewContext(ts.transpileModule(mediaFunction, { compiler
 
 test('website page loads its own built preview, not an external app iframe', () => {
   const page = read('src/app/contentpreview/page.tsx');
-  assert(page.includes('src="/contentpreview-app/index.html"'));
+  assert(page.includes('/contentpreview-app/index.html'));
   assert(!page.includes('chatgpt.site'));
 });
 

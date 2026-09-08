@@ -54,6 +54,7 @@ type CalendarNote = { boardId: string; noteDate: string; body: string; updatedAt
 type Publication = { boardId: string; snapshot: string; publishedAt: number | string };
 type CommunityCaption = { id: string; text: string };
 type CaptionPool = { available: string[]; used: string[] };
+type CaptionCatalog = Record<string, string>;
 type CommunityCaptionStore = Record<string, CaptionPool>;
 type WorkspaceData = {
   boards: Board[];
@@ -172,13 +173,37 @@ const COMMUNITY_CAPTIONS_TEXTS = [
   'Society, who are we finally seeing this Thursday? — Kipey · Ysabel Garden · 21:00',
 ];
 const COMMUNITY_CAPTIONS = COMMUNITY_CAPTIONS_TEXTS.map((text, index) => ({ id: `caption-${index + 1}`, text }));
-const COMMUNITY_CAPTION_IDS = new Set(COMMUNITY_CAPTIONS.map((caption) => caption.id));
 
-const COMMUNITY_CAPTION_BY_ID = new Map(COMMUNITY_CAPTIONS.map((caption) => [caption.id, caption]));
+const DEFAULT_CAPTION_CATALOG: CaptionCatalog = COMMUNITY_CAPTIONS.reduce((memo, item) => {
+  memo[item.id] = item.text;
+  return memo;
+}, {} as CaptionCatalog);
+
 const DEFAULT_CAPTION_POOL: CaptionPool = {
   available: COMMUNITY_CAPTIONS.map((caption) => caption.id),
   used: [],
 };
+const MAX_BULK_CAPTION_INSERT = 100;
+
+function parseCaptionRows(raw: string) {
+  const rows = raw.split(/\r?\n/);
+  const parsed: string[] = [];
+  const seen = new Set<string>();
+
+  for (const row of rows) {
+    const trimmed = row.trim();
+    if (!trimmed) continue;
+    const withoutPrefix = trimmed.replace(/^\s*(?:\d{1,4}\s*[.)-]?\s*|[-*]\s*)/u, '').trim();
+    if (!withoutPrefix) continue;
+    const normalized = withoutPrefix.replace(/\s+/g, ' ').trim();
+    if (!normalized || seen.has(normalized.toLowerCase())) continue;
+    seen.add(normalized.toLowerCase());
+    parsed.push(normalized);
+    if (parsed.length >= MAX_BULK_CAPTION_INSERT) break;
+  }
+
+  return parsed;
+}
 
 function dedupeOrdered(items: string[]) {
   const seen = new Set<string>();
@@ -192,23 +217,34 @@ function dedupeOrdered(items: string[]) {
   return output;
 }
 
-function normalizeCaptionPool(value: unknown): CaptionPool {
+function normalizeCaptionPool(value: unknown, catalog: CaptionCatalog): CaptionPool {
   const baseline: CaptionPool = { available: [...DEFAULT_CAPTION_POOL.available], used: [] };
   if (!value || typeof value !== 'object') return baseline;
   const input = value as { available?: unknown; used?: unknown };
   if (!Array.isArray(input.available) || !Array.isArray(input.used)) return baseline;
-  const valid = input.available.filter((value): value is string => typeof value === 'string' && COMMUNITY_CAPTION_IDS.has(value));
-  const validUsed = input.used.filter((value): value is string => typeof value === 'string' && COMMUNITY_CAPTION_IDS.has(value));
+  const valid = input.available.filter((value): value is string => typeof value === 'string' && Boolean(catalog[value]));
+  const validUsed = input.used.filter((value): value is string => typeof value === 'string' && Boolean(catalog[value]));
   const used = dedupeOrdered(validUsed);
   const usedSet = new Set(used);
   const available = dedupeOrdered(valid.filter((id) => !usedSet.has(id)));
   return { available, used };
 }
 
-function mergeCaptionStore(raw: unknown, boardIds: string[]) {
+function normalizeCaptionCatalog(raw: unknown): CaptionCatalog {
+  const base = { ...DEFAULT_CAPTION_CATALOG };
+  if (!raw || typeof raw !== 'object') return base;
+  const input = raw as Record<string, unknown>;
+  for (const [id, value] of Object.entries(input)) {
+    if (typeof id !== 'string' || id.length < 4 || typeof value !== 'string') continue;
+    base[id] = value;
+  }
+  return base;
+}
+
+function mergeCaptionStore(raw: unknown, boardIds: string[], catalog: CaptionCatalog) {
   const output: CommunityCaptionStore = {};
   const parsed = typeof raw === 'object' && raw !== null ? raw as Record<string, unknown> : {};
-  for (const boardId of boardIds) output[boardId] = normalizeCaptionPool(parsed[boardId]);
+  for (const boardId of boardIds) output[boardId] = normalizeCaptionPool(parsed[boardId], catalog);
   return output;
 }
 
@@ -1037,8 +1073,10 @@ export default function YsabelWorkspace() {
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [captionStore, setCaptionStore] = useState<CommunityCaptionStore>({});
+  const [captionCatalog, setCaptionCatalog] = useState<CaptionCatalog>({ ...DEFAULT_CAPTION_CATALOG });
   const [captionActionMessage, setCaptionActionMessage] = useState('');
   const [selectedCaptionIds, setSelectedCaptionIds] = useState<string[]>([]);
+  const [captionBulkText, setCaptionBulkText] = useState('');
   const [selectedNoteDate, setSelectedNoteDate] = useState('month');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [postId, setPostId] = useState<string | null>(null);
@@ -1144,10 +1182,16 @@ export default function YsabelWorkspace() {
       setPublications(Array.isArray(data.publications) ? data.publications : []);
       try {
         const raw = JSON.parse(window.localStorage.getItem(COMMUNITY_CAPTION_STORAGE_KEY) || '{}') as unknown;
-        const nextBoards = Array.isArray(data.boards) ? data.boards : [];
-        setCaptionStore(mergeCaptionStore(raw, nextBoards.map((board) => board.id)));
+        const nextBoardIds = nextBoards.map((board) => board.id);
+        const isEnvelope = typeof raw === 'object' && raw !== null && ('pools' in raw || 'captions' in raw || 'captionStore' in raw);
+        const catalogRaw = isEnvelope ? (raw as { captions?: unknown; catalog?: unknown })?.captions || (raw as { catalog?: unknown }).catalog : raw;
+        const poolRaw = isEnvelope ? (raw as { pools?: unknown }).pools || (raw as { captionStore?: unknown }).captionStore : raw;
+        const parsedCatalog = normalizeCaptionCatalog(catalogRaw);
+        setCaptionCatalog(parsedCatalog);
+        setCaptionStore(mergeCaptionStore(poolRaw, nextBoardIds, parsedCatalog));
       } catch {
-        setCaptionStore((current) => current);
+        setCaptionCatalog({ ...DEFAULT_CAPTION_CATALOG });
+        setCaptionStore(mergeCaptionStore({}, nextBoards.map((board) => board.id), DEFAULT_CAPTION_CATALOG));
       }
     setWorkspaceReady(true);
     }).catch(() => {
@@ -1165,8 +1209,9 @@ export default function YsabelWorkspace() {
 
   useEffect(() => {
     if (!workspaceReady) return;
-    try { window.localStorage.setItem(COMMUNITY_CAPTION_STORAGE_KEY, JSON.stringify(captionStore)); } catch { /* localStorage can be restricted in some browser modes. */ }
-  }, [captionStore, workspaceReady]);
+    const payload = { pools: captionStore, captions: captionCatalog };
+    try { window.localStorage.setItem(COMMUNITY_CAPTION_STORAGE_KEY, JSON.stringify(payload)); } catch { /* localStorage can be restricted in some browser modes. */ }
+  }, [captionStore, captionCatalog, workspaceReady]);
 
   useEffect(() => {
     setSelectedCaptionIds([]);
@@ -1374,6 +1419,57 @@ export default function YsabelWorkspace() {
     publishCaptionMessage('Caption removed from this board');
   };
 
+  const addCaptionRows = () => {
+    if (!activeBoardId) return;
+    const parsed = parseCaptionRows(captionBulkText);
+    if (!parsed.length) {
+      publishCaptionMessage('Add at least one caption line first');
+      return;
+    }
+
+    const catalogEntries: Array<[string, string]> = [];
+    const existingText = new Set(Object.values(captionCatalog).map((caption) => caption.trim().toLowerCase()));
+    for (const text of parsed) {
+      const normalized = text.trim().toLowerCase();
+      if (!existingText.has(normalized)) {
+        catalogEntries.push([`caption-custom-${crypto.randomUUID()}`, text]);
+        existingText.add(normalized);
+      }
+    }
+
+    if (!catalogEntries.length) {
+      publishCaptionMessage('No new unique captions to add');
+      return;
+    }
+
+    const catalogIds = catalogEntries.map(([id]) => id);
+    setCaptionCatalog((current) => {
+      const nextCatalog = { ...current };
+      for (const [id, text] of catalogEntries) nextCatalog[id] = text;
+      return nextCatalog;
+    });
+
+    setCaptionStore((current) => {
+      const nextState = { ...current };
+      const boardIds = boards.length ? boards.map((board) => board.id) : [activeBoardId];
+      for (const boardId of boardIds) {
+        const base = cloneCaptionPool(current[boardId] || DEFAULT_CAPTION_POOL);
+        const currentSet = new Set([...base.available, ...base.used]);
+        const additions = catalogIds.filter((id) => !currentSet.has(id));
+        if (additions.length > 0) {
+          nextState[boardId] = { ...base, available: dedupeOrdered([...base.available, ...additions]) };
+        } else if (!nextState[boardId]) {
+          nextState[boardId] = base;
+        }
+      }
+      return nextState;
+    });
+
+    const addedCount = catalogEntries.length;
+    setCaptionBulkText('');
+    publishCaptionMessage(`Added ${addedCount} caption${addedCount === 1 ? '' : 's'} to this community library`);
+  };
+
   const deleteAllCaptions = () => {
     if (!activeBoardId) return;
     setCaptionStore((current) => ({ ...current, [activeBoardId]: { available: [], used: [] } }));
@@ -1401,7 +1497,7 @@ export default function YsabelWorkspace() {
   };
 
   const copyCaption = async (captionId: string) => {
-    const caption = COMMUNITY_CAPTION_BY_ID.get(captionId)?.text;
+    const caption = captionCatalog[captionId];
     if (!caption) return;
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(caption);
@@ -1765,7 +1861,8 @@ export default function YsabelWorkspace() {
 
   const createBoard = async (duplicate = false) => {
     const name = newBoardName.trim() || 'Untitled Direction';
-    const newCaptionPool = cloneCaptionPool(duplicate ? (captionStore[activeBoardId] || DEFAULT_CAPTION_POOL) : DEFAULT_CAPTION_POOL);
+    const sourcePool = duplicate ? (captionStore[activeBoardId] || DEFAULT_CAPTION_POOL) : { available: dedupeOrdered(Object.keys(captionCatalog)), used: [] };
+    const newCaptionPool = cloneCaptionPool(sourcePool);
     try {
       const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: duplicate ? 'duplicate-board' : 'create-board', name, sourceBoardId: duplicate ? activeBoardId : undefined }) });
       const responseData = await response.json() as Board & { publication?: Publication };
@@ -1809,10 +1906,10 @@ export default function YsabelWorkspace() {
   };
 
   const enterPublishedMode = () => {
-    setEdit(false); setSection('feed'); setSelectedId(null); setLibraryDockOpen(false); setArtDirection(false); setExchangeFirst(null);
+    setEdit(false); setSelectedId(null); setLibraryDockOpen(false); setArtDirection(false); setExchangeFirst(null);
   };
 
-  const enterEditMode = () => { setEdit(true); setSection('feed'); };
+  const enterEditMode = () => { setEdit(true); };
 
   const publishBoard = async () => {
     if (!activeBoard || publishing) return;
@@ -1865,12 +1962,21 @@ export default function YsabelWorkspace() {
   }), [assets, libraryFilter, used]);
 
   const activeCaptionPool = captionStore[activeBoardId] || DEFAULT_CAPTION_POOL;
+  const activeCaptionTextById = useMemo(() => {
+    const map = new Map<string, string>(Object.entries(captionCatalog));
+    return (captionId: string) => map.get(captionId);
+  }, [captionCatalog]);
+  const captionFromId = (captionId: string): CommunityCaption | null => {
+    const text = activeCaptionTextById(captionId);
+    return text ? { id: captionId, text } : null;
+  };
   const availableCaptions = useMemo(() => activeCaptionPool.available
-    .map((id) => COMMUNITY_CAPTION_BY_ID.get(id))
-    .filter(Boolean) as CommunityCaption[], [activeCaptionPool.available, activeBoardId]);
+    .map((id) => captionFromId(id))
+    .filter((caption): caption is CommunityCaption => caption !== null), [activeCaptionPool.available, activeCaptionTextById]);
   const usedCaptions = useMemo(() => activeCaptionPool.used
-    .map((id) => COMMUNITY_CAPTION_BY_ID.get(id))
-    .filter(Boolean) as CommunityCaption[], [activeCaptionPool.used, activeBoardId]);
+    .map((id) => captionFromId(id))
+    .filter((caption): caption is CommunityCaption => caption !== null), [activeCaptionPool.used, activeCaptionTextById]);
+  const captionBulkCount = useMemo(() => parseCaptionRows(captionBulkText).length, [captionBulkText]);
 
   if (authState === 'checking') {
     return <StartupScreen loadingText="Opening your private workspace…" />;
@@ -1885,7 +1991,7 @@ export default function YsabelWorkspace() {
           <div className="login-copy">
             <span className="page-kicker">Private creative direction</span>
             <h1>Content Media Preview</h1>
-            <p aria-live="polite">{authState === 'checking' || loginEntering ? 'Opening your private workspace…' : 'Sign in to curate the next Ysabel Society content direction.'}</p>
+            <p aria-live="polite">{loginEntering ? 'Opening your private workspace…' : 'Sign in to curate the next Ysabel Society content direction.'}</p>
           </div>
           <>
             <label>Username<Input name="username" required autoComplete="username" autoCapitalize="none" spellCheck={false} value={loginUsername} disabled={authState !== 'login' || loginBusy || loginEntering} onChange={(event) => setLoginUsername(event.target.value)} /></label>
@@ -1991,6 +2097,20 @@ export default function YsabelWorkspace() {
 
         {section === 'captions' && <section className="captions-page">
           <header><span className="page-kicker">Social direction writing</span><h1>Community Captions</h1><p>Keep one list of reusable caption suggestions and track what has already been used.</p></header>
+          <div className="captions-import">
+            <div className="captions-import-head">
+              <div>
+                <strong>Import captions in bulk</strong>
+                <small>Paste one caption per row (you can keep row numbers).</small>
+              </div>
+              <Button size="icon" variant="ghost" onClick={() => setCaptionBulkText('')} disabled={!captionBulkText}><X /></Button>
+            </div>
+            <Textarea value={captionBulkText} onChange={(event) => setCaptionBulkText(event.target.value)} placeholder="1. Monday night...&#10;2. Tuesday night..." />
+            <div className="captions-import-foot">
+              <span>{captionBulkCount}/100 rows ready to add</span>
+              <Button size="sm" onClick={addCaptionRows} disabled={!captionBulkText.trim()}><Plus />Insert rows</Button>
+            </div>
+          </div>
           <div className="captions-toolbar">
             <div className="captions-status">{captionActionMessage || 'Select captions from Available to mark them as used for this board.'}</div>
             <div className="captions-actions">

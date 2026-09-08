@@ -515,6 +515,13 @@ button:focus-visible { outline: 2px solid #1d3428; outline-offset: 2px; }
 .captions-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 16px; }
 .captions-status { min-height: 24px; color: #757772; font-size: 14px; }
 .captions-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.captions-import { margin: 12px 0 18px; border: 1px solid #dedad3; border-radius: 8px; padding: 12px 14px; background: #f8f6f1; }
+.captions-import-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.captions-import-head strong { display: block; color: #3f4340; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; }
+.captions-import-head small { display: block; margin-top: 3px; color: #888d86; font-size: 11px; }
+.captions-import textarea { min-height: 110px; width: 100%; border-radius: 6px; }
+.captions-import-foot { margin-top: 8px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.captions-import-foot span { color: #8b8f89; font-size: 12px; }
 .captions-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 .captions-block { border-top: 1px solid #d0cec7; }
 .captions-block > header { padding: 10px 3px 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; }
@@ -702,6 +709,7 @@ button:focus-visible { outline: 2px solid #1d3428; outline-offset: 2px; }
   .captions-columns { grid-template-columns: 1fr; }
   .caption-item { animation: none; }
   .caption-item p { font-size: 12px; }
+  .captions-import-foot { flex-direction: column; align-items: flex-start; }
   .library-delete-one { opacity: 1; transform: none; }
   .carousel-library-grid { grid-template-columns: repeat(3,minmax(0,1fr)); }
   .calendar-grid > button { min-height: 70px; }

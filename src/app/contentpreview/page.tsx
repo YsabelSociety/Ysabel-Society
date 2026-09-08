@@ -1,10 +1,14 @@
 import type { Metadata } from "next";
 import styles from "./contentpreview.module.css";
+import InstallApp from "./InstallApp";
 
 export const metadata: Metadata = {
   title: "Content Media Preview | Ysabel Society",
   description: "Private Ysabel Society content direction preview.",
   robots: { index: false, follow: false },
+  manifest: '/contentpreview-manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Ysabel Preview', statusBarStyle: 'default' },
+  icons: { apple: '/contentpreview-icons/icon-192.png' },
 };
 
 const previewBuildTag =
@@ -24,6 +28,7 @@ export default function ContentPreviewPage() {
         title="Ysabel Society Content Media Preview"
         allow="fullscreen"
       />
+      <InstallApp />
     </main>
   );
 }

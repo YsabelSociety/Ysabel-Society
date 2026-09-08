@@ -1,0 +1,15 @@
+{
+  "id": "/contentpreview",
+  "name": "Ysabel Society Content Media Preview",
+  "short_name": "Ysabel Preview",
+  "description": "Private visual content direction for Ysabel Society.",
+  "start_url": "/contentpreview",
+  "scope": "/contentpreview",
+  "display": "standalone",
+  "background_color": "#f1f0ec",
+  "theme_color": "#f1f0ec",
+  "icons": [
+    { "src": "/contentpreview-icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/contentpreview-icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

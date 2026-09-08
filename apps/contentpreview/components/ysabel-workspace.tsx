@@ -1034,6 +1034,8 @@ function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplicate, on
 
 export default function YsabelWorkspace() {
   const [authState, setAuthState] = useState<'checking' | 'login' | 'ready'>('checking');
+  const [connectionError, setConnectionError] = useState('');
+  const [connectionAttempt, setConnectionAttempt] = useState(0);
   const [authToken, setAuthToken] = useState('');
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [loginUsername, setLoginUsername] = useState('');
@@ -1142,13 +1144,26 @@ export default function YsabelWorkspace() {
   };
 
   useEffect(() => {
+    let cancelled = false;
+    setConnectionError('');
     const storedToken = readSessionToken();
     if (storedToken) setAuthToken(storedToken);
     const headers = new Headers();
     if (storedToken) headers.set('authorization', `Bearer ${storedToken}`);
-    fetch('/contentpreview/api/auth/session', { cache: 'no-store', headers })
-      .then((response) => response.ok ? response.json() as Promise<{ authenticated: boolean }> : Promise.reject())
+    fetch(storedToken ? '/contentpreview/api/workspace' : '/contentpreview/api/auth/session', { cache: 'no-store', credentials: 'same-origin', headers })
+      .then(async (response) => {
+        if (response.status === 401) return { authenticated: false };
+        if (!response.ok) throw new Error('Connection unavailable');
+        const data = await response.json();
+        if (storedToken) {
+          if (!Array.isArray(data.boards)) throw new Error('Invalid workspace response');
+          return { authenticated: true };
+        }
+        if (typeof data.authenticated !== 'boolean') throw new Error('Invalid session response');
+        return data;
+      })
       .then((data) => {
+        if (cancelled) return;
         if (data.authenticated) {
           setAuthState('ready');
         } else {
@@ -1157,14 +1172,15 @@ export default function YsabelWorkspace() {
           setAuthState('login');
         }
       })
-      .catch(() => setAuthState('login'));
-  }, []);
+      .catch(() => { if (!cancelled) setConnectionError('Unable to connect. Your saved sign-in is kept.'); });
+    return () => { cancelled = true; };
+  }, [connectionAttempt]);
 
   useEffect(() => {
     if (authState !== 'ready') return;
     let cancelled = false;
     setWorkspaceReady(false);
-    authFetch('/contentpreview/api/workspace', { cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<WorkspaceData> : Promise.reject()).then((data) => {
+    authFetch('/contentpreview/api/workspace', { cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<WorkspaceData> : Promise.reject(new Error(response.status === 401 ? 'SESSION_EXPIRED' : 'CONNECTION_FAILED'))).then((data) => {
       if (cancelled) return;
       const nextBoards = Array.isArray(data.boards) ? data.boards : [];
       const nextAssets = Array.isArray(data.media) ? data.media.map((asset) => ({ ...asset, slides: Array.isArray(asset.slides) ? asset.slides : [], url: mediaUrl(asset, authToken) })) : [];
@@ -1194,16 +1210,21 @@ export default function YsabelWorkspace() {
         setCaptionStore(mergeCaptionStore({}, nextBoards.map((board) => board.id), DEFAULT_CAPTION_CATALOG));
       }
     setWorkspaceReady(true);
-    }).catch(() => {
+    }).catch((error: unknown) => {
       if (!cancelled) {
         setWorkspaceReady(false);
-        setAuthToken('');
-        clearSessionToken();
-        setAuthState('login');
+        setLoginEntering(false);
+        if (error instanceof Error && error.message === 'SESSION_EXPIRED') {
+          setAuthToken('');
+          clearSessionToken();
+          setAuthState('login');
+        } else {
+          setConnectionError('Unable to load your workspace. Your saved sign-in is kept.');
+        }
       }
     });
     return () => { cancelled = true; };
-  }, [authState, authToken]);
+  }, [authState, authToken, connectionAttempt]);
 
   useEffect(() => { setSelectedNoteDate(pendingNoteDate.current || 'month'); pendingNoteDate.current = null; }, [activeBoardId]);
 
@@ -1977,6 +1998,10 @@ export default function YsabelWorkspace() {
     .map((id) => captionFromId(id))
     .filter((caption): caption is CommunityCaption => caption !== null), [activeCaptionPool.used, activeCaptionTextById]);
   const captionBulkCount = useMemo(() => parseCaptionRows(captionBulkText).length, [captionBulkText]);
+
+  if (connectionError) {
+    return <main className="login-screen"><section className="login-panel" role="alert"><div className="login-identity"><YsabelLoginLogo /></div><p>{connectionError}</p><Button onClick={() => { setConnectionError(''); setConnectionAttempt((attempt) => attempt + 1); }}>Try again</Button></section></main>;
+  }
 
   if (authState === 'checking') {
     return <StartupScreen loadingText="Opening your private workspace…" />;

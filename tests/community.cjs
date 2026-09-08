@@ -430,6 +430,9 @@ async function main() {
     rating: 1,
     text,
   });
+  assert(community.reviewTopics(review("The food didn't quite meet our expectations.")).criticisms.some(c => c.topic === 'Food'));
+  assert(community.reviewTopics(review('The cocktails are basic, and unfortunately there is not much variety.')).criticisms.some(c => c.topic === 'Drinks'));
+  assert.equal(community.reviewTopics(review('A basic menu with excellent food.')).criticisms.length, 0);
   let topics = community.reviewTopics(
     review('The food was excellent but service was rude.'),
   );

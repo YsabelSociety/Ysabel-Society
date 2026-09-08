@@ -51,6 +51,7 @@ export function ReviewReports({
 }) {
   const [localFilters, setFilters] = useState<ReviewReportFilters>({
     ...DEFAULT_REVIEW_FILTERS,
+    topic: 'All topics',
     stars: [1, 2, 3],
   });
   const [title, setTitle] = useState('Guest feedback review report');
@@ -224,6 +225,14 @@ export function ReviewReports({
           />
         </label>
       </div>
+      <div className="community-toolbar" aria-label="Quick report periods">
+        <button className="secondary" onClick={() => onDatesChange({ ...dates, mode: 'All dates' })}>
+          Newest reviews · all dates
+        </button>
+        <button className="secondary" onClick={() => onDatesChange({ ...dates, mode: 'Monthly', approximate: true })}>
+          Filter by month
+        </button>
+      </div>
       <ReviewDateControls
         value={dates}
         onChange={onDatesChange}
@@ -231,10 +240,24 @@ export function ReviewReports({
         label="Report"
       />
       <p className="source-asof">
+        Updated from every completed import. Matching reviews are ordered newest first.{' '}
         Criticism is suggested from context and related terms. Choose “All
         matching reviews” to include topic mentions without a detected
         complaint.
       </p>
+      <div aria-label="Newest matching critical reviews" aria-live="polite">
+        <h3>Newest matching reviews</h3>
+        {selection.rows.slice(0, 5).map((review) => (
+          <article key={reviewKey(review)} className="community-help">
+            <strong>{review.name || 'Anonymous reviewer'} · {review.rating}/5</strong>
+            <p className="source-asof">{reviewDateLabel(review, timezone)}</p>
+            <p>{review.text}</p>
+            {review.criticisms.map((issue) => <p key={issue.topic}><strong>{issue.topic}</strong> · {issue.excerpt}</p>)}
+          </article>
+        ))}
+        {!loading && !selection.rows.length && <p>No reviews match these filters. Try another month, topic or feedback filter.</p>}
+        {selection.rows.length > 5 && <p className="source-asof">Showing the newest 5 of {selection.rows.length}. Create report includes the complete selection.</p>}
+      </div>
       {truncated && (
         <p role="alert" className="save-error">
           The review collection was truncated. A complete report cannot be

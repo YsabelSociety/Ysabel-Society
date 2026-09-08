@@ -99,6 +99,11 @@ export function classifyReview(review: CommunityRecord) {
       })),
     );
     const explicitTopics = [...new Set(mentions.map((m) => m.topic))];
+    // Mixed reviews often express disappointment without a blunt negative adjective.
+    if (/\b(?:basic fare|(?:food|pizza|cocktails?) (?:is|are|was|were) (?:very )?basic|nothing exceptional|not much variety|(?:didn't|did not|doesn't|does not) (?:quite )?meet (?:our|my|the) expectations)\b/.test(check)) {
+      const subject = explicitTopics.filter((t) => t === 'Food' || t === 'Drinks');
+      for (const topic of subject) add(topic, sentence);
+    }
     const context =
       explicitTopics.length === 0 &&
       /^\s*(?:it|they|these|this|that|both)\b/i.test(check)

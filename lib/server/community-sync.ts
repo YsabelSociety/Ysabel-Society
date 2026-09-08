@@ -538,6 +538,14 @@ export async function syncCommunityProfiles(owner: string, source: 'facebook' | 
   const deadline = Date.now()+25000;
   const paths = people.map(p => encodeURIComponent(p.participantId!)+'?fields='+(source === 'instagram' ? 'name,username,profile_pic,follower_count' : 'first_name,last_name,profile_pic'));
   const results = instagram ? await instagramMessageBatch({...instagram,deadline},paths) : await communityMessageBatch(context,paths,deadline);
+  const missingPhotos = people.map((p,i)=>({p,i})).filter(({i})=>!results[i]?.body?.profile_pic);
+  if (source === 'facebook' && missingPhotos.length && Date.now()<deadline-4000) {
+    const pictures = await communityMessageBatch(context, missingPhotos.map(({p})=>encodeURIComponent(p.participantId!)+'/picture?redirect=false&type=large'), deadline);
+    missingPhotos.forEach(({i},j)=>{
+      const picture=pictures[j]?.body?.data;
+      if (picture?.url && !picture.is_silhouette) results[i]={body:{...results[i]?.body,profile_pic:picture.url}};
+    });
+  }
   const links = source === 'facebook' ? await communityMessageBatch(context, people.map(p => encodeURIComponent(p.conversationId!)+'?fields=link'), deadline) : [];
   let updated=0;
   const profiles = people.map((person,i): CommunityRecord => {

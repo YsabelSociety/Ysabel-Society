@@ -1,7 +1,8 @@
-name: Ysabel marketing data daily import
+name: Ysabel daily reports and half-hour inbox sync
 on:
   schedule:
     - cron: '17 2 * * *'
+    - cron: '7,37 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,7 +19,8 @@ jobs:
           persist-credentials: false
           sparse-checkout: scripts/refresh-marketingdata.mjs
           sparse-checkout-cone-mode: false
-      - name: Import all available connected sources
+      - name: Import connected reports or messages
         env:
           MARKETING_SYNC_SECRET: ${{ secrets.MARKETING_SYNC_SECRET }}
+          MARKETING_SYNC_SCOPE: ${{ github.event.schedule == '7,37 * * * *' && 'inbox' || 'all' }}
         run: node scripts/refresh-marketingdata.mjs

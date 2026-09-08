@@ -26,22 +26,22 @@ export const metadata: Metadata = {
     description: 'All platforms. One private workspace.',
     images: [
       {
-        url: 'https://ysabelsociety.com/marketingdata/og-hq-v70.png',
-        secureUrl: 'https://ysabelsociety.com/marketingdata/og-hq-v70.png',
+        url: 'https://ysabelsociety.com/marketingdata/og-square-v76.png',
+        secureUrl: 'https://ysabelsociety.com/marketingdata/og-square-v76.png',
         width: 2400,
-        height: 1260,
+        height: 2400,
         type: 'image/png',
         alt: 'Ysabel Society — Marketing Data. All platforms. One private workspace.',
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Ysabel Society — Marketing Data',
     description: 'All platforms. One private workspace.',
     images: [
       {
-        url: 'https://ysabelsociety.com/marketingdata/og-hq-v70.png',
+        url: 'https://ysabelsociety.com/marketingdata/og-square-v76.png',
         alt: 'Ysabel Society — Marketing Data. All platforms. One private workspace.',
       },
     ],

@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 ROOT = Path(__file__).resolve().parents[1]
-WIDTH, HEIGHT, SCALE = 2400, 1260, 2
+WIDTH, HEIGHT, SCALE = 2400, 2400, 1
 GREEN = "#1d3428"
 CHARCOAL = "#2d2c2c"
 
@@ -42,12 +42,12 @@ def main():
     ImageDraw.Draw(brand).rectangle((0, 0, source.width, 2000), fill=GREEN)
     brand.putalpha(source.getchannel("A"))
     brand = brand.crop(source.getbbox())
-    logo_width = 790 * SCALE
+    logo_width = 1000 * SCALE
     brand = brand.resize(
         (logo_width, round(brand.height * logo_width / brand.width)),
         Image.Resampling.LANCZOS,
     )
-    canvas.alpha_composite(brand, (174 * SCALE, 132 * SCALE))
+    canvas.alpha_composite(brand, ((WIDTH * SCALE - brand.width) // 2, 210 * SCALE))
 
     draw = ImageDraw.Draw(canvas)
 
@@ -55,25 +55,25 @@ def main():
         return ImageFont.truetype(str(path), round(size * SCALE))
 
     sans = ROOT / "public/fonts/NotoSans-Regular.ttf"
-    draw.text((170 * SCALE, 789 * SCALE), "Marketing Data", font=font(args.serif_font, 108), fill=CHARCOAL, anchor="lt")
-    draw.text((177 * SCALE, 928 * SCALE), "All platforms. One private workspace.", font=font(sans, 41), fill=CHARCOAL, anchor="lt")
-    draw.text((178 * SCALE, 1124 * SCALE), "ysabelsociety.com/marketingdata", font=font(sans, 30), fill=GREEN, anchor="lt")
+    draw.text((1200 * SCALE, 1120 * SCALE), "Marketing Data", font=font(args.serif_font, 108), fill=CHARCOAL, anchor="mt")
+    draw.text((1200 * SCALE, 1280 * SCALE), "All platforms. One private workspace.", font=font(sans, 41), fill=CHARCOAL, anchor="mt")
+    draw.text((1200 * SCALE, 2220 * SCALE), "ysabelsociety.com/marketingdata", font=font(sans, 30), fill=GREEN, anchor="mt")
 
     # Decorative graphs carry no private metrics or invented numerical labels.
-    points = [(1365, 610), (1476, 551), (1670, 431), (1840, 500), (1983, 481), (2110, 373), (2235, 279)]
+    points = [(360, 1970), (590, 1850), (830, 1640), (1080, 1760), (1360, 1700), (1650, 1550), (2040, 1450)]
     draw.line([(x * SCALE, y * SCALE) for x, y in points], fill=GREEN, width=7, joint="curve")
     radius = 7.5 * SCALE
     for x, y in points[1:]:
         x, y = x * SCALE, y * SCALE
         draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=GREEN)
 
-    for x, top, color in [(1648, 797, "#a6b9a8"), (1758, 700, "#95ad98"), (1868, 761, "#a5b8a7"), (1978, 666, "#bac8bb"), (2088, 574, "#799782")]:
-        draw.rectangle((x * SCALE, top * SCALE, (x + 58) * SCALE, 944 * SCALE), fill=color)
+    for x, top, color in [(1270, 1940, "#a6b9a8"), (1440, 1870, "#95ad98"), (1610, 1900, "#a5b8a7"), (1780, 1790, "#bac8bb"), (1950, 1710, "#799782")]:
+        draw.rectangle((x * SCALE, top * SCALE, (x + 84) * SCALE, 2070 * SCALE), fill=color)
 
     final = canvas.convert("RGB").resize((WIDTH, HEIGHT), Image.Resampling.LANCZOS)
     output = ROOT / "public/og.png"
     final.save(output, format="PNG", optimize=True)
-    (ROOT / "public/og-hq-v70.png").write_bytes(output.read_bytes())
+    (ROOT / "public/og-square-v76.png").write_bytes(output.read_bytes())
     print(f"Rendered {WIDTH}x{HEIGHT} PNG: {output.stat().st_size:,} bytes")
 
 

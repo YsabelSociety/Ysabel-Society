@@ -43,6 +43,7 @@ export async function startRefresh(
   owner: string,
   origin: 'manual' | 'automatic' | 'scheduled',
   force = false,
+  scope: 'all' | 'inbox' = 'all',
 ) {
   const existing = await read(owner);
   const now = new Date().toISOString();
@@ -72,10 +73,11 @@ export async function startRefresh(
     .all<{ source: string; provider: string; auto_sync: number }>();
   const tasks: RefreshTask[] = [];
   for (const link of links.results) {
+    if (scope === 'inbox' && !['instagram', 'facebook'].includes(link.source)) continue;
     const label = SOURCE_CHANNELS[link.source] || link.source;
     const manual = link.provider === 'file';
     const paused = origin !== 'manual' && !link.auto_sync;
-    tasks.push({
+    if (scope === 'all') tasks.push({
       source: link.source,
       kind: 'reports',
       label: label + ' reports',
@@ -89,7 +91,7 @@ export async function startRefresh(
     });
     if (manual || paused) continue;
     if (['instagram', 'facebook', 'tiktok'].includes(link.source)) {
-      for (const kind of ['message', 'mention'] as const)
+      for (const kind of (scope === 'inbox' ? ['message'] : ['message', 'mention']) as ('message' | 'mention')[])
         tasks.push({
           source: link.source,
           kind,

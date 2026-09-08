@@ -49,6 +49,7 @@ export async function POST(req: Request) {
               ? 'manual'
               : 'automatic',
           scheduled || body.force === true,
+          body.scope === 'inbox' ? 'inbox' : 'all',
         ),
       );
     if (body.op === 'step' && typeof body.id === 'string')

@@ -134,7 +134,10 @@ const analytics = load('lib/analytics.ts');
 assert.equal(community.followerTier(5000), '5K or fewer');
 assert.equal(community.followerTier(5001), '>5K–9.9K');
 assert.equal(community.followerTier(10000), '10K–19.9K');
-assert.equal(community.followerTier(20000), '20K+');
+assert.equal(community.followerTier(20000), '20K–29.9K');
+assert.equal(community.followerTier(30000), '30K+');
+assert.equal(community.matchesProfile({ followers: 29999 }, '30K+ followers', 'All locations'), false);
+assert.equal(community.matchesProfile({ followers: 30000 }, '30K+ followers', 'All locations'), true);
 assert.equal(community.followerTier(null), 'Unknown');
 assert.equal(
   community.matchesProfile(

@@ -192,6 +192,9 @@ async function main() {
     'Raw adapter errors must not leak',
   );
   assert(seen.every((t) => t[2] === 'owner'));
+  let inbox = await jobs.startRefresh('owner', 'scheduled', true, 'inbox');
+  assert.deepEqual(inbox.tasks.map(t => [t.source, t.kind]), [['facebook', 'message'], ['instagram', 'message']]);
+  for (let i = 0; i < 40 && inbox.status === 'running'; i++) inbox = await jobs.stepRefresh('owner', inbox.id);
   const scheduled = await jobs.startRefresh('owner', 'scheduled', true);
   assert.equal(
     scheduled.tasks.find((t) => t.source === 'tiktok').state,

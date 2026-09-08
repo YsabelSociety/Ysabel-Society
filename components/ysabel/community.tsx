@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   MessageCircle,
   AtSign,
@@ -76,6 +76,7 @@ async function communityAction(body: unknown) {
   return data;
 }
 function useCommunity(kind: string) {
+  const loadedKind = useRef('');
   const [data, setData] = useState<{
     records: CommunityRecord[];
     statuses: (CommunityStatus & { more?: boolean })[];
@@ -87,7 +88,7 @@ function useCommunity(kind: string) {
   const refresh = () => setRevision((v) => v + 1);
   useEffect(() => {
     const controller = new AbortController();
-    setLoading(true);
+    setLoading(loadedKind.current !== kind);
     setError('');
     void fetch('/marketingdata/api/community?kind=' + kind, {
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
@@ -97,6 +98,7 @@ function useCommunity(kind: string) {
         if (!r.ok) throw new Error(d.error);
         if (!controller.signal.aborted) {
           setData(d);
+          loadedKind.current = kind;
           setError('');
         }
       })
@@ -110,9 +112,16 @@ function useCommunity(kind: string) {
   }, [kind, revision]);
   useEffect(() => {
     const update = () => refresh();
+    const visibleUpdate = () => { if (document.visibilityState === 'visible') refresh(); };
+    const timer = kind === 'message' ? setInterval(visibleUpdate, 30000) : undefined;
     window.addEventListener('ysabel:community-updated', update);
-    return () => window.removeEventListener('ysabel:community-updated', update);
-  }, []);
+    window.addEventListener('focus', visibleUpdate);
+    return () => {
+      window.removeEventListener('ysabel:community-updated', update);
+      window.removeEventListener('focus', visibleUpdate);
+      if (timer) clearInterval(timer);
+    };
+  }, [kind]);
   return { ...data, error, setError, loading, refresh };
 }
 function Portrait({ person }: { person: CommunityRecord }) {
@@ -1111,13 +1120,13 @@ export function CommunityPage({
   const kind = mode === 'inbox' ? 'message' : 'mention',
     data = useCommunity(kind),
     [source, setSource] = useState('all'),
-    [tab, setTab] = useState('all'),
+    [tab, setTab] = useState('waiting'),
     [search, setSearch] = useState(''),
     [minimum, setMinimum] = useState('Any followers'),
     [location, setLocation] = useState('All locations'),
     [replyFilter, setReplyFilter] = useState('Any reply status'),
     [folder, setFolder] = useState('All folders'),
-    [clientFilter, setClientFilter] = useState('Selected clients'),
+    [clientFilter, setClientFilter] = useState('Unanswered suggestions'),
     [archive, setArchive] = useState(false),
     [setup, setSetup] = useState(false),
     [busy, setBusy] = useState(false),
@@ -1248,7 +1257,9 @@ export function CommunityPage({
         ? model.conversations.filter((c) => (c.person.followers ?? 0) > 5000)
         : tab === 'leads'
           ? model.conversations.filter((c) =>
-              clientFilter === 'Selected clients'
+              clientFilter === 'Unanswered suggestions'
+                ? c.waiting && !c.ambiguous && ((c.person.followers ?? 0) > 5000 || c.possibleClient)
+                : clientFilter === 'Selected clients'
                 ? c.selectedClient
                 : c.possibleClient && !c.selectedClient,
             )
@@ -1399,6 +1410,17 @@ export function CommunityPage({
               },
             ]}
           />
+          <section className="surface community-panel" aria-label="Unanswered client priorities">
+            <div className="section-head"><div><h2>People waiting to connect</h2><p>Unanswered influencer and client enquiries · Instagram & Facebook</p></div><span className="pill">30-minute scheduled sync</span></div>
+            <p className="source-asof">Priority suggestions use verified follower counts, enquiry language and reply history. Counts and photos appear only when supplied or verified. This is a suggestion, not a confirmed booking or partnership.</p>
+            <div className="community-filters">
+              {['>5K followers', '10K+ followers', '20K+ followers', '30K+ followers'].map(tier => <button key={tier} className="secondary" onClick={() => { setTab('leads'); setClientFilter('Unanswered suggestions'); setMinimum(tier); }}>{tier} · {model.priority.filter(c => !c.ambiguous && matchesProfile(c.person, tier, 'All locations')).length}</button>)}
+            </div>
+            {model.priority.filter(c => !c.ambiguous).sort((a,b) => Number(b.selectedClient)-Number(a.selectedClient) || (b.person.followers ?? 0)-(a.person.followers ?? 0) || a.unanswered[0].time.localeCompare(b.unanswered[0].time)).slice(0,6).map(c => <article className="conversation-card" key={c.id}>
+              <Portrait person={c.person}/><div className="conversation-main"><button className="conversation-title" onClick={() => setSelected(c)}>{c.person.name || c.person.username || 'Profile unavailable'}</button><p>{COMMUNITY_NAMES[c.source]} · {(c.person.followers ?? 0) > 5000 ? `${number(c.person.followers!)} followers · ${followerTier(c.person.followers)}` : 'Follower count unknown'}</p><p>{c.last.text || 'Attachment'}</p><small>{c.selectedClient ? 'Selected potential client' : (c.person.followers ?? 0) > 5000 ? 'Influencer threshold matched' : 'Enquiry language detected'} · No later captured reply</small></div><button className="secondary" onClick={() => setSelected(c)}>Review conversation</button>
+            </article>)}
+            {!model.priority.length && <p>No verified influencer or client enquiries awaiting a reply in the captured messages. Profiles with unknown follower counts remain in the inbox.</p>}
+          </section>
           <Activity records={model.received} timezone={timezone} />
           <div className="inbox-coverage-note">
             <strong>
@@ -1454,6 +1476,7 @@ export function CommunityPage({
                   '>5K followers',
                   '10K+ followers',
                   '20K+ followers',
+                  '30K+ followers',
                   'Unknown followers',
                 ]}
               />
@@ -1492,7 +1515,7 @@ export function CommunityPage({
                   label="Client selection"
                   value={clientFilter}
                   onChange={setClientFilter}
-                  options={['Selected clients', 'Enquiry suggestions']}
+                  options={['Unanswered suggestions', 'Selected clients', 'Enquiry suggestions']}
                 />
               )}
             </div>

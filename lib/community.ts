@@ -95,6 +95,10 @@ export function inboxModel(
     const key = profile.source + ':' + profile.participantId,
       previous = profiles.get(key);
     const merged = { ...previous, ...profile };
+    if (profile.followers == null && previous?.followers != null) {
+      merged.followers = previous.followers;
+      merged.followersObservedAt = previous.followersObservedAt;
+    }
     if (previous?.origin === 'manual' && profile.origin !== 'manual') {
       merged.origin = 'manual';
       merged.potentialClient = previous.potentialClient;
@@ -144,7 +148,7 @@ export function inboxModel(
         unanswered,
         possibleClient:
           profile?.potentialClient ??
-          inbound.some((r) =>
+          unanswered.some((r) =>
             /\b(reserv(?:e|ation|ations)|book(?:ing)?|table|availability|collab(?:oration)?|partnership|rezervim|tavoline|tavolinë|prenot(?:are|azione))\b/i.test(
               r.text,
             ),
@@ -173,7 +177,8 @@ export function inboxModel(
 }
 export function followerTier(followers: number | null | undefined) {
   if (followers === null || followers === undefined) return 'Unknown';
-  if (followers >= 20000) return '20K+';
+  if (followers >= 30000) return '30K+';
+  if (followers >= 20000) return '20K–29.9K';
   if (followers >= 10000) return '10K–19.9K';
   if (followers > 5000) return '>5K–9.9K';
   return '5K or fewer';
@@ -191,7 +196,7 @@ export function matchesProfile(
       : count != null &&
         (minimum === '>5K followers'
           ? count > 5000
-          : count >= (minimum === '10K+ followers' ? 10000 : 20000)));
+          : count >= (minimum === '10K+ followers' ? 10000 : minimum === '30K+ followers' ? 30000 : 20000)));
   return (
     followersMatch &&
     (location === 'All locations' ||

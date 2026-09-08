@@ -15,7 +15,7 @@ import {
   instagramConversationMessages,
   metaMessageError,
 } from './instagram-messaging';
-import { saveCommunity, saveCommunityStatus } from './community-store';
+import { readCommunity, saveCommunity, saveCommunityStatus } from './community-store';
 import {
   safeProfileURL,
   type CommunityRecord,
@@ -522,6 +522,42 @@ export async function syncMessages(
     needsAttention: !!instagram && conversationCount === 0,
     detail,
   };
+}
+// A separate bounded job gives older unanswered profiles time to refresh even
+// when the message import consumes its own request budget.
+export async function syncCommunityProfiles(owner: string, source: 'facebook' | 'instagram') {
+  const instagram = source === 'instagram' ? await readInstagramMessaging(owner) : null;
+  const context = instagram || await linkedContext(owner, source);
+  await ensureStillLinked(owner, source, context.accountId);
+  const { records } = await readCommunity(owner, 'message');
+  const previous = new Map(records.filter(r => r.source === source && r.kind === 'profile' && r.origin === 'api').map(r => [r.participantId, r]));
+  const people = [...new Map(records.filter(r => r.source === source && r.kind === 'message' && r.accountId === context.accountId && r.direction === 'in' && r.origin === 'api').reverse().map(r => [r.participantId, r])).values()]
+    .filter(r => r.participantId && Date.parse(previous.get(r.participantId)?.profileCheckedAt || '1970-01-01') < Date.now()-30*60000)
+    .sort((a,b) => (previous.get(a.participantId)?.profileCheckedAt || '').localeCompare(previous.get(b.participantId)?.profileCheckedAt || '')).slice(0,30);
+  if (!people.length) return { updated: 0, detail: 'No stored profiles need another check yet.' };
+  const deadline = Date.now()+25000;
+  const paths = people.map(p => encodeURIComponent(p.participantId!)+'?fields='+(source === 'instagram' ? 'name,username,profile_pic,follower_count' : 'first_name,last_name,profile_pic'));
+  const results = instagram ? await instagramMessageBatch({...instagram,deadline},paths) : await communityMessageBatch(context,paths,deadline);
+  const links = source === 'facebook' ? await communityMessageBatch(context, people.map(p => encodeURIComponent(p.conversationId!)+'?fields=link'), deadline) : [];
+  let updated=0;
+  const profiles = people.map((person,i): CommunityRecord => {
+    const old = previous.get(person.participantId), p=results[i]?.body;
+    const avatar=safeProfileURL(p?.profile_pic);
+    if (avatar) updated++;
+    let conversationUrl=old?.conversationUrl;
+    if (links[i]?.body?.link) {
+      try { conversationUrl=safeProfileURL(new URL(links[i].body.link,'https://www.facebook.com').href); } catch { /* Keep earlier link. */ }
+    }
+    return {...person,...old,id:person.participantId!,accountId:'profile',kind:'profile',origin:'api',text:'',time:new Date().toISOString(),profileCheckedAt:new Date().toISOString(),
+      name:p?.name || [p?.first_name,p?.last_name].filter(Boolean).join(' ') || old?.name || person.name,
+      username:p?.username || old?.username || person.username, avatar:avatar || old?.avatar,
+      conversationUrl,
+      profileUrl:p?.username ? 'https://www.instagram.com/'+encodeURIComponent(p.username)+'/' : old?.profileUrl,
+      followers:Number.isSafeInteger(p?.follower_count) && p.follower_count>=0 ? p.follower_count : old?.followers ?? null};
+  });
+  await ensureStillLinked(owner, source, context.accountId);
+  await saveCommunity(owner, profiles);
+  return {updated, detail: `${people.length} profiles checked; ${updated} current profile photos supplied. Missing profile fields remain unavailable.`};
 }
 async function communityMessageBatch(
   context: { accessToken: string; apiVersion?: string },

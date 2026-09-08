@@ -86,6 +86,11 @@ function load(file) {
 }
 
 const community = load('lib/community.ts');
+assert.equal(community.nativeConversation({source:'instagram',username:'visitor'}).url,'https://ig.me/m/visitor');
+assert.equal(community.nativeConversation({source:'facebook',conversationUrl:'https://evil.example/chat'}).direct,false);
+assert(community.clientSignals({followers:null},[{text:'I am visiting on vacation and would like a business dinner'}]).some(s=>s.label==='Travel / visitor interest'));
+assert(community.clientSignals({followers:400},[{text:'I am a food blogger interested in a collaboration'}]).some(s=>s.label==='Creator / collaboration'));
+assert.equal(community.clientSignals({followers:null},[{text:'Hello'}]).length,0);
 const syncPlan = load('lib/community-sync-plan.ts');
 assert.deepEqual(syncPlan.communitySyncSources('all'), [
   'facebook',
@@ -1022,6 +1027,8 @@ async function main() {
     3,
     'direct re-import upserts messages',
   );
+  await sync.syncCommunityProfiles(owner, 'instagram');
+  assert((await store.readCommunity(owner,'message')).records.some(r=>r.kind==='profile' && r.profileCheckedAt), 'Separate profile sync checks saved participants');
   await link('instagram', 'meta', 'another-account');
   await assert.rejects(
     () => sync.syncMessages(owner, 'instagram'),

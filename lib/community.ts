@@ -16,6 +16,8 @@ export type CommunityRecord = {
   username?: string;
   avatar?: string;
   profileUrl?: string;
+  conversationUrl?: string;
+  profileCheckedAt?: string;
   reviewUrl?: string;
   followers?: number | null;
   followersObservedAt?: string;
@@ -68,6 +70,31 @@ export function localDate(time: string, timezone: string) {
   return ['year', 'month', 'day']
     .map((k) => parts.find((p) => p.type === k)?.value)
     .join('-');
+}
+export function nativeConversation(person: CommunityRecord) {
+  const supplied = safeProfileURL(person.conversationUrl);
+  if (supplied && ['facebook.com', 'www.facebook.com', 'business.facebook.com', 'www.instagram.com', 'instagram.com', 'messenger.com', 'www.messenger.com'].includes(new URL(supplied).hostname))
+    return { url: supplied, direct: true };
+  if (person.source === 'instagram' && /^[a-zA-Z0-9._]{1,30}$/.test(person.username || ''))
+    return { url: 'https://ig.me/m/' + person.username, direct: true };
+  return { url: person.source === 'instagram' ? 'https://www.instagram.com/direct/inbox/' : person.source === 'tiktok' ? 'https://www.tiktok.com/messages' : 'https://business.facebook.com/latest/inbox/all', direct: false };
+}
+export function clientSignals(person: CommunityRecord, messages: CommunityRecord[]) {
+  const signals: { label: string; evidence: string }[] = [];
+  const add = (label: string, pattern: RegExp) => {
+    const record = messages.find(r => pattern.test(r.text));
+    const notes = [person.profileCategory, person.profileNotes].filter(Boolean).join(' · ');
+    if (record) signals.push({ label, evidence: record.text.slice(0,180) });
+    else if (pattern.test(notes)) signals.push({ label, evidence: 'Team profile notes: ' + notes.slice(0,160) });
+  };
+  add('Reservation enquiry', /\b(reserv(?:e|ation|ations)|book(?:ing)?|table|availability|rezervim|tavoline|tavolinë|prenot(?:are|azione))\b/i);
+  add('Creator / collaboration', /\b(collab(?:oration)?|partnership|influencer|content creator|blogger|vlogger|brand ambassador|sponsor(?:ship|ed)?|bashkëpunim|bashkepunim)\b/i);
+  add('Travel / visitor interest', /\b(tourist|tourism|travell?er|vacation|holiday|visiting|visit your city|travel blogger|udhëtim|udhetim|turist|pushime)\b/i);
+  add('Business / event interest', /\b(business dinner|business lunch|corporate|entrepreneur|founder|business owner|company event|team dinner|networking|conference|biznes|event organiz|event planner)\b/i);
+  add('Food / lifestyle content', /\b(food blogger|foodie|restaurant review|food content|lifestyle creator|fashion creator|travel content)\b/i);
+  if ((person.followers ?? 0) > 5000) signals.push({ label: 'Audience above 5K', evidence: person.followers!.toLocaleString('en') + ' supplied followers' });
+  if (person.potentialClient) signals.unshift({ label: 'Selected by team', evidence: person.profileNotes || 'Manually selected potential client' });
+  return signals;
 }
 export function inWindow(
   record: CommunityRecord,
@@ -136,23 +163,22 @@ export function inboxModel(
       const person = inbound.at(-1) || last;
       const profile = profiles.get(person.source + ':' + person.participantId);
       const ambiguous = inbound.at(-1)?.time === lastOut;
+      const mergedPerson = { ...person, ...profile };
+      const signals = clientSignals(mergedPerson, unanswered);
       return {
         id:
           person.source + ':' + person.accountId + ':' + person.conversationId,
         source: person.source,
         last,
-        person: { ...person, ...profile },
+        person: mergedPerson,
+        signals,
         messages: list,
         waiting: unanswered.length > 0,
         ambiguous,
         unanswered,
         possibleClient:
           profile?.potentialClient ??
-          unanswered.some((r) =>
-            /\b(reserv(?:e|ation|ations)|book(?:ing)?|table|availability|collab(?:oration)?|partnership|rezervim|tavoline|tavolinë|prenot(?:are|azione))\b/i.test(
-              r.text,
-            ),
-          ),
+          signals.length > 0,
         selectedClient: profile?.potentialClient === true,
       };
     })

@@ -36,6 +36,7 @@ import {
   bucketActivity,
   COMMUNITY_NAMES,
   inboxModel,
+  nativeConversation,
   inWindow,
   reviewTopics,
   compareReviewsNewest,
@@ -125,14 +126,16 @@ function useCommunity(kind: string) {
   return { ...data, error, setError, loading, refresh };
 }
 function Portrait({ person }: { person: CommunityRecord }) {
-  return person.avatar ? (
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [person.avatar]);
+  return person.avatar && !failed ? (
     <img
       className="community-avatar"
       src={person.avatar}
       alt=""
       referrerPolicy="no-referrer"
       onError={(e) => {
-        e.currentTarget.style.display = 'none';
+        setFailed(true);
       }}
     />
   ) : (
@@ -1208,6 +1211,9 @@ export function CommunityPage({
     await Promise.allSettled(
       targets.map(async (s) => {
         try {
+          if (mode === 'inbox' && (s === 'facebook' || s === 'instagram')) {
+            try { await communityAction({op:'profiles', source:s}); data.refresh(); } catch { /* Message import remains independent. */ }
+          }
           let returned = 0;
           for (let batch = 0; batch < 10; batch++) {
             const result = await communityAction({
@@ -1412,12 +1418,12 @@ export function CommunityPage({
           />
           <section className="surface community-panel" aria-label="Unanswered client priorities">
             <div className="section-head"><div><h2>People waiting to connect</h2><p>Unanswered influencer and client enquiries · Instagram & Facebook</p></div><span className="pill">30-minute scheduled sync</span></div>
-            <p className="source-asof">Priority suggestions use verified follower counts, enquiry language and reply history. Counts and photos appear only when supplied or verified. This is a suggestion, not a confirmed booking or partnership.</p>
+            <p className="source-asof">Suggestions consider unanswered enquiries, creator collaborations, travel visits, business events and verified profile notes. Each signal shows its evidence; follower count is optional. Unavailable social activity or personal style is not guessed.</p>
             <div className="community-filters">
               {['>5K followers', '10K+ followers', '20K+ followers', '30K+ followers'].map(tier => <button key={tier} className="secondary" onClick={() => { setTab('leads'); setClientFilter('Unanswered suggestions'); setMinimum(tier); }}>{tier} · {model.priority.filter(c => !c.ambiguous && matchesProfile(c.person, tier, 'All locations')).length}</button>)}
             </div>
             {model.priority.filter(c => !c.ambiguous).sort((a,b) => Number(b.selectedClient)-Number(a.selectedClient) || (b.person.followers ?? 0)-(a.person.followers ?? 0) || a.unanswered[0].time.localeCompare(b.unanswered[0].time)).slice(0,6).map(c => <article className="conversation-card" key={c.id}>
-              <Portrait person={c.person}/><div className="conversation-main"><button className="conversation-title" onClick={() => setSelected(c)}>{c.person.name || c.person.username || 'Profile unavailable'}</button><p>{COMMUNITY_NAMES[c.source]} · {(c.person.followers ?? 0) > 5000 ? `${number(c.person.followers!)} followers · ${followerTier(c.person.followers)}` : 'Follower count unknown'}</p><p>{c.last.text || 'Attachment'}</p><small>{c.selectedClient ? 'Selected potential client' : (c.person.followers ?? 0) > 5000 ? 'Influencer threshold matched' : 'Enquiry language detected'} · No later captured reply</small></div><button className="secondary" onClick={() => setSelected(c)}>Review conversation</button>
+              <Portrait person={c.person}/><div className="conversation-main"><button className="conversation-title" onClick={() => setSelected(c)}>{c.person.name || c.person.username || 'Profile unavailable'}</button><p>{COMMUNITY_NAMES[c.source]} · {c.person.followers != null ? `${number(c.person.followers)} followers · ${followerTier(c.person.followers)}` : 'Follower count unknown'}</p><p>{c.last.text || 'Attachment'}</p>{c.signals.map(signal => <div key={signal.label}><small>{signal.label}</small><p>{signal.evidence}</p></div>)}<small>No later captured reply</small></div><a className="secondary" href={nativeConversation(c.person).url} target="_blank" rel="noopener noreferrer">{nativeConversation(c.person).direct ? `Open chat in ${COMMUNITY_NAMES[c.source]}` : `Open ${COMMUNITY_NAMES[c.source]} inbox`} <ArrowUpRight size={15}/></a><button className="secondary" onClick={() => setSelected(c)}>Profile details</button>
             </article>)}
             {!model.priority.length && <p>No verified influencer or client enquiries awaiting a reply in the captured messages. Profiles with unknown follower counts remain in the inbox.</p>}
           </section>

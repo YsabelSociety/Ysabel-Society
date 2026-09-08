@@ -1,6 +1,6 @@
 import { database } from './db';
 import { syncLinkedSource } from './connector-sync';
-import { runCommunitySync } from './community-sync';
+import { runCommunitySync, syncCommunityProfiles } from './community-sync';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { recentSyncWindow } from '@/lib/sync-window';
 import type { CommunitySource } from '@/lib/community';
@@ -90,6 +90,7 @@ export async function startRefresh(
           : undefined,
     });
     if (manual || paused) continue;
+    if (['instagram', 'facebook'].includes(link.source)) tasks.push({source:link.source,kind:'profiles',label:label+' profile photos',state:'pending',pages:0});
     if (['instagram', 'facebook', 'tiktok'].includes(link.source)) {
       for (const kind of (scope === 'inbox' ? ['message'] : ['message', 'mention']) as ('message' | 'mention')[])
         tasks.push({
@@ -161,6 +162,10 @@ export async function stepRefresh(owner: string, id: string) {
         task.state = 'manual';
         task.detail =
           'Connection is disconnected, uses an export, or automatic import is paused.';
+      } else if (task.kind === 'profiles') {
+        const result = await syncCommunityProfiles(owner, task.source as 'facebook' | 'instagram');
+        task.state = result.updated ? 'updated' : 'partial';
+        task.detail = result.detail;
       } else if (task.kind === 'reports') {
         const result = await syncLinkedSource(
           owner,

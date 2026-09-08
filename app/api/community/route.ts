@@ -10,7 +10,7 @@ import {
   saveCommunity,
   saveCommunityStatus,
 } from '@/lib/server/community-store';
-import { runCommunitySync } from '@/lib/server/community-sync';
+import { runCommunitySync, syncCommunityProfiles } from '@/lib/server/community-sync';
 import {
   parseCommunityCSV,
   parseMetaMessageJSON,
@@ -41,6 +41,7 @@ export async function POST(req: Request) {
     const source = requireText(body.source, 30) as CommunitySource;
     if (!['facebook', 'instagram', 'tiktok', 'gbp'].includes(source))
       throw new Error('INPUT:Choose a supported platform.');
+    if (body.op === 'profiles' && (source === 'instagram' || source === 'facebook')) return json(await syncCommunityProfiles(owner, source));
     if (body.op === 'sync')
       return json(
         await runCommunitySync(

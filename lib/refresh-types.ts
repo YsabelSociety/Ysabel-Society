@@ -1,6 +1,6 @@
 export type RefreshTask = {
   source: string;
-  kind: 'reports' | 'message' | 'mention' | 'review';
+  kind: 'reports' | 'message' | 'mention' | 'review' | 'profiles';
   label: string;
   state: 'pending' | 'updated' | 'attention' | 'manual' | 'partial';
   pages: number;

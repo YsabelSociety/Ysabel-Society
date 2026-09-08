@@ -95,6 +95,7 @@ function load(file) {
       };
     if (resolved === path.join(root, 'lib/server/community-sync'))
       return {
+        syncCommunityProfiles: async (owner, source) => { seen.push([source,'profiles',owner]); return {updated:1,detail:'Profile updated'}; },
         runCommunitySync: async (
           owner,
           source,
@@ -149,7 +150,7 @@ for (const [source, provider, auto, enabled] of [
 async function main() {
   const jobs = load('lib/server/refresh-jobs.ts');
   let job = await jobs.startRefresh('owner', 'manual', true);
-  assert.equal(job.tasks.length, 11);
+  assert.equal(job.tasks.length, 13);
   assert.equal(job.tasks.find((t) => t.source === 'gbp').state, 'manual');
   assert.equal((await jobs.startRefresh('owner', 'manual', true)).id, job.id);
   const before = seen.length;
@@ -193,7 +194,7 @@ async function main() {
   );
   assert(seen.every((t) => t[2] === 'owner'));
   let inbox = await jobs.startRefresh('owner', 'scheduled', true, 'inbox');
-  assert.deepEqual(inbox.tasks.map(t => [t.source, t.kind]), [['facebook', 'message'], ['instagram', 'message']]);
+  assert.deepEqual(inbox.tasks.map(t => [t.source, t.kind]), [['facebook', 'profiles'], ['facebook', 'message'], ['instagram', 'profiles'], ['instagram', 'message']]);
   for (let i = 0; i < 40 && inbox.status === 'running'; i++) inbox = await jobs.stepRefresh('owner', inbox.id);
   const scheduled = await jobs.startRefresh('owner', 'scheduled', true);
   assert.equal(

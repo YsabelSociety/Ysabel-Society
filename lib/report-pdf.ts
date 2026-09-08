@@ -149,7 +149,7 @@ export async function createReportPDF(
   doc.setFont('Noto');
   doc.setProperties({
     title: bundle.title,
-    subject: 'Ysabel Society - all-platform marketing report',
+    subject: bundle.scope === 'reviews' ? 'Ysabel Society - critical review report' : 'Ysabel Society - all-platform marketing report',
     author: 'Ysabel Society',
     creator: 'arberhalili.com',
   });
@@ -696,6 +696,11 @@ export async function createReportPDF(
     return [...result.values()];
   };
 
+  let contentsPage = 0;
+  const audience = bundle.tables.filter((t) => t.key.startsWith('audience'));
+  const websiteTables = bundle.tables.filter((t) => t.source === 'ga4');
+  const googleTables = bundle.tables.filter((t) => t.source === 'gbp');
+  if (bundle.scope !== 'reviews') {
   heading(
     'Overview',
     'All platforms · ' +
@@ -736,7 +741,7 @@ export async function createReportPDF(
   );
 
   doc.addPage();
-  const contentsPage = doc.getNumberOfPages();
+  contentsPage = doc.getNumberOfPages();
   section = 'Contents';
   frame();
   heading(
@@ -840,7 +845,6 @@ export async function createReportPDF(
       }),
     );
   }
-  const audience = bundle.tables.filter((t) => t.key.startsWith('audience'));
   heading(
     'Audience',
     'Country, city, age and gender breakdowns supplied by each platform. Snapshot periods stay visible.',
@@ -878,7 +882,6 @@ export async function createReportPDF(
         : null,
     })),
   );
-  const websiteTables = bundle.tables.filter((t) => t.source === 'ga4');
   if (!websiteTables.length)
     paragraph('No website source tables have been supplied for this period.');
   for (const t of websiteTables) await sourceTable(t);
@@ -908,7 +911,6 @@ export async function createReportPDF(
       color: m.color,
     })),
   );
-  const googleTables = bundle.tables.filter((t) => t.source === 'gbp');
   if (!googleTables.length)
     paragraph('No Business Profile source reports have been supplied.');
   for (const t of googleTables) await sourceTable(t);
@@ -1084,8 +1086,9 @@ export async function createReportPDF(
     },
   );
 
+  }
   heading(
-    'Reviews',
+    bundle.scope === 'reviews' ? bundle.title : 'Reviews',
     bundle.reviewNote ||
       'Google Business reviews and criticism themes. Period statistics use exact dates; reviews with approximate dates are listed separately.',
     '#49916a',
@@ -1180,6 +1183,7 @@ export async function createReportPDF(
     );
   }
 
+  if (bundle.scope !== 'reviews') {
   heading(
     'Source details',
     'All daily observations, additional source reports, and platform coverage for this report.',
@@ -1268,6 +1272,7 @@ export async function createReportPDF(
     doc.line(M, y + 9, W - M, y + 9);
     y += 30;
   });
+  }
   const count = doc.getNumberOfPages();
   for (let n = 1; n <= count; n++) {
     doc.setPage(n);

@@ -289,6 +289,17 @@ async function main() {
     'Followers are snapshots, not daily sums',
   );
   const fsBytes = (p) => new Uint8Array(fs.readFileSync(path.join(root, p)));
+  const reviewProgress = [];
+  const reviewDoc = await pdf.createReportPDF({ ...bundle, scope: 'reviews',
+    title: 'Critical review selection', reviewSelection: selection.reviews,
+  }, {
+    regular: fsBytes('public/fonts/NotoSans-Regular.ttf'),
+    bold: fsBytes('public/fonts/NotoSans-Bold.ttf'),
+    logo: fsBytes('public/ysabel-society-logo.png'),
+  }, message => reviewProgress.push(message));
+  assert.deepEqual(reviewProgress.filter(message => message.startsWith('Designing PDF')),
+    ['Designing PDF · Critical review selection'], 'Review export must omit every other analytics section');
+  assert(reviewDoc.getNumberOfPages() > 0);
   if (process.env.YS_RENDER_PDF) {
     fs.mkdirSync(path.join(root, 'outputs/pdf-qa'), { recursive: true });
     const doc = await pdf.createReportPDF(bundle, {

@@ -18,6 +18,7 @@ export const REPORT_SECTIONS = [
   'Source details',
 ];
 export type ReportBundle = {
+  scope?: 'reviews';
   reviewSelection?: CommunityRecord[];
   reviewNote?: string;
   title: string;

@@ -1,6 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
-import { loadReportBundle } from '@/lib/report-bundle';
+import { type ReportBundle } from '@/lib/report-bundle';
 import { Download, FileText, ExternalLink } from 'lucide-react';
 import {
   Dialog,
@@ -89,25 +89,19 @@ export function ReviewReports({
   async function exportIllustrated() {
     if (!snapshot || busy) return;
     setBusy(true);
-    setMessage('Collecting all platforms…');
+    setMessage('Preparing selected reviews…');
     try {
-      const bundle = await loadReportBundle(
-        snapshot.range,
-        snapshot.title,
-        setMessage,
-      );
-      bundle.reviewSelection = makeReviewReport(
-        bundle.records,
-        snapshot.filters,
-        snapshot.range,
-        snapshot.timezone,
-        snapshot.title,
-      ).rows;
-      bundle.reviewNote = reviewFilterLabel(snapshot);
+      const bundle: ReportBundle = {
+        scope: 'reviews', title: snapshot.title, range: snapshot.range,
+        generatedAt: snapshot.generatedAt, timezone: snapshot.timezone,
+        mode: 'live', rows: [], posts: [], tables: [], records: snapshot.rows,
+        sourceStatus: [], communityStatus: [], reviewSelection: snapshot.rows,
+        reviewNote: reviewFilterLabel(snapshot),
+      };
       const { downloadReportPDF } = await import('@/lib/report-pdf');
       await downloadReportPDF(bundle, setMessage);
       setMessage(
-        'PDF downloaded with all platform categories and your filtered reviews.',
+        'PDF downloaded with only your selected reviews and their criticism summary.',
       );
     } catch (e) {
       setMessage(

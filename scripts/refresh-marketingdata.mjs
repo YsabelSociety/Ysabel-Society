@@ -23,7 +23,7 @@ async function request(body) {
     }
   }
 }
-let job=await request({op:'start'});
+let job=await request({op:'start',scope:process.env.MARKETING_SYNC_SCOPE==='inbox'?'inbox':'all'});
 const deadline=Date.now()+25*60000;
 while (job.status==='running' && Date.now()<deadline) {
   if (job.retryAfter) await delay(3000);
@@ -33,4 +33,4 @@ if (job.status==='running') throw new Error('Import did not finish within this r
 // Public workflow logs contain only source labels and status, never account data or provider responses.
 for (const task of job.tasks) console.log(task.label+': '+task.state);
 if (job.status==='partial') console.log('::warning::Available sources updated. Some sources require access or a manual export; see private dashboard Sync details.');
-console.log('Daily import completed at '+job.updatedAt);
+console.log('Scheduled import completed at '+job.updatedAt);

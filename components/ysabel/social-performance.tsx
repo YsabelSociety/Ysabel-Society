@@ -628,7 +628,7 @@ export const SocialPerformance = memo(function SocialPerformance({
     };
   });
   return (
-    <div className="social-performance">
+    <div className="social-performance" data-platform={channels.length === 1 ? channels[0] : "All"}>
       <div className="performance-controls surface">
         <div>
           <h2>Social performance</h2>

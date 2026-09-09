@@ -1,6 +1,6 @@
 'use client';
 import { BrandLogo } from './brand-logo';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Activity, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   LayoutDashboard,
@@ -877,8 +877,7 @@ export default function Workspace({
                       />
                     </AdminGate>
                   )}
-                  {page === 'Overview' && (
-                    <Overview
+                  <Activity mode={page === 'Overview' ? 'visible' : 'hidden'}><Overview
                       live={source.mode === 'live'}
                       range={range}
                       rows={rows}
@@ -887,10 +886,8 @@ export default function Workspace({
                       posts={visiblePosts}
                       onSelect={setPost}
                       onMetric={setMetric}
-                    />
-                  )}
-                  {page === 'Performance' && (
-                    <PerformancePage
+                    /></Activity>
+                  <Activity mode={page === 'Performance' ? 'visible' : 'hidden'}><PerformancePage
                       rows={rows}
                       previous={previous}
                       data={analyticsData}
@@ -903,8 +900,7 @@ export default function Workspace({
                       )}
                       websiteRealtime={source.websiteRealtime}
                       tables={source.tables}
-                    />
-                  )}
+                    /></Activity>
                   {page === 'Content Intelligence' && (
                     <ContentIntelligence
                       data={analyticsData}

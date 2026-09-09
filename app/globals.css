@@ -8462,3 +8462,18 @@ h1 {
   .profile-views-card .spark-line,.profile-views-card .spark-area,.profile-views-card .spark-pulse,
   .social-metric-card[data-metric='profileViews'] .spark-line,.social-metric-card[data-metric='profileViews'] .spark-area,.social-metric-card[data-metric='profileViews'] .spark-pulse { animation:none; }
 }
+
+/* Every miniature has an explicit series color, independent of text color. */
+.spark { color:var(--graph-ink,var(--metric-ink,#537b70)); }
+[data-platform='Instagram'] { --graph-ink:#a84987; }
+[data-platform='Facebook'] { --graph-ink:#397cc2; }
+[data-platform='TikTok'] { --graph-ink:#238b91; }
+[data-platform='Website'] { --graph-ink:#407b78; }
+[data-platform='Google Business'] { --graph-ink:#49916a; }
+.metric-mini-series .spark { color:inherit; }
+.stat-row > [data-metric='profileViews'] { --metric-ink:#5879a5; }
+.stat-row > [data-metric='views'] { --metric-ink:#98709c; }
+.stat-row > [data-metric='reach'] { --metric-ink:#477ba4; }
+.stat-row > [data-metric='engagements'] { --metric-ink:#368a84; }
+.stat-row > [data-metric='followers'] { --metric-ink:#7b68a6; }
+.channel-footer .spark { color:var(--graph-ink,#537b70); }

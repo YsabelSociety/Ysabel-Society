@@ -63,7 +63,7 @@ export function Spark({
             className="spark-line"
             vectorEffect="non-scaling-stroke"
             d={geometry.path}
-            pathLength="1"
+
             fill="none"
             stroke="currentColor"
             strokeWidth="1.6"

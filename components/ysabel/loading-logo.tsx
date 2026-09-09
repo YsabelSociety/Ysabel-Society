@@ -65,7 +65,7 @@ export function LoadingLogo({
         import('./intro-backdrop'),
         compact
           ? Promise.resolve(null)
-          : fetch(appPath('/ysabel-society-logo.png'), { signal }).then((r) => {
+          : fetch(appPath('/ysabel-loading-identity.png'), { signal }).then((r) => {
               if (!r.ok) throw new Error('Lettering unavailable');
               return r.blob();
             }),
@@ -398,7 +398,7 @@ export function LoadingLogo({
         );
         logo.position.y = compact ? 0 : 0.72;
         identityScale +=
-          ((current.refreshing ? 0.72 : 1) - identityScale) * ease;
+          ((current.refreshing ? 0.52 : 0.8) - identityScale) * ease;
         identity.scale.setScalar(identityScale);
         identity.position.y = still ? 0 : Math.sin(motionTime * 0.8) * 0.035;
         identity.rotation.x = still ? 0 : -pointer.y * 0.018;

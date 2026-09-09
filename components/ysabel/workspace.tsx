@@ -248,7 +248,7 @@ export default function Workspace({
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [today, setToday] = useState(ANCHOR);
+  const [today, setToday] = useState(() => calendarDate('Europe/Tirane'));
   const liveInitialized = useRef(false);
   const [page, setPage] = useState(
       names.includes(initialPage) ? initialPage : 'Overview',
@@ -264,8 +264,8 @@ export default function Workspace({
     [post, setPost] = useState<Post | null>(null),
     [metric, setMetric] = useState<string | null>(null);
   const range = useMemo(
-    () => dateRange(date, custom, liveClock ? today : ANCHOR),
-    [date, custom, liveClock, today],
+    () => dateRange(date, custom, today),
+    [date, custom, today],
   );
   useEffect(() => {
     const update = () => setToday(calendarDate(data.settings.timezone));

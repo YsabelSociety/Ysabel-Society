@@ -8477,3 +8477,9 @@ h1 {
 .stat-row > [data-metric='engagements'] { --metric-ink:#368a84; }
 .stat-row > [data-metric='followers'] { --metric-ink:#7b68a6; }
 .channel-footer .spark { color:var(--graph-ink,#537b70); }
+
+/* Solid strokes avoid dash normalization gaps on resized SVG paths. */
+.spark .spark-line { stroke-dasharray:none; stroke-dashoffset:0; animation:solid-line-arrive 650ms ease-out both; }
+.profile-views-card .spark .spark-line { animation-duration:950ms; }
+@keyframes solid-line-arrive { from { opacity:.3; } to { opacity:1; } }
+@media (prefers-reduced-motion:reduce) { .spark .spark-line { animation:none; } }

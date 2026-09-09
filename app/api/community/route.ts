@@ -10,6 +10,7 @@ import {
   saveCommunity,
   saveCommunityStatus,
 } from '@/lib/server/community-store';
+import { readInstagramMessaging } from '@/lib/server/instagram-messaging';
 import { runCommunitySync, syncCommunityProfiles } from '@/lib/server/community-sync';
 import {
   parseCommunityCSV,
@@ -59,7 +60,8 @@ export async function POST(req: Request) {
         )
         .bind(owner, source)
         .first<{ auto_sync: number }>();
-      if (!link?.auto_sync) return json({ skipped: true });
+      const directInstagram = source === 'instagram' ? await readInstagramMessaging(owner) : null;
+      if (source === 'instagram' ? !directInstagram || directInstagram.autoSync === false : !link?.auto_sync) return json({ skipped: true });
       return json(
         await runCommunitySync(
           owner,

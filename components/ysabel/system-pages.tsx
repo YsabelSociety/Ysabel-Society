@@ -30,6 +30,7 @@ import { METRICS, CHANNELS } from '@/lib/analytics';
 import { type WorkspaceData } from './use-workspace';
 import { PROVIDER_CONFIG } from '@/lib/provider-metadata';
 import { ConnectionAssistant } from './connection-assistant';
+import { InstagramMessaging } from './instagram-messaging';
 import { ConnectionOptions } from './connection-options';
 import { Switch } from '@/components/ui/switch';
 import { DataIcon } from './data-icons';
@@ -102,6 +103,10 @@ export function ConnectionsPage({ notify }: { notify: (s: string) => void }) {
   return (
     <div className="view-enter">
       <ConnectionAssistant onChanged={() => void load()} notify={notify} />
+      <section className="surface community-panel" aria-label="Instagram Inbox connection">
+        <h2>Instagram Inbox</h2><p>Independent Instagram sign-in for messages and client profiles. Facebook Inbox keeps its own Page connection.</p>
+        <InstagramMessaging onSaved={() => window.dispatchEvent(new Event('ysabel:community-updated'))}/>
+      </section>
       <ConnectionOptions notify={notify} />
       <div className="connection-banner">
         <ShieldCheck size={21} />

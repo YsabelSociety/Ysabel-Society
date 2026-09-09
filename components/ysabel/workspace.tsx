@@ -96,6 +96,7 @@ import {
 import { ReportsPage, ExportDialog } from './reports';
 import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
 import { AdminPanel } from './admin-panel';
+import { useInboxSync } from './use-inbox-sync';
 import { useAutoRefresh } from './use-auto-refresh';
 import { calendarDate } from '@/lib/sync-window';
 import { SourceReports } from './source-reports';
@@ -243,6 +244,7 @@ export default function Workspace({
 }) {
   const data = useWorkspace();
   const syncState = useAutoRefresh(data.ready, data.settings.timezone);
+  useInboxSync(data.ready);
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

@@ -12,6 +12,7 @@ export type InstagramMessageGrant = {
   username: string;
   connectedAt: string;
   instagramLogin: true;
+  autoSync?: boolean;
   deadline?: number;
   expiresAt?: number;
   refreshedAt?: number;
@@ -188,10 +189,7 @@ export async function connectInstagramMessaging(owner: string, input: any, lifet
     )
     .bind(owner, 'instagram')
     .first<{ external_id: string }>();
-  if (!link)
-    throw new Error(
-      'INPUT:Select the Ysabel Instagram account in Connections first.',
-    );
+  const previous = await readVault<InstagramMessageGrant>(owner, 'messaging', 'instagram');
   const context = { accessToken, apiVersion };
   const me = await instagramMessageGet(context, 'me?fields=user_id,username');
   const externalId = String(me.user_id || me.id || '');
@@ -199,32 +197,11 @@ export async function connectInstagramMessaging(owner: string, input: any, lifet
     throw new Error(
       'INPUT:Instagram did not identify this account. Use a token generated with Instagram Login.',
     );
-  if (![String(me.user_id), String(me.id)].includes(link.external_id)) {
-    // Instagram Login may use a different ID namespace. Match the live username
-    // on the already connected Instagram asset before attaching its messages.
-    const target = await readVault<Resource>(owner, 'target', 'instagram');
-    if (!target?.pageToken || target.id !== link.external_id)
-      throw new Error(
-        'INPUT:This token does not match the connected Instagram account.',
-      );
-    const app = await getApp(owner, 'meta');
-    const linked = await graphGet(
-      {
-        accessToken: target.pageToken,
-        apiVersion: app.apiVersion,
-        externalId: target.id,
-      },
-      encodeURIComponent(target.id) + '?fields=username',
-    );
-    if (
-      !linked.username ||
-      String(linked.username).toLowerCase() !==
-        String(me.username).toLowerCase()
-    )
-      throw new Error(
-        'INPUT:This token belongs to a different Instagram account.',
-      );
-  }
+  // The direct grant verifies its own account without Facebook credentials.
+  if (previous && previous.username.toLowerCase() !== String(me.username).toLowerCase())
+    throw new Error('INPUT:Sign in with the already connected Instagram account.');
+  if (!previous && link && ![String(me.user_id), String(me.id)].includes(link.external_id))
+    throw new Error('INPUT:This Instagram account does not match the selected reporting account.');
   const list = await instagramMessageGet(
     context,
     encodeURIComponent(externalId) +
@@ -240,13 +217,14 @@ export async function connectInstagramMessaging(owner: string, input: any, lifet
     )
     .bind(owner, 'instagram')
     .first<{ external_id: string }>();
-  if (current?.external_id !== link.external_id)
+  if (current?.external_id !== link?.external_id)
     throw new Error('INPUT:The selected Instagram account changed. Try again.');
   const grant: InstagramMessageGrant = {
     ...lifetime,
     ...context,
     externalId,
-    accountId: link.external_id,
+    accountId: previous?.accountId || link?.external_id || externalId,
+    autoSync: previous?.autoSync ?? true,
     username: String(me.username),
     connectedAt: new Date().toISOString(),
     instagramLogin: true,
@@ -362,4 +340,15 @@ export async function instagramConversationMessages(
       retryable: /time limit|timed?\s*out|timeout|abort/i.test(String(e)),
     };
   }
+}
+
+export async function ensureInstagramInbox(owner: string, accountId: string) {
+  const grant = await readInstagramMessaging(owner);
+  if (!grant || grant.accountId !== accountId) throw new Error('INPUT:The Instagram inbox connection changed. Start a new import.');
+}
+export async function setInstagramInboxSync(owner: string, enabled: boolean) {
+  const grant = await readInstagramMessaging(owner);
+  if (!grant) throw new Error('INPUT:Sign in with Instagram first.');
+  await writeVault(owner, 'messaging', 'instagram', {...grant, autoSync: enabled});
+  return {autoSync: enabled};
 }

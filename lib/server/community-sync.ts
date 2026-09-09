@@ -12,6 +12,7 @@ import {
 import {
   readInstagramMessaging,
   instagramMessageBatch,
+  ensureInstagramInbox,
   instagramConversationMessages,
   metaMessageError,
 } from './instagram-messaging';
@@ -163,7 +164,8 @@ export async function syncMessages(
 ) {
   const instagram =
     source === 'instagram' ? await readInstagramMessaging(owner) : null;
-  if (instagram) await ensureStillLinked(owner, source, instagram.accountId);
+  if (source === 'instagram' && !instagram) throw new Error('INPUT:Connect Instagram Inbox separately using Sign in with Instagram. Facebook authorization is not used for Instagram messages.');
+  if (instagram) await ensureInstagramInbox(owner, instagram.accountId);
   const started = Date.now(),
     deadline = started + 35000;
   const context = instagram
@@ -363,7 +365,7 @@ export async function syncMessages(
         'INPUT:The conversation list is accessible, but message details failed: ' +
           replies[0].error,
       );
-    await ensureStillLinked(owner, source, context.accountId);
+    await (instagram ? ensureInstagramInbox(owner, context.accountId) : ensureStillLinked(owner, source, context.accountId));
     for (let start = pageStart; start < imported.length; start += 2000)
       await saveCommunity(owner, imported.slice(start, start + 2000));
     if (Date.now() >= deadline || replies.some((r) => r.retryable))
@@ -469,7 +471,7 @@ export async function syncMessages(
         followers !== null ? new Date().toISOString() : undefined,
     });
   }
-  await ensureStillLinked(owner, source, context.accountId);
+  await (instagram ? ensureInstagramInbox(owner, context.accountId) : ensureStillLinked(owner, source, context.accountId));
   for (let start = 0; start < imported.length; start += 2000)
     await saveCommunity(owner, imported.slice(start, start + 2000));
   const detail =
@@ -527,8 +529,9 @@ export async function syncMessages(
 // when the message import consumes its own request budget.
 export async function syncCommunityProfiles(owner: string, source: 'facebook' | 'instagram') {
   const instagram = source === 'instagram' ? await readInstagramMessaging(owner) : null;
+  if (source === 'instagram' && !instagram) throw new Error('INPUT:Connect Instagram Inbox separately first.');
   const context = instagram || await linkedContext(owner, source);
-  await ensureStillLinked(owner, source, context.accountId);
+  await (instagram ? ensureInstagramInbox(owner, context.accountId) : ensureStillLinked(owner, source, context.accountId));
   const { records } = await readCommunity(owner, 'message');
   const previous = new Map(records.filter(r => r.source === source && r.kind === 'profile' && r.origin === 'api').map(r => [r.participantId, r]));
   const people = [...new Map(records.filter(r => r.source === source && r.kind === 'message' && r.accountId === context.accountId && r.direction === 'in' && r.origin === 'api').reverse().map(r => [r.participantId, r])).values()]
@@ -570,7 +573,7 @@ export async function syncCommunityProfiles(owner: string, source: 'facebook' | 
       profileUrl:p?.username ? 'https://www.instagram.com/'+encodeURIComponent(p.username)+'/' : old?.profileUrl,
       followers:Number.isSafeInteger(p?.follower_count) && p.follower_count>=0 ? p.follower_count : old?.followers ?? null};
   });
-  await ensureStillLinked(owner, source, context.accountId);
+  await (instagram ? ensureInstagramInbox(owner, context.accountId) : ensureStillLinked(owner, source, context.accountId));
   await saveCommunity(owner, profiles);
   const errors = [...new Set(results.flatMap(r=>r.error ? [r.error] : []))].slice(0,2);
   const detail = `${people.length} profiles checked; ${updated} current profile photos supplied.` + (errors.length ? ' Meta profile access: '+errors.join(' ') : '');
@@ -1012,7 +1015,7 @@ export async function runCommunitySync(
         Date.now() - (kind === 'review' ? 600000 : 120000),
       ).toISOString(),
       automatic && !force ? 1 : 0,
-      new Date(Date.now() - 300000).toISOString(),
+      new Date(Date.now() - (kind === 'message' ? 60000 : 300000)).toISOString(),
     )
     .run();
   if (!lock.meta.changes) return { skipped: true };

@@ -597,7 +597,8 @@ async function main() {
     )
     .get(owner);
   assert.equal(progress.cursor, null, 'explicit completion clears the cursor');
-  await link('instagram', 'meta', 'ig-business');
+  await assert.rejects(()=>sync.syncMessages(owner,'instagram'),/Connect Instagram Inbox separately/,'Instagram does not silently use Facebook credentials');
+  await link('facebook', 'meta', 'ig-business');
   responder = async (url, init) => {
     if (url.endsWith('/me?fields=id')) return { id: 'fb-page' };
     if (url.includes('/conversations?'))
@@ -644,8 +645,8 @@ async function main() {
     }
     throw new Error('Unexpected mock URL: ' + url);
   };
-  await sync.syncMessages(owner, 'instagram');
-  await sync.syncMessages(owner, 'instagram');
+  await sync.syncMessages(owner, 'facebook');
+  await sync.syncMessages(owner, 'facebook');
   const stored = await store.readCommunity(owner, 'message');
   assert.equal(
     stored.records.filter((r) => r.conversationId === 'api-thread').length,
@@ -672,12 +673,12 @@ async function main() {
           { status: 403 },
         );
   await assert.rejects(
-    () => sync.runCommunitySync(owner, 'instagram'),
+    () => sync.runCommunitySync(owner, 'facebook'),
     /conversation import/,
   );
   assert.equal(
     (await store.readCommunity(owner, 'message')).statuses.find(
-      (s) => s.source === 'instagram',
+      (s) => s.source === 'facebook',
     ).state,
     'needs-attention',
   );
@@ -708,7 +709,7 @@ async function main() {
       sync.readConversationList(
         { accessToken: 'test-sensitive-token', apiVersion: 'v26.0' },
         'page',
-        'instagram',
+        'facebook',
       ),
     (e) =>
       e.message.includes('Review needed') &&
@@ -721,7 +722,7 @@ async function main() {
     throw new DOMException('Fixture timeout', 'TimeoutError');
   };
   await assert.rejects(
-    () => sync.runCommunitySync(owner, 'instagram'),
+    () => sync.runCommunitySync(owner, 'facebook'),
     (e) => e.message.includes('timed out') && !e.message.includes('reconnect'),
   );
   const attemptedLimits = [];
@@ -741,7 +742,7 @@ async function main() {
       sync.readConversationList(
         { accessToken: 'test', apiVersion: 'v26.0' },
         'page',
-        'instagram',
+        'facebook',
       ),
     (e) =>
       e.message.includes('Direct Instagram') &&
@@ -760,7 +761,7 @@ async function main() {
   await sync.readConversationList(
     { accessToken: 'test', apiVersion: 'v26.0' },
     'page',
-    'instagram',
+    'facebook',
   );
   assert.deepEqual(
     attemptedLimits,
@@ -800,21 +801,21 @@ async function main() {
       );
     throw new Error('Unexpected pagination request');
   };
-  await sync.syncMessages(owner, 'instagram');
+  await sync.syncMessages(owner, 'facebook');
   assert.equal(
     (await store.readCommunity(owner, 'message')).statuses.find(
-      (s) => s.source === 'instagram',
+      (s) => s.source === 'facebook',
     ).more,
     true,
   );
-  await sync.syncMessages(owner, 'instagram', true);
+  await sync.syncMessages(owner, 'facebook', true);
   assert.equal(
     messagePages.at(-1),
     2,
     'older import resumes at the saved cursor',
   );
   for (let page = 0; page < 9; page++)
-    await sync.syncMessages(owner, 'instagram', true);
+    await sync.syncMessages(owner, 'facebook', true);
   assert.equal(
     messagePages.at(-1),
     11,
@@ -822,10 +823,11 @@ async function main() {
   );
   assert.equal(
     (await store.readCommunity(owner, 'message')).statuses.find(
-      (s) => s.source === 'instagram',
+      (s) => s.source === 'facebook',
     ).more,
     false,
   );
+  await link('instagram', 'meta', 'ig-business');
   let requestedPages = [];
   let tagPages = [];
   const existingGrant = await vault.readVault(owner, 'grant', 'meta');
@@ -1034,7 +1036,15 @@ async function main() {
     'test-page-token',
     'keep Facebook-linked analytics credential',
   );
+  const savedReportingLink=sql.prepare("SELECT * FROM connector_links WHERE owner=? AND source='instagram'").get(owner);
+  sql.prepare("DELETE FROM connector_links WHERE owner=? AND source='instagram'").run(owner);
+  await directInstagram.connectInstagramMessaging(owner,{accessToken:'direct-ig-fixture',apiVersion:'v26.0'});
+  await directInstagram.setInstagramInboxSync(owner,false);
+  assert.equal((await directInstagram.readInstagramMessaging(owner)).autoSync,false);
+  await directInstagram.setInstagramInboxSync(owner,true);
+  // The direct importer must work even with no Facebook-linked reporting row.
   const directImport = await sync.syncMessages(owner, 'instagram');
+  await link('instagram','meta','178400001');
   assert.equal(directImport.imported, 2);
   assert.equal(directImport.more, true);
   assert.equal(
@@ -1073,11 +1083,9 @@ async function main() {
   await sync.syncCommunityProfiles(owner, 'instagram');
   assert((await store.readCommunity(owner,'message')).records.some(r=>r.kind==='profile' && r.profileCheckedAt), 'Separate profile sync checks saved participants');
   await link('instagram', 'meta', 'another-account');
-  await assert.rejects(
-    () => sync.syncMessages(owner, 'instagram'),
-    /connection changed/,
-    'stored token must not follow a changed account selection',
-  );
+  await sync.syncMessages(owner,'instagram');
+  assert.equal((await directInstagram.readInstagramMessaging(owner)).accountId,'178400001','a reporting account change must not redirect the independent inbox');
+  await assert.rejects(()=>directInstagram.ensureInstagramInbox(owner,'another-account'),/connection changed/);
   responder = async () =>
     Response.json(
       {

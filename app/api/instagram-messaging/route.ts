@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/server/admin-access';
 import { beginInstagramLogin, instagramLoginSettings, saveInstagramLogin } from '@/lib/server/instagram-login';
 import {
   connectInstagramMessaging,
+  setInstagramInboxSync,
   readInstagramMessaging,
   diagnoseInstagramMessaging,
 } from '@/lib/server/instagram-messaging';
@@ -17,6 +18,8 @@ export async function GET() {
             connected: true,
             username: grant.username,
             connectedAt: grant.connectedAt,
+            autoSync: grant.autoSync !== false,
+            route: 'direct-instagram',
           }
         : { connected: false }) });
   } catch (e) {
@@ -30,6 +33,7 @@ export async function POST(req: Request) {
     if (raw.length > 10000)
       throw new Error('INPUT:Connection details are too long.');
     const body = JSON.parse(raw);
+    if (body.op === 'auto-sync') return json(await setInstagramInboxSync(owner, body.enabled === true));
     if (body.op === 'login-setup') return json(await saveInstagramLogin(owner, body));
     if (body.op === 'login') {
       const result = await beginInstagramLogin(owner, req);

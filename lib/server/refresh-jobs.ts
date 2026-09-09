@@ -1,3 +1,5 @@
+import type { InstagramMessageGrant } from './instagram-messaging';
+import { readVault } from './connector-vault';
 import { database } from './db';
 import { syncLinkedSource } from './connector-sync';
 import { runCommunitySync, syncCommunityProfiles } from './community-sync';
@@ -90,10 +92,10 @@ export async function startRefresh(
           : undefined,
     });
     if (manual || paused) continue;
-    if (['instagram', 'facebook'].includes(link.source)) tasks.push({source:link.source,kind:'profiles',label:label+' profile photos',state:'pending',pages:0});
+    if (link.source === 'facebook') tasks.push({source:link.source,kind:'profiles',label:label+' profile photos',state:'pending',pages:0});
     if (['instagram', 'facebook', 'tiktok'].includes(link.source)) {
       for (const kind of (scope === 'inbox' ? ['message'] : ['message', 'mention']) as ('message' | 'mention')[])
-        tasks.push({
+        if (!(link.source === 'instagram' && kind === 'message')) tasks.push({
           source: link.source,
           kind,
           label: label + (kind === 'message' ? ' messages' : ' mentions'),
@@ -108,6 +110,11 @@ export async function startRefresh(
         state: 'pending',
         pages: 0,
       });
+  }
+  const instagram = await readVault<InstagramMessageGrant>(owner,'messaging','instagram');
+  if (instagram && (origin === 'manual' || instagram.autoSync !== false)) {
+    tasks.push({source:'instagram', kind:'message', label:'Instagram Inbox · direct connection', state:'pending', pages:0});
+    tasks.push({source:'instagram', kind:'profiles', label:'Instagram profile photos · direct connection', state:'pending', pages:0});
   }
   // One durable run per owner; another browser/scheduler joins it instead of duplicating imports.
   await database()
@@ -154,11 +161,13 @@ export async function stepRefresh(owner: string, id: string) {
         )
         .bind(owner, task.source)
         .first<{ provider: string; auto_sync: number }>();
-      if (
+      const independentInstagram = task.source === 'instagram' && ['message','profiles'].includes(task.kind)
+        ? await readVault<InstagramMessageGrant>(owner,'messaging','instagram') : null;
+      if (independentInstagram ? (row.origin !== 'manual' && independentInstagram.autoSync === false) : (
         !linked ||
         linked.provider === 'file' ||
         (row.origin !== 'manual' && !linked.auto_sync)
-      ) {
+      )) {
         task.state = 'manual';
         task.detail =
           'Connection is disconnected, uses an export, or automatic import is paused.';

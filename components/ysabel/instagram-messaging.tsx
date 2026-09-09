@@ -1,8 +1,11 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { Switch } from '@/components/ui/switch';
 import { ArrowUpRight, RefreshCw } from 'lucide-react';
 
 export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
+  const [connected,setConnected] = useState(false);
+  const [autoSync,setAutoSync] = useState(true);
   const [token, setToken] = useState('');
   const [version, setVersion] = useState('v26.0');
   const [status, setStatus] = useState('');
@@ -47,6 +50,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
       .then((r) => r.json())
       .then((r: any) => {
         setLoginReady(!!r.loginReady);
+        setConnected(!!r.connected);setAutoSync(r.autoSync !== false);
         setClientId(r.clientId || '');
         if (r.connected)
           setStatus(
@@ -99,6 +103,10 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
   return (
     <div className="community-help">
       <h3>Connect directly to Instagram</h3>
+      {connected && <label className="community-check"><Switch checked={autoSync} disabled={busy} onCheckedChange={async enabled=>{
+        setBusy(true);setError('');try {const r=await fetch('/marketingdata/api/instagram-messaging',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'auto-sync',enabled})});const d:any=await r.json();if(!r.ok)throw new Error(d.error);setAutoSync(d.autoSync);}catch(e){setError((e as Error).message);}finally{setBusy(false);}
+      }}/> Automatically sync Instagram Inbox</label>}
+      <p>Messages are checked after login and every minute while the app is visible. Background imports run every 30 minutes. Instant webhook delivery is not active.</p>
       <p>Sign in on Instagram and authorize Ysabel Society to read accessible conversations and client profiles.</p>
       <button className="primary" type="button" disabled={busy || !loginReady} onClick={() => loginAction('login')}>Sign in with Instagram <ArrowUpRight size={15}/></button>
       {!loginReady && <p>Complete the one-time Instagram login settings below to enable sign-in.</p>}
@@ -204,9 +212,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
         </ul>
       )}
       <p>
-        After connection, automatic refresh checks accessible messages while the
-        workspace is open and auto-sync is enabled. Replace the token here if
-        Instagram expires or revokes it.
+        Instagram Inbox has its own token and automatic-sync setting. Eligible sign-in tokens renew automatically; sign in again if access is revoked.
       </p>
       <p>
         Primary, General and eligible Requests are queried together. Instagram

@@ -84,6 +84,7 @@ function load(file) {
             },
           ),
       };
+    if (resolved === path.join(root, 'lib/server/connector-vault')) return {readVault: async()=>({accountId:'123',autoSync:true})};
     if (resolved === path.join(root, 'lib/server/connector-sync'))
       return {
         syncLinkedSource: async (owner, source, range) => {
@@ -193,8 +194,9 @@ async function main() {
     'Raw adapter errors must not leak',
   );
   assert(seen.every((t) => t[2] === 'owner'));
+  sql.prepare("DELETE FROM connector_links WHERE source='instagram'").run();
   let inbox = await jobs.startRefresh('owner', 'scheduled', true, 'inbox');
-  assert.deepEqual(inbox.tasks.map(t => [t.source, t.kind]), [['facebook', 'profiles'], ['facebook', 'message'], ['instagram', 'profiles'], ['instagram', 'message']]);
+  assert.deepEqual(inbox.tasks.map(t => [t.source, t.kind]), [['facebook', 'profiles'], ['facebook', 'message'], ['instagram', 'message'], ['instagram', 'profiles']]);
   for (let i = 0; i < 40 && inbox.status === 'running'; i++) inbox = await jobs.stepRefresh('owner', inbox.id);
   const scheduled = await jobs.startRefresh('owner', 'scheduled', true);
   assert.equal(

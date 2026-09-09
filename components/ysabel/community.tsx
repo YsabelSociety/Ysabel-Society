@@ -420,11 +420,10 @@ function ImportAccess({
                   </>
                 ) : (
                   <>
-                    <h3>Facebook & Instagram messages</h3>
+                    <h3>Facebook Inbox</h3>
                     <p>
                       In the existing Meta app, add <code>pages_messaging</code>{' '}
-                      for Facebook, <code>instagram_manage_messages</code> for
-                      Instagram and <code>pages_manage_metadata</code>. Include
+                      and <code>pages_manage_metadata</code>. Include
                       them in Facebook Login for Business, then authorize again.
                       Your Page role must allow messaging. Advanced Access, App
                       Review and business verification may be required for
@@ -441,7 +440,7 @@ function ImportAccess({
                       className="secondary"
                       href="/marketingdata/connections?connect=meta"
                     >
-                      Update Meta access <ArrowUpRight size={15} />
+                      Update Facebook access <ArrowUpRight size={15} />
                     </a>
                     <a
                       href="https://www.postman.com/meta/messenger-platform-api/folder/22794852-255610cd-47f5-4f4d-b3fa-71aec360be9a"
@@ -1431,7 +1430,7 @@ export function CommunityPage({
             ]}
           />
           <section className="surface community-panel" aria-label="Unanswered client priorities">
-            <div className="section-head"><div><h2>People waiting to connect</h2><p>Unanswered influencer and client enquiries · Instagram & Facebook</p></div><span className="pill">30-minute scheduled sync</span></div>
+            <div className="section-head"><div><h2>People waiting to connect</h2><p>Unanswered influencer and client enquiries · Instagram & Facebook</p></div><span className="pill">1-minute checks · 30-minute background sync</span></div>
             <p className="source-asof">Suggestions consider unanswered enquiries, creator collaborations, travel visits, business events and verified profile notes. Each signal shows its evidence; follower count is optional. Unavailable social activity or personal style is not guessed.</p>
             <div className="community-filters">
               {['>5K followers', '10K+ followers', '20K+ followers', '30K+ followers'].map(tier => <button key={tier} className="secondary" onClick={() => { setTab('leads'); setClientFilter('Unanswered suggestions'); setMinimum(tier); }}>{tier} · {model.priority.filter(c => !c.ambiguous && matchesProfile(c.person, tier, 'All locations')).length}</button>)}

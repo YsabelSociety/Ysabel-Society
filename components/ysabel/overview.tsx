@@ -24,7 +24,9 @@ import {
 } from '@/lib/analytics';
 import { Help } from './controls';
 import { AnalyticsChart, Spark } from './charts';
-import { MediaCards } from './content';
+import { MediaCards, Media } from './content';
+import { useState } from 'react';
+import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
 export default function Overview({
@@ -46,6 +48,7 @@ export default function Overview({
   onMetric: (key: string) => void;
   live?: boolean;
 }) {
+  const [activeSignal, setActiveSignal] = useState(0);
   const tiktokPosts = posts.filter(
     (p) =>
       p.platform === 'TikTok' &&
@@ -62,16 +65,6 @@ export default function Overview({
   return (
     <>
       <ProfileViews rows={rows} previous={previous} />
-      <section className="content-highlights" aria-label="Content Intelligence highlights">
-        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Stories earning attention</h2><p>Leading imported posts published in your selected period · lifetime views</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
-        <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
-          <div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
-          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>
-          <div className="highlight-result"><strong>{compact(post.views)}</strong><span>views</span><ArrowUpRight size={18}/></div>
-          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
-        </button>)}</div>
-        {!highlights.length && <p className="muted">No imported posts with view counts in this period. Choose another date range to explore your content.</p>}
-      </section>
       <div className="metrics-strip">
         {METRICS.filter((m) => m.key !== 'profileViews').map((m, i) => {
           const metricRows =
@@ -136,6 +129,17 @@ export default function Overview({
         })}
       </div>
       <ChannelTimeline rows={rows} posts={posts} range={range} />
+      <section className="content-highlights" aria-label="Content Intelligence highlights">
+        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Stories earning attention</h2><p>Leading imported posts published in your selected period · lifetime views</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
+        <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
+          <div className="highlight-media"><Media post={post}/><span className="highlight-format">{post.format}</span></div><div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
+          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>
+          <div className="highlight-result"><strong>{compact(post.views)}</strong><span>views</span><ArrowUpRight size={18}/></div>
+          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
+        </button>)}</div>
+        {!highlights.length && <p className="muted">No imported posts with view counts in this period. Choose another date range to explore your content.</p>}
+      </section>
+
       <div className="overview-intelligence">
         <section className="intelligence surface">
           <div className="section-head">
@@ -145,6 +149,7 @@ export default function Overview({
             <span className="pill">{live ? 'LIVE' : 'PREVIEW'}</span>
           </div>
           <p className="intelligence-intro">The story behind the numbers.</p>
+<div className="intelligence-composition"><div className="intelligence-signals">
           {[0, 2, 4].map((idx, i) => {
             const c = CHANNELS[idx],
               v = total(
@@ -155,6 +160,9 @@ export default function Overview({
               <button
                 key={c}
                 className="insight-row"
+                data-active={activeSignal === i}
+                onMouseEnter={() => setActiveSignal(i)}
+                onFocus={() => setActiveSignal(i)}
                 onClick={() => setPage('Insights')}
               >
                 <span className="insight-kicker">
@@ -183,6 +191,7 @@ export default function Overview({
               </button>
             );
           })}
+          </div><IntelligenceScene active={activeSignal}/></div>
           <button className="text-link" onClick={() => setPage('Insights')}>
             Open intelligence <ArrowUpRight size={14} />
           </button>

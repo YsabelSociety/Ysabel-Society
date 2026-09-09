@@ -197,7 +197,7 @@ export default function Overview({
               </button>
             );
           })}
-          </div><IntelligenceScene active={activeSignal} signals={signals}/></div>
+          </div><IntelligenceScene active={activeSignal} signals={signals} posts={highlights}/></div>
           <button className="text-link" onClick={() => setPage('Insights')}>
             Open intelligence <ArrowUpRight size={14} />
           </button>

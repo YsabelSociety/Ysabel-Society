@@ -8407,3 +8407,12 @@ h1 {
 .mobile-install-dialog h2 { font-size:21px; line-height:1.3; margin-bottom:14px; }
 .mobile-install-dialog p { font-size:14px; line-height:1.65; margin-bottom:14px; }
 .mobile-install-dialog button { border:0; border-radius:16px; background:#1d3428; color:white; padding:12px 24px; cursor:pointer; }
+
+/* Login-only installation notification, above the intro scene. */
+.login-shell .mobile-install-bar { top:calc(16px + env(safe-area-inset-top, 0px)); bottom:auto; z-index:100; border-radius:20px; animation:install-arrive .4s ease-out both; }
+.mobile-install-bar img { width:42px; height:42px; flex:none; border-radius:12px; }
+.mobile-install-bar span { text-align:left; display:grid; gap:3px; }
+.mobile-install-bar strong { font-size:13px; font-weight:600; }
+.mobile-install-bar small { font-size:12px; opacity:.8; }
+@keyframes install-arrive { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
+@media (prefers-reduced-motion:reduce) { .login-shell .mobile-install-bar { animation:none; } }

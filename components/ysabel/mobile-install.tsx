@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Download, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 type InstallPrompt = Event & {
   prompt(): Promise<void>;
@@ -25,7 +25,7 @@ export function MobileInstall() {
     const installed = () => standalone.matches || !!(navigator as Navigator & { standalone?: boolean }).standalone;
     const apple = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     setIos(apple);
-    setVisible(!installed() && (apple || window.matchMedia('(max-width: 900px)').matches));
+    setVisible(!installed());
     const ready = (event: Event) => {
       event.preventDefault();
       prompt.current = event as InstallPrompt;
@@ -58,8 +58,8 @@ export function MobileInstall() {
   }
   if (!visible) return null;
   return <>
-    <div className="mobile-install-bar">
-      <button type="button" onClick={install} disabled={busy}><Download size={16} />{busy ? 'Opening…' : 'Install app'}</button>
+    <div className="mobile-install-bar" role="status" aria-label="Install Ysabel Society">
+      <button type="button" onClick={install} disabled={busy}><img src="/marketingdata/icons/ysabel-192.png" alt="" width={42} height={42} /><span><strong>Ysabel Society</strong><small>{busy ? 'Opening…' : 'Install app on your device'}</small></span></button>
       <button type="button" aria-label="Dismiss install shortcut" onClick={() => setVisible(false)}><X size={14} /></button>
     </div>
     <dialog ref={dialog} className="mobile-install-dialog" onClick={event => { if (event.target === event.currentTarget) dialog.current?.close(); }}>

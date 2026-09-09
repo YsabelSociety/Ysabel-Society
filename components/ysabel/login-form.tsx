@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
 import { LockKeyhole, ArrowRight } from 'lucide-react';
+import { MobileInstall } from './mobile-install';
 import { BrandLogo } from './brand-logo';
 import { LoginScene } from './login-scene';
 import { appPath, safeReturnPath } from '@/lib/app-path';
@@ -10,6 +11,7 @@ export default function LoginForm() {
   const [busy, setBusy] = useState(false);
   return (
     <main className="login-shell">
+      {!busy && <MobileInstall />}
       {busy && <WorkspaceIntro signingIn />}
       {!busy && <LoginScene />}
       <section className="login-access">

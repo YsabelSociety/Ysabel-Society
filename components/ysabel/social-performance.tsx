@@ -2,6 +2,7 @@
 import {
   Component,
   useEffect,
+  useRef,
   useId,
   useMemo,
   memo,
@@ -75,28 +76,27 @@ export class ChartBoundary extends Component<
     );
   }
 }
-export function DeferredChart({
-  children,
-  loading,
-  title,
-}: {
-  children: ReactNode;
-  loading: boolean;
-  title: string;
-}) {
-  return (
-    <div className="metric-slot" aria-busy={loading}>
-      {!loading ? (
-        <ChartBoundary>{children}</ChartBoundary>
-      ) : (
-        <section className="surface metric-placeholder">
-          <h3>{title}</h3>
-          <p role="status">Loading source data…</p>
-          <div />
-        </section>
-      )}
-    </div>
-  );
+export function DeferredChart({children, loading, title}: {children: ReactNode; loading: boolean; title: string}) {
+  const slot = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (visible || !slot.current) return;
+    if (!('IntersectionObserver' in window)) { setVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, {rootMargin: '240px 0px'});
+    observer.observe(slot.current);
+    return () => observer.disconnect();
+  }, [visible]);
+  return <div ref={slot} className="metric-slot" aria-busy={loading}>
+    {visible && !loading ? <ChartBoundary>{children}</ChartBoundary> :
+      <section className="surface metric-placeholder"><h3>{title}</h3>
+        {loading && <p role="status">Loading source data…</p>}<div />
+      </section>}
+  </div>;
 }
 export function MetricCard({
   metric,

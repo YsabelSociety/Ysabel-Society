@@ -13,6 +13,7 @@ import {
   COLORS,
   METRICS,
   metricAvailable,
+  postAvailable,
   compact,
   total,
   change,
@@ -57,9 +58,20 @@ export default function Overview({
       rows.filter((r) => r.channel === 'TikTok'),
       'views',
     ) && tiktokPosts.length > 0;
+  const highlights = posts.filter(p => p.status === 'Published' && p.date >= range.start && p.date.slice(0,10) <= range.end && postAvailable(p, 'views')).sort((a,b) => b.views-a.views).slice(0,3);
   return (
     <>
       <ProfileViews rows={rows} previous={previous} />
+      <section className="content-highlights" aria-label="Content Intelligence highlights">
+        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Stories earning attention</h2><p>Leading imported posts published in your selected period · lifetime views</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
+        <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
+          <div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
+          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>
+          <div className="highlight-result"><strong>{compact(post.views)}</strong><span>views</span><ArrowUpRight size={18}/></div>
+          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
+        </button>)}</div>
+        {!highlights.length && <p className="muted">No imported posts with view counts in this period. Choose another date range to explore your content.</p>}
+      </section>
       <div className="metrics-strip">
         {METRICS.filter((m) => m.key !== 'profileViews').map((m, i) => {
           const metricRows =

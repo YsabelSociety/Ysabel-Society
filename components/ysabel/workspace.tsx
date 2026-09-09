@@ -1,5 +1,6 @@
 'use client';
 import { BrandLogo } from './brand-logo';
+import { ChartBoundary } from './social-performance';
 import { Activity, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -590,6 +591,8 @@ export default function Workspace({
               <SidebarHeader>
                 <button
                   onClick={() => navigate('Overview')}
+                  className="workspace-brand-button"
+                  type="button"
                   aria-label="Ysabel Society overview"
                 >
                   <BrandLogo />
@@ -887,7 +890,7 @@ export default function Workspace({
                       onSelect={setPost}
                       onMetric={setMetric}
                     /></Activity>
-                  <Activity mode={page === 'Performance' ? 'visible' : 'hidden'}><PerformancePage
+                  <Activity mode={page === 'Performance' ? 'visible' : 'hidden'}><ChartBoundary><PerformancePage
                       rows={rows}
                       previous={previous}
                       data={analyticsData}
@@ -900,7 +903,7 @@ export default function Workspace({
                       )}
                       websiteRealtime={source.websiteRealtime}
                       tables={source.tables}
-                    /></Activity>
+                    /></ChartBoundary></Activity>
                   {page === 'Content Intelligence' && (
                     <ContentIntelligence
                       data={analyticsData}

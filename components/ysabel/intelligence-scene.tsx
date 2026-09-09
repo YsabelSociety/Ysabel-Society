@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
-import paths from './emblem-paths.json';
-import { INTRO_LOGO_COLOR } from './brand-appearance';
+import { appPath } from '@/lib/app-path';
+
 
 
 
@@ -23,7 +23,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const current = ++generation;
       disposeScene?.(); disposeScene = undefined;
       if (!desktop.matches) return;
-      const [THREE, {SVGLoader}] = await Promise.all([import('three'),import('three/addons/loaders/SVGLoader.js')]);
+      const [THREE, fieldBytes] = await Promise.all([import('three'),fetch(appPath('/emblem-morph-fields.bin'),{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw new Error('Emblem shapes unavailable');return r.arrayBuffer();})]);
       if (current !== generation) return;
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try { renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, powerPreference:'low-power'}); } catch { return; }
@@ -33,20 +33,45 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const camera = new THREE.PerspectiveCamera(38,1,0.1,30); camera.position.z=7;
       const group = new THREE.Group(); scene.add(group);
 
-      const svg='<svg xmlns="http://www.w3.org/2000/svg">'+paths.map(d=>'<path d="'+d+'"/>').join('')+'</svg>';
-      const shapes=new SVGLoader().parse(svg).paths.flatMap(path=>path.toShapes());
-      const geometry=new THREE.ExtrudeGeometry(shapes,{depth:18,bevelEnabled:true,bevelSize:1,bevelThickness:1,bevelSegments:2,curveSegments:8});
-      geometry.center();geometry.rotateX(Math.PI);geometry.computeBoundingBox();
-      const size=geometry.boundingBox!.getSize(new THREE.Vector3());const scale=4.4/Math.max(size.x,size.y);geometry.scale(scale,scale,scale);
-      const material=new THREE.MeshStandardMaterial({color:INTRO_LOGO_COLOR,metalness:.32,roughness:.38});
-      const gradientTime={value:0};
-      material.onBeforeCompile=shader=>{
-        shader.uniforms.gradientTime=gradientTime;
-        shader.vertexShader='varying vec3 emblemPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nemblemPosition=position;');
-        shader.fragmentShader='varying vec3 emblemPosition;uniform float gradientTime;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat blend=.5+.5*sin(emblemPosition.x*1.2+emblemPosition.y*.8+gradientTime*.3);diffuseColor.rgb*=mix(vec3(.55,.65,.58),vec3(1.7,1.8,1.65),blend);');
-      };
+      const field=new THREE.DataTexture(new Uint8Array(fieldBytes),512,512,THREE.RGBAFormat);
+      field.minFilter=field.magFilter=THREE.LinearFilter;field.needsUpdate=true;
+      const geometry=new THREE.BoxGeometry(4.8,4.8,.32);
+      const palette=[new THREE.Color('#dba300'),new THREE.Color('#1d3428'),new THREE.Color('#b32632'),new THREE.Color('#b9c3cc')];
+      const uniforms={fields:{value:field},shapeA:{value:0},shapeB:{value:1},blend:{value:0},tint:{value:palette[0].clone()},localCamera:{value:new THREE.Vector3(0,0,7)}};
+      const material=new THREE.ShaderMaterial({uniforms,
+        vertexShader: 'varying vec3 localPosition;void main(){localPosition=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+        fragmentShader: `
+          precision highp float;
+          uniform sampler2D fields;uniform int shapeA;uniform int shapeB;uniform float blend;
+          uniform vec3 tint;uniform vec3 localCamera;varying vec3 localPosition;
+          float channel(vec4 v,int i){if(i==0)return v.r;if(i==1)return v.g;if(i==2)return v.b;return v.a;}
+          float surface(vec3 p){
+            vec2 uv=vec2(p.x/4.4+.5,.5-p.y/4.4);
+            vec4 sampled=texture2D(fields,clamp(uv,0.0,1.0));
+            float d=(mix(channel(sampled,shapeA),channel(sampled,shapeB),blend)*255.0-128.0)*(.5*4.4/512.0);
+            d=max(d,max(abs(p.x),abs(p.y))-2.2);
+            return max(d,abs(p.z)-.085);
+          }
+          void main(){
+            vec3 direction=normalize(localPosition-localCamera);vec3 p=localPosition+direction*.0001;
+            bool hit=false;
+            for(int i=0;i<96;i++){
+              float d=surface(p);if(d<.0016){hit=true;break;}
+              p+=direction*max(.001,d*.8);
+              if(abs(p.z)>.165||max(abs(p.x),abs(p.y))>2.405)break;
+            }
+            if(!hit)discard;
+            vec2 e=vec2(.003,0.0);
+            vec3 n=normalize(vec3(surface(p+e.xyy)-surface(p-e.xyy),surface(p+e.yxy)-surface(p-e.yxy),surface(p+e.yyx)-surface(p-e.yyx)));
+            vec3 light=normalize(vec3(-.4,.7,1.0));float diffuse=max(dot(n,light),0.0);
+            float shine=pow(max(dot(reflect(-light,n),-direction),0.0),36.0);
+            gl_FragColor=vec4(tint*(.55+diffuse*.65)+vec3(shine*.32),1.0);
+            #include <tonemapping_fragment>
+            #include <colorspace_fragment>
+          }
+        `});
       const logo=new THREE.Mesh(geometry,material);group.add(logo);
-      scene.add(new THREE.HemisphereLight(0xffffff,0x55786b,3));const light=new THREE.DirectionalLight(0xffffff,4);light.position.set(2,3,5);scene.add(light);
+      const inverse=new THREE.Matrix4();
       const pointer = {x:0,y:0};
       let frame=0,near=false,last=0,time=0;
       const draw = (now:number) => {
@@ -56,9 +81,17 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
           group.rotation.y += (pointer.x*.35+(reduced.matches?0:Math.sin(time*.4)*.22)-group.rotation.y)*.06;
           group.rotation.x += (pointer.y*.25+(reduced.matches?0:Math.cos(time*.3)*.12)-group.rotation.x)*.06;
           group.position.y=reduced.matches?0:Math.sin(time*.65)*.065;
-          if(!reduced.matches)logo.rotation.z=time*.13;
-          gradientTime.value=reduced.matches?0:time;
+          if(!reduced.matches)logo.rotation.z=Math.sin(time*.18)*.12;
+          const phase=reduced.matches?0:time/7;
+          const index=Math.floor(phase)%4;
+          const transition=Math.max(0,Math.min(1,((phase%1)-.5)*2));
+          const eased=transition*transition*transition*(transition*(transition*6-15)+10);
+          uniforms.shapeA.value=index;uniforms.shapeB.value=(index+1)%4;uniforms.blend.value=eased;
+          uniforms.tint.value.copy(palette[index]).lerp(palette[(index+1)%4],eased);
+          target.dataset.emblemShape=String(index);target.dataset.emblemBlend=eased.toFixed(3);
           group.updateMatrixWorld(true);
+          logo.updateMatrixWorld(true);
+          uniforms.localCamera.value.copy(camera.position).applyMatrix4(inverse.copy(logo.matrixWorld).invert());
           cards.current.forEach((card,i)=>{
             if(!card)return;
             const count=36;
@@ -83,7 +116,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const leave=()=>{pointer.x=pointer.y=0;};
       const visibility=()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0;}else start();};
       target.addEventListener('pointermove',move);target.addEventListener('pointerleave',leave);document.addEventListener('visibilitychange',visibility);
-      disposeScene=()=>{cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',visibility);geometry.dispose();material.dispose();renderer.dispose();renderer.domElement.remove();};
+      disposeScene=()=>{cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',visibility);geometry.dispose();material.dispose();field.dispose();renderer.dispose();renderer.domElement.remove();};
     };
     const change=()=>{void setup().catch(()=>{});};change();desktop.addEventListener('change',change);
     return()=>{generation++;desktop.removeEventListener('change',change);disposeScene?.();};

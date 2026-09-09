@@ -131,7 +131,9 @@ function Portrait({ person }: { person: CommunityRecord }) {
   return person.avatar && !failed ? (
     <img
       className="community-avatar"
-      src={person.avatar}
+      src={person.kind === 'profile' && person.origin === 'api' && ['facebook','instagram'].includes(person.source)
+        ? '/marketingdata/api/community/avatar?' + new URLSearchParams({source:person.source,id:person.accountId+':'+person.id,revision:person.profileCheckedAt || person.time}).toString()
+        : person.avatar}
       alt=""
       referrerPolicy="no-referrer"
       onError={(e) => {
@@ -1139,6 +1141,18 @@ export function CommunityPage({
     [mentionType, setMentionType] = useState('All types'),
     [mentionDates, setMentionDates] = useState('Selected dates'),
     [selected, setSelected] = useState<any>(null);
+  useEffect(() => {
+    if (mode !== 'inbox') return;
+    const url=new URL(window.location.href), outcome=url.searchParams.get('instagramLogin');
+    if (!outcome) return;
+    url.searchParams.delete('instagramLogin'); window.history.replaceState(null,'',url);
+    if (outcome !== 'authorized') { setSyncResults([{source:'instagram',detail:'Instagram sign-in did not complete. The previous connection is preserved. Open Access & import to try again.'}]);setSetup(true);return; }
+    setBusy(true);
+    void communityAction({op:'sync',source:'instagram'})
+      .then(async result => {setSyncResults([{source:'instagram',detail:result.detail || 'Instagram import finished.'}]);await communityAction({op:'profiles',source:'instagram'});})
+      .catch(e=>setSyncResults([{source:'instagram',detail:e.message}]))
+      .finally(()=>{setBusy(false);window.dispatchEvent(new Event('ysabel:community-updated'));});
+  }, [mode]);
   useEffect(() => {
     onLoadState?.({
       kind,

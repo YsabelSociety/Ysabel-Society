@@ -13,6 +13,8 @@ export type InstagramMessageGrant = {
   connectedAt: string;
   instagramLogin: true;
   deadline?: number;
+  expiresAt?: number;
+  refreshedAt?: number;
 };
 
 export function metaMessageError(error: any, accessToken: string) {
@@ -60,7 +62,15 @@ export async function instagramMessageGet(
 }
 
 export async function readInstagramMessaging(owner: string) {
-  return readVault<InstagramMessageGrant>(owner, 'messaging', 'instagram');
+  let grant = await readVault<InstagramMessageGrant>(owner, 'messaging', 'instagram');
+  if (grant?.expiresAt && grant.expiresAt < Date.now()+7*86400000 && (grant.refreshedAt || 0) < Date.now()-86400000) {
+    const response = await fetch('https://graph.instagram.com/refresh_access_token?' + new URLSearchParams({grant_type:'ig_refresh_token',access_token:grant.accessToken}), {signal:AbortSignal.timeout(15000)});
+    const body: any = await response.json();
+    if (!response.ok || body.error || !body.access_token) throw new Error('INPUT:Instagram authorization needs renewal. Use Sign in with Instagram again.');
+    grant = {...grant,accessToken:body.access_token,expiresAt:Date.now()+Number(body.expires_in || 3600)*1000,refreshedAt:Date.now()};
+    await writeVault(owner,'messaging','instagram',grant);
+  }
+  return grant;
 }
 
 export async function diagnoseInstagramMessaging(owner: string) {
@@ -169,7 +179,7 @@ export async function diagnoseInstagramMessaging(owner: string) {
   };
 }
 
-export async function connectInstagramMessaging(owner: string, input: any) {
+export async function connectInstagramMessaging(owner: string, input: any, lifetime: { expiresAt?: number; refreshedAt?: number } = {}) {
   const accessToken = requireText(input.accessToken, 6000);
   const apiVersion = requireText(input.apiVersion, 12);
   const link = await database()
@@ -233,6 +243,7 @@ export async function connectInstagramMessaging(owner: string, input: any) {
   if (current?.external_id !== link.external_id)
     throw new Error('INPUT:The selected Instagram account changed. Try again.');
   const grant: InstagramMessageGrant = {
+    ...lifetime,
     ...context,
     externalId,
     accountId: link.external_id,

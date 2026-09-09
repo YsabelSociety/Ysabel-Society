@@ -539,6 +539,13 @@ export async function syncCommunityProfiles(owner: string, source: 'facebook' | 
   const paths = people.map(p => encodeURIComponent(p.participantId!)+'?fields='+(source === 'instagram' ? 'name,username,profile_pic,follower_count' : 'first_name,last_name,profile_pic'));
   const results = instagram ? await instagramMessageBatch({...instagram,deadline},paths) : await communityMessageBatch(context,paths,deadline);
   const missingPhotos = people.map((p,i)=>({p,i})).filter(({i})=>!results[i]?.body?.profile_pic);
+  if (missingPhotos.length && Date.now()<deadline-6000) {
+    const photoPaths = missingPhotos.map(({p})=>encodeURIComponent(p.participantId!)+'?fields=profile_pic');
+    const pictures = instagram ? await instagramMessageBatch({...instagram,deadline},photoPaths) : await communityMessageBatch(context,photoPaths,deadline);
+    missingPhotos.forEach(({i},j)=>{
+      if (pictures[j]?.body?.profile_pic) results[i]={body:{...results[i]?.body,profile_pic:pictures[j].body.profile_pic}};
+    });
+  }
   if (source === 'facebook' && missingPhotos.length && Date.now()<deadline-4000) {
     const pictures = await communityMessageBatch(context, missingPhotos.map(({p})=>encodeURIComponent(p.participantId!)+'/picture?redirect=false&type=large'), deadline);
     missingPhotos.forEach(({i},j)=>{
@@ -565,7 +572,10 @@ export async function syncCommunityProfiles(owner: string, source: 'facebook' | 
   });
   await ensureStillLinked(owner, source, context.accountId);
   await saveCommunity(owner, profiles);
-  return {updated, detail: `${people.length} profiles checked; ${updated} current profile photos supplied. Missing profile fields remain unavailable.`};
+  const errors = [...new Set(results.flatMap(r=>r.error ? [r.error] : []))].slice(0,2);
+  const detail = `${people.length} profiles checked; ${updated} current profile photos supplied.` + (errors.length ? ' Meta profile access: '+errors.join(' ') : '');
+  await saveCommunityStatus(owner,{source,kind:'profile',state:updated ? 'partial' : 'needs-attention',detail,accountId:context.accountId});
+  return {updated, detail};
 }
 async function communityMessageBatch(
   context: { accessToken: string; apiVersion?: string },

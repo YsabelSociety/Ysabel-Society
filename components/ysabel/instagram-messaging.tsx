@@ -8,6 +8,19 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [loginReady, setLoginReady] = useState(false);
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  async function loginAction(op: 'login' | 'login-setup') {
+    setBusy(true); setError('');
+    try {
+      const response = await fetch('/marketingdata/api/instagram-messaging', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op,...(op === 'login-setup' ? {clientId,clientSecret,apiVersion:version} : {})})});
+      const result: any = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Instagram sign-in could not start.');
+      if (op === 'login') window.location.assign(result.url);
+      else { setLoginReady(true); setClientSecret(''); setStatus('Instagram sign-in is ready.'); }
+    } catch(e) { setError((e as Error).message); } finally { setBusy(false); }
+  }
   const [checks, setChecks] = useState<{ label: string; detail: string }[]>([]);
   async function diagnose() {
     setBusy(true);
@@ -33,6 +46,8 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
     fetch('/marketingdata/api/instagram-messaging', { signal: controller.signal })
       .then((r) => r.json())
       .then((r: any) => {
+        setLoginReady(!!r.loginReady);
+        setClientId(r.clientId || '');
         if (r.connected)
           setStatus(
             'Direct Instagram configured for @' +
@@ -84,6 +99,21 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
   return (
     <div className="community-help">
       <h3>Connect directly to Instagram</h3>
+      <p>Sign in on Instagram and authorize Ysabel Society to read accessible conversations and client profiles.</p>
+      <button className="primary" type="button" disabled={busy || !loginReady} onClick={() => loginAction('login')}>Sign in with Instagram <ArrowUpRight size={15}/></button>
+      {!loginReady && <p>Complete the one-time Instagram login settings below to enable sign-in.</p>}
+      <details>
+        <summary>Instagram login settings</summary>
+        <p>Use the Instagram app ID and secret from API setup with Instagram login.</p>
+        <p>Redirect URL: <code>https://ysabelsociety.com/marketingdata/api/instagram-messaging/callback</code></p>
+        <form className="community-profile-form" onSubmit={e => {e.preventDefault(); void loginAction('login-setup');}}>
+          <label>Instagram app ID<input value={clientId} onChange={e => setClientId(e.target.value)} required inputMode="numeric"/></label>
+          <label>Instagram app secret<input type="password" autoComplete="off" value={clientSecret} onChange={e => setClientSecret(e.target.value)} required/></label>
+          <button className="secondary" disabled={busy}>Save Instagram login settings</button>
+        </form>
+      </details>
+      <details>
+        <summary>Advanced: connect with an existing access token</summary>
       <p>
         Use the Instagram connection for the business account you own. It can be
         used when the Facebook-linked message import is restricted. Facebook
@@ -152,6 +182,7 @@ export function InstagramMessaging({ onSaved }: { onSaved: () => void }) {
           {busy ? 'Checking Instagram…' : 'Verify & load Instagram messages'}
         </button>
       </form>
+      </details>
       {status && <p role="status">{status}</p>}
       {error && <p role="alert">{error}</p>}
       <button

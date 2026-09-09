@@ -9,6 +9,19 @@ export async function saveCommunity(owner: string, records: CommunityRecord[]) {
     const statements = await Promise.all(
       records.slice(i, i + 40).map(async (record) => {
         const id = record.accountId + ':' + record.id;
+        // A successful message import can omit optional profile fields. Retain
+        // the last supplied picture instead of erasing it during every sync.
+        if (record.kind === 'profile' && record.origin === 'api') {
+          const row = await database().prepare('SELECT encrypted FROM community_records WHERE owner=? AND source=? AND kind=? AND id=?')
+            .bind(owner,record.source,'profile',id).first<{encrypted:string}>();
+          if (row) {
+            const old = await unseal<CommunityRecord>(row.encrypted, owner+':community:'+record.source+':profile:'+id);
+            record = {...old,...record,avatar:record.avatar || old.avatar,conversationUrl:record.conversationUrl || old.conversationUrl,
+              profileUrl:record.profileUrl || old.profileUrl,username:record.username || old.username,
+              followers:record.followers ?? old.followers,followersObservedAt:record.followersObservedAt || old.followersObservedAt,
+              profileCheckedAt:record.profileCheckedAt || old.profileCheckedAt};
+          }
+        }
         const encrypted = await seal(
           record,
           owner + ':community:' + record.source + ':' + record.kind + ':' + id,

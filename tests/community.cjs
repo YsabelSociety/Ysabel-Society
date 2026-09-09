@@ -351,6 +351,32 @@ async function link(source, provider, id) {
   });
 }
 async function main() {
+  const photoURL=load('lib/profile-photo.ts').providerPhotoURL;
+  assert.equal(photoURL('https://scontent.fbcdn.net/photo.jpg'),'https://scontent.fbcdn.net/photo.jpg');
+  for (const url of ['http://scontent.fbcdn.net/x','https://fbcdn.net.evil.test/x','https://127.0.0.1/x','https://fbcdn.net:444/x','https://user:pass@fbcdn.net/x']) assert.equal(photoURL(url),'');
+  const login=load('lib/server/instagram-login.ts');
+  await login.saveInstagramLogin(owner,{clientId:'1234',clientSecret:'fixture-secret',apiVersion:'v26.0'});
+  const started=await login.beginInstagramLogin(owner,new Request('https://ysabel.test/marketingdata/api/instagram-messaging'));
+  const authURL=new URL(started.url), nonce=started.cookie.split(';')[0];
+  assert.equal(authURL.hostname,'www.instagram.com');
+  assert.equal(authURL.searchParams.get('enable_fb_login'),'0');
+  assert.match(authURL.searchParams.get('scope'),/instagram_business_manage_messages/);
+  assert(!started.url.includes('fixture-secret'));
+  const callback='https://ysabel.test/marketingdata/api/instagram-messaging/callback?code=test&state='+authURL.searchParams.get('state');
+  await assert.rejects(()=>login.finishInstagramLogin('other-owner',new Request(callback,{headers:{cookie:nonce}})),/cancelled or expired/);
+  await assert.rejects(()=>login.finishInstagramLogin(owner,new Request(callback,{headers:{cookie:'ys_instagram_login=wrong'}})),/cancelled or expired/);
+  const oldResponder=responder;
+  responder=async()=>Response.json({error:{message:'bad code'}},{status:400});
+  await assert.rejects(()=>login.finishInstagramLogin(owner,new Request(callback,{headers:{cookie:nonce}})),/did not complete/);
+  await assert.rejects(()=>login.finishInstagramLogin(owner,new Request(callback,{headers:{cookie:nonce}})),/cancelled or expired/,'one-time callback cannot be replayed');
+  responder=oldResponder;
+  const savedPhoto={...message('photo-fixture',new Date().toISOString(),'in'),kind:'profile',accountId:'profile',avatar:'https://scontent.fbcdn.net/photo.jpg',conversationUrl:'https://www.facebook.com/messages/t/123'};
+  await store.saveCommunity(owner,[savedPhoto]);
+  await store.saveCommunity(owner,[{...savedPhoto,avatar:'',conversationUrl:undefined}]);
+  const kept=(await store.readCommunity(owner,'message')).records.find(r=>r.id==='photo-fixture');
+  assert.equal(kept.avatar,savedPhoto.avatar,'partial profile sync retains the last supplied photo');
+  assert.equal(kept.conversationUrl,savedPhoto.conversationUrl);
+  sql.prepare("DELETE FROM community_records WHERE id='profile:photo-fixture'").run();
   const in1 = message('1', '2026-09-01T10:00:00Z', 'in', {
     text: 'Can I reserve a table?',
     followers: 5001,

@@ -354,7 +354,7 @@ export function MetricCard({
                       dot={{ r: 3, strokeWidth: 1, stroke: '#fff' }}
                       activeDot={{ r: 6 }}
                       isAnimationActive={animate}
-                      animationDuration={700}
+                      animationDuration={metric === 'profileViews' ? 1200 : 700}
                       animationEasing="ease-out"
                     />
                   ),

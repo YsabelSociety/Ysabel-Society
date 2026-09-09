@@ -8444,3 +8444,21 @@ h1 {
   .social-chart-plot { border-radius:14px; background:linear-gradient(180deg,var(--plot-tint,#537b7007),transparent); }
 }
 @media (prefers-reduced-motion:reduce) { .spark-line,.spark-area,.spark-pulse { animation:none; } }
+/* Profile views: a measured reveal, soft fill and quiet endpoint halo. */
+.profile-views-card[data-platform='Instagram'] { --profile-ink:#a84987; }
+.profile-views-card[data-platform='Facebook'] { --profile-ink:#397cc2; }
+.profile-views-card[data-platform='TikTok'] { --profile-ink:#238b91; }
+.profile-views-card .spark { color:var(--profile-ink,#537b70); opacity:.85; }
+.profile-views-card .spark-line,
+.social-metric-card[data-metric='profileViews'] .spark-line { animation:profile-trace 1.6s cubic-bezier(.16,1,.3,1) both; }
+.profile-views-card .spark-area,
+.social-metric-card[data-metric='profileViews'] .spark-area { animation:profile-watermark 8s ease-in-out infinite; }
+.profile-views-card .spark-pulse,
+.social-metric-card[data-metric='profileViews'] .spark-pulse { animation:profile-halo 5.5s ease-in-out infinite; transform-origin:center; transform-box:fill-box; }
+@keyframes profile-trace { from { stroke-dashoffset:1; opacity:.15; } to { stroke-dashoffset:0; opacity:1; } }
+@keyframes profile-watermark { 0%,100% { opacity:.45; } 50% { opacity:.8; } }
+@keyframes profile-halo { 0%,100% { transform:scale(.9); opacity:.1; } 50% { transform:scale(1.45); opacity:.22; } }
+@media (prefers-reduced-motion:reduce) {
+  .profile-views-card .spark-line,.profile-views-card .spark-area,.profile-views-card .spark-pulse,
+  .social-metric-card[data-metric='profileViews'] .spark-line,.social-metric-card[data-metric='profileViews'] .spark-area,.social-metric-card[data-metric='profileViews'] .spark-pulse { animation:none; }
+}

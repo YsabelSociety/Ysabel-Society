@@ -19,7 +19,9 @@ async function proxy(request: Request) {
     const value = request.headers.get(key);
     if (value) headers.set(key, value);
   }
-  const cookies = (request.headers.get("cookie") || "").split(";").map(v => v.trim()).filter(v => /^(ys_marketing_(session|admin)|ys_oauth_(google|meta|tiktok))=/.test(v));
+  // Direct Instagram Login has its own state-binding cookie. It must survive
+  // the return from Instagram so the dashboard can validate the OAuth callback.
+  const cookies = (request.headers.get("cookie") || "").split(";").map(v => v.trim()).filter(v => /^(ys_marketing_(session|admin)|ys_oauth_(google|meta|tiktok)|ys_instagram_login)=/.test(v));
   if (cookies.length) headers.set("cookie", cookies.join("; "));
   try {
     const result = await fetch(upstream, {

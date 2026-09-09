@@ -2,6 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { GET } from '../src/app/marketingdata/[[...path]]/route.ts';
 
+test('Instagram authorization keeps the exact state cookie through the callback proxy', async t => {
+  t.mock.method(globalThis, 'fetch', async (target, init) => {
+    assert.equal(target.pathname, '/marketingdata/api/instagram-messaging/callback');
+    assert.equal(target.searchParams.get('state'), 'test-state');
+    assert.equal(target.searchParams.get('code'), 'test-code');
+    assert.equal(init.headers.get('cookie'), 'ys_marketing_session=sample; ys_instagram_login=test-nonce');
+    assert.equal(init.redirect, 'manual');
+    return new Response(null, { status: 303, headers: {
+      Location: 'https://ysabelsociety.com/marketingdata/?instagramLogin=authorized#Inbox',
+      'Set-Cookie': 'ys_instagram_login=; HttpOnly; SameSite=Lax; Path=/marketingdata/api/instagram-messaging; Max-Age=0; Secure',
+    } });
+  });
+  const response = await GET(new Request('https://ysabelsociety.com/marketingdata/api/instagram-messaging/callback?state=test-state&code=test-code', { headers: {
+    cookie: '_ga=unrelated; ys_marketing_session=sample; ys_instagram_login=test-nonce; ys_instagram_login_extra=unrelated; instagram_session=unrelated',
+  } }));
+  assert.equal(response.status, 303);
+  assert.equal(response.headers.get('location'), 'https://ysabelsociety.com/marketingdata/?instagramLogin=authorized#Inbox');
+  assert.match(response.headers.get('set-cookie'), /ys_instagram_login=; HttpOnly; SameSite=Lax;/);
+});
+
 test('the dashboard proxy cannot forward forged identity or unrelated website cookies', async t => {
   t.mock.method(globalThis, 'fetch', async (target, init) => {
     assert.equal(target.origin, 'https://ysabel-society-intelligence.arberhalili1.chatgpt.site');

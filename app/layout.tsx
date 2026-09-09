@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
+import { MobileInstall } from '@/components/ysabel/mobile-install';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -46,10 +47,12 @@ export const metadata: Metadata = {
       },
     ],
   },
+  manifest: '/marketingdata/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Ysabel Society', statusBarStyle: 'default' },
   robots: { index: false, follow: false },
   icons: {
-    icon: '/marketingdata/ysabel-society-logo.png',
-    apple: '/marketingdata/ysabel-society-logo.png',
+    icon: '/marketingdata/icons/ysabel-192.png',
+    apple: '/marketingdata/icons/ysabel-180.png',
   },
 };
 

@@ -8,7 +8,7 @@ import {
   RotateCcw, Search, Send, Settings, SlidersHorizontal, Smartphone, Sparkles, Trash2, Undo2,
   Upload, UserRound, Video, Volume2, X,
 } from 'lucide-react';
-import { memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -751,10 +751,28 @@ function FeedGrid({
   const cropDrag = useRef<{ pointerId: number; index: number; asset: Asset; latest: Asset; startX: number; startY: number; startCropX: number; startCropY: number; width: number; height: number; moved: boolean } | null>(null);
   const suppressTileClick = useRef<number | null>(null);
   const prefetchTimer = useRef<number | undefined>(undefined);
+  const [frameIndex, setFrameIndex] = useState<number | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const previousRects = useRef(new Map<string, DOMRect>());
+  useLayoutEffect(() => {
+    const nextRects = new Map<string, DOMRect>();
+    gridRef.current?.querySelectorAll<HTMLElement>('.feed-tile').forEach((node, index) => {
+      const id = positions[index];
+      if (!id) return;
+      const rect = node.getBoundingClientRect();
+      const previous = previousRects.current.get(id);
+      if (previous && edit && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        const x = previous.left - rect.left, y = previous.top - rect.top;
+        if (x || y) node.animate([{ transform: `translate(${x}px, ${y}px)` }, { transform: 'translate(0, 0)' }], { duration: 200, easing: 'ease-out' });
+      }
+      nextRects.set(id, rect);
+    });
+    previousRects.current = nextRects;
+  }, [positions, edit]);
   useEffect(() => () => window.clearTimeout(prefetchTimer.current), []);
 
   const beginCrop = (event: ReactPointerEvent<HTMLButtonElement>, index: number, asset: Asset, isCarousel: boolean) => {
-    if (!edit || isCarousel || isVideoAsset(asset)) return;
+    if (!edit || frameIndex !== index || isCarousel || isVideoAsset(asset)) return;
     // A second finger belongs to native pinch zoom, not a new crop gesture.
     if (!event.isPrimary) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -791,7 +809,7 @@ function FeedGrid({
   };
 
   return (
-    <div className={'feed-grid feed-grid--' + scale + (grayscale ? ' is-grayscale' : '')}>
+    <div ref={gridRef} className={'feed-grid feed-grid--' + scale + (grayscale ? ' is-grayscale' : '')}>
       {positions.slice(0, FEED_SIZE).map((id, index) => {
         const asset = id ? byId.get(id) || null : null;
         const isCarousel = Boolean(asset?.format === 'Carousel' && asset.slides?.length);
@@ -799,9 +817,15 @@ function FeedGrid({
         return (
           <div className={'feed-tile-wrap' + (dropTarget === index ? ' is-drop-target' : '')} key={index} data-feed-index={index}>
             <button
-              className={'feed-tile ' + (asset ? 'feed-tile--filled' : 'feed-tile--empty') + (edit && asset && !isCarousel && !isVideoAsset(asset) ? ' is-crop-editable' : '') + (exchangeFirst === index ? ' is-exchange-selected' : '')}
+              className={'feed-tile ' + (asset ? 'feed-tile--filled' : 'feed-tile--empty') + (edit && asset ? (frameIndex === index ? ' is-crop-editable' : ' is-post-draggable') : '') + (exchangeFirst === index ? ' is-exchange-selected' : '')}
               type="button"
-              onPointerDown={(event) => { if (asset) beginCrop(event, index, asset, isCarousel); }}
+              onDragStart={(event) => { if (edit) event.preventDefault(); }}
+              onPointerDown={(event) => {
+                if (!edit || !asset || !event.isPrimary || event.button !== 0) return;
+                if (frameIndex === index) { beginCrop(event, index, asset, isCarousel); return; }
+                event.currentTarget.setPointerCapture(event.pointerId);
+                onPointerStart({ type: 'grid', index }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY });
+              }}
               onPointerMove={moveCrop}
               onPointerUp={endCrop}
               onPointerCancel={endCrop}
@@ -817,9 +841,10 @@ function FeedGrid({
               {edit && <span className="position-number">{String(index + 1).padStart(2, '0')}</span>}
               {asset && isVideoAsset(asset) && <Video className="video-mark" />}
               {similar && <span className="similarity-note">Similar composition</span>}
-              {edit && asset && !isCarousel && !isVideoAsset(asset) && <span className="crop-drag-hint"><Move />Drag image to frame</span>}
+              {edit && asset && <span className="crop-drag-hint"><Move />{frameIndex === index ? 'Drag image to frame' : 'Drag to move post'}</span>}
             </button>
             {asset && isVideoAsset(asset) && <InlineVideoControl />}
+            {edit && asset && !isCarousel && !isVideoAsset(asset) && <button className="tile-frame-toggle" type="button" aria-label={frameIndex === index ? 'Finish framing photo' : 'Adjust photo framing'} aria-pressed={frameIndex === index} onClick={() => setFrameIndex(frameIndex === index ? null : index)}>{frameIndex === index ? 'Done' : 'Frame'}</button>}
             {edit && asset && <button className="tile-drag-handle" type="button" draggable aria-label={'Drag post at position ' + (index + 1) + ' to swap it'} title="Drag directly to swap" onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(index)); onDragStart({ type: 'grid', index }); }} onDragEnd={onDragEnd} onPointerDown={(event) => { event.stopPropagation(); if (event.pointerType === 'touch') { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onPointerStart({ type: 'grid', index }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); } }}><Grid3X3 /></button>}
             {edit && asset && <button className="tile-delete" type="button" aria-label={'Remove position ' + (index + 1)} title="Remove from feed" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onDelete(index); }}><Trash2 /></button>}
             {colorRhythm && asset && <div className="tile-palette">{asset.palette.split(',').map((color) => <i key={color} style={{ background: color }} />)}</div>}
@@ -1118,6 +1143,7 @@ export default function YsabelWorkspace() {
   const saveRevision = useRef(0);
   const pendingNoteDate = useRef<string | null>(null);
   const pointerDrag = useRef<{ source: DragSource; pointerId: number; startX: number; startY: number; active: boolean } | null>(null);
+  const suppressDragClickUntil = useRef(0);
   const captionActionTimer = useRef<number | null>(null);
   const dockResize = useRef<{ node: HTMLElement; pointerId: number; startX: number; startY: number; startWidth: number; startHeight: number; maxWidth: number; maxHeight: number; nextWidth: number; nextHeight: number } | null>(null);
   const dockResizeFrame = useRef<number | null>(null);
@@ -1664,11 +1690,48 @@ export default function YsabelWorkspace() {
       const value = element?.dataset.feedIndex;
       return value === undefined ? null : Number(value);
     };
+    let ghost: HTMLElement | null = null;
+    let origin: HTMLElement | null = null;
+    let frame = 0;
+    let x = 0, y = 0;
+    const cleanup = () => { cancelAnimationFrame(frame); ghost?.remove(); ghost = null; origin?.classList.remove('is-drag-origin'); origin = null; clearDropHighlight(); };
+    const tick = () => {
+      if (!pointerDrag.current?.active) return;
+      if (ghost) ghost.style.transform = `translate3d(${x + 14}px, ${y + 14}px, 0)`;
+      const hit = document.elementFromPoint(x, y);
+      highlightDrop(hit);
+      let scroll = hit?.parentElement;
+      while (scroll) {
+        if (scroll.scrollHeight > scroll.clientHeight && /auto|scroll/.test(getComputedStyle(scroll).overflowY)) {
+          const rect = scroll.getBoundingClientRect();
+          const edge = Math.min(56, rect.height / 4);
+          const delta = y < rect.top + edge ? -8 : y > rect.bottom - edge ? 8 : 0;
+          scroll.scrollTop += delta;
+          break;
+        }
+        scroll = scroll.parentElement;
+      }
+      frame = requestAnimationFrame(tick);
+    };
     const move = (event: PointerEvent) => {
       const current = pointerDrag.current;
       if (!current || current.pointerId !== event.pointerId) return;
       if (!current.active && Math.hypot(event.clientX - current.startX, event.clientY - current.startY) < 9) return;
-      current.active = true;
+      x = event.clientX; y = event.clientY;
+      if (!current.active) {
+        current.active = true;
+        origin = document.elementFromPoint(current.startX, current.startY)?.closest<HTMLElement>('.feed-tile-wrap, .library-dock-asset') || null;
+        const tile = origin?.querySelector<HTMLElement>('.feed-tile') || origin;
+        if (tile) {
+          ghost = tile.cloneNode(true) as HTMLElement;
+          ghost.className = 'post-drag-ghost';
+          ghost.setAttribute('aria-hidden', 'true');
+          ghost.removeAttribute('id');
+          document.body.appendChild(ghost);
+          origin?.classList.add('is-drag-origin');
+        }
+        frame = requestAnimationFrame(tick);
+      }
       event.preventDefault();
       highlightDrop(document.elementFromPoint(event.clientX, event.clientY));
     };
@@ -1676,14 +1739,21 @@ export default function YsabelWorkspace() {
       const current = pointerDrag.current;
       if (!current || current.pointerId !== event.pointerId) return;
       const target = targetAt(event.clientX, event.clientY);
+      if (current.active) suppressDragClickUntil.current = Date.now() + 250;
+      cleanup();
       if (edit && event.type !== 'pointercancel' && current.active && target !== null) applyDrop(current.source, target);
       pointerDrag.current = null;
       clearDropHighlight();
     };
+    const preventDragClick = (event: MouseEvent) => { if (Date.now() < suppressDragClickUntil.current) { event.preventDefault(); event.stopPropagation(); } };
+    window.addEventListener('click', preventDragClick, true);
     window.addEventListener('pointermove', move, { passive: false });
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
     return () => {
+      cleanup();
+      pointerDrag.current = null;
+      window.removeEventListener('click', preventDragClick, true);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', end);
       window.removeEventListener('pointercancel', end);

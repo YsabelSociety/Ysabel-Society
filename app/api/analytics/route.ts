@@ -1,3 +1,4 @@
+import { calendarDate } from '@/lib/sync-window';
 import {
   database,
   identity,
@@ -52,6 +53,8 @@ export async function GET(req: Request) {
       )
       .bind(user.userId, start, end)
       .all<{ payload: string }>();
+    const today = calendarDate('Europe/Tirane');
+    const monthlyPosts = await db.prepare('SELECT p.payload FROM source_posts p JOIN platform_accounts a ON a.id=p.account_id WHERE a.owner=? AND a.enabled=1 AND p.published_date>=? AND p.published_date<=? ORDER BY p.published_date DESC').bind(user.userId, today.slice(0,7)+'-01', today).all<{payload:string}>();
     const tableRows = await db
       .prepare(
         "SELECT r.payload,r.period_start,r.period_end,r.updated_at,a.channel FROM source_reports r JOIN platform_accounts a ON a.id=r.account_id WHERE a.owner=? AND a.enabled=1 AND ((r.period_start<=? AND r.period_end>=?) OR a.channel='Google Business') ORDER BY r.updated_at DESC",
@@ -151,6 +154,7 @@ export async function GET(req: Request) {
         lastSync: a.last_sync || null,
       })),
       posts: postRows.results.map((r) => JSON.parse(r.payload)),
+      monthlyPosts: monthlyPosts.results.map(r => JSON.parse(r.payload)),
       tables: [...tableMap.values()],
       accounts: profiles.results.map((p) => ({
         source: p.source,

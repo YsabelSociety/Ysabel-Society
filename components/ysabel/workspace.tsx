@@ -887,6 +887,7 @@ export default function Workspace({
                       previous={previous}
                       setPage={navigate}
                       posts={visiblePosts}
+                      monthlyPosts={source.mode === 'live' ? source.monthlyPosts : data.posts}
                       onSelect={setPost}
                       onMetric={setMetric}
                     /></Activity>

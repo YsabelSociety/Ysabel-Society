@@ -25,6 +25,7 @@ export function useSourceAnalytics(
     sourceStatus: SourceStatus[];
     websiteRealtime?: WebsiteRealtime;
     posts: Post[];
+    monthlyPosts: Post[];
     tables: ReportTable[];
     comparisonLimited: boolean;
   } | null>(null);
@@ -84,6 +85,7 @@ export function useSourceAnalytics(
               (a: any) => a.source === 'ga4',
             )?.snapshot?.realtime,
             posts: current.posts || [],
+            monthlyPosts: current.monthlyPosts || [],
             tables: current.tables || [],
           });
           setError('');
@@ -115,6 +117,7 @@ export function useSourceAnalytics(
     sourceStatus: current?.sourceStatus ?? [],
     websiteRealtime: current?.websiteRealtime,
     posts: current?.posts ?? [],
+    monthlyPosts: current?.monthlyPosts ?? [],
     tables: current?.tables ?? [],
     comparisonLimited: current?.comparisonLimited ?? false,
     ready: !!current,

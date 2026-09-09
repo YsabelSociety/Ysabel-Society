@@ -25,7 +25,8 @@ import {
 import { Help } from './controls';
 import { AnalyticsChart, Spark } from './charts';
 import { MediaCards, Media } from './content';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { calendarDate } from '@/lib/sync-window';
 import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
@@ -35,6 +36,7 @@ export default function Overview({
   previous,
   setPage,
   posts,
+  monthlyPosts = [],
   onSelect,
   onMetric,
   live = false,
@@ -44,11 +46,13 @@ export default function Overview({
   previous: Daily[];
   setPage: (p: string) => void;
   posts: Post[];
+  monthlyPosts?: Post[];
   onSelect: (p: Post) => void;
   onMetric: (key: string) => void;
   live?: boolean;
 }) {
   const [activeSignal, setActiveSignal] = useState(0);
+  useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
   const tiktokPosts = posts.filter(
     (p) =>
       p.platform === 'TikTok' &&
@@ -61,7 +65,9 @@ export default function Overview({
       rows.filter((r) => r.channel === 'TikTok'),
       'views',
     ) && tiktokPosts.length > 0;
-  const highlights = posts.filter(p => p.status === 'Published' && p.date >= range.start && p.date.slice(0,10) <= range.end && postAvailable(p, 'views')).sort((a,b) => b.views-a.views).slice(0,3);
+  const month = calendarDate('Europe/Tirane').slice(0,7);
+  const highlights = monthlyPosts.filter(p => p.status === 'Published' && p.date.startsWith(month) && ['Instagram','Facebook','TikTok'].includes(p.platform)).sort((a,b) => (b.views||0)-(a.views||0));
+  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'—',detail:CHANNELS[idx]+' · '+(idx===4?'website visits':'content views')};});
   return (
     <>
       <ProfileViews rows={rows} previous={previous} />
@@ -130,14 +136,14 @@ export default function Overview({
       </div>
       <ChannelTimeline rows={rows} posts={posts} range={range} />
       <section className="content-highlights" aria-label="Content Intelligence highlights">
-        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Stories earning attention</h2><p>Leading imported posts published in your selected period · lifetime views</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
+        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Posts earning attention</h2><p>All imported Instagram, Facebook and TikTok posts this month · lifetime views</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
         <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
           <div className="highlight-media"><Media post={post}/><span className="highlight-format">{post.format}</span></div><div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
           <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>
-          <div className="highlight-result"><strong>{compact(post.views)}</strong><span>views</span><ArrowUpRight size={18}/></div>
+          <div className="highlight-result"><strong>{postAvailable(post,'views') ? compact(post.views) : '—'}</strong><span>views</span><ArrowUpRight size={18}/></div>
           <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
         </button>)}</div>
-        {!highlights.length && <p className="muted">No imported posts with view counts in this period. Choose another date range to explore your content.</p>}
+        {!highlights.length && <p className="muted">No social posts have been imported for the current month yet.</p>}
       </section>
 
       <div className="overview-intelligence">
@@ -191,7 +197,7 @@ export default function Overview({
               </button>
             );
           })}
-          </div><IntelligenceScene active={activeSignal}/></div>
+          </div><IntelligenceScene active={activeSignal} signal={signals[activeSignal]}/></div>
           <button className="text-link" onClick={() => setPage('Insights')}>
             Open intelligence <ArrowUpRight size={14} />
           </button>

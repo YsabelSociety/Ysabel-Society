@@ -2,14 +2,14 @@
 import { useEffect, useRef } from 'react';
 import paths from './emblem-paths.json';
 import { INTRO_LOGO_COLOR } from './brand-appearance';
-import { type Post } from '@/lib/analytics';
-import { Media } from './content';
+
+
 
 // Decorative connection between the three editorial signals, not a metric scale.
-export function IntelligenceScene({ active, signals, posts }: { active: number; signals: {title:string;value:string;detail:string}[]; posts: Post[] }) {
+export function IntelligenceScene({ active, signals }: { active: number; signals: {title:string;value:string;detail:string}[] }) {
   const host = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLDivElement | null)[]>([]);
-  const postKey=posts.map(p=>p.id).join('|');
+
   const selected = useRef(active);
   selected.current = active;
   useEffect(() => {
@@ -39,6 +39,12 @@ export function IntelligenceScene({ active, signals, posts }: { active: number; 
       geometry.center();geometry.rotateX(Math.PI);geometry.computeBoundingBox();
       const size=geometry.boundingBox!.getSize(new THREE.Vector3());const scale=4.4/Math.max(size.x,size.y);geometry.scale(scale,scale,scale);
       const material=new THREE.MeshStandardMaterial({color:INTRO_LOGO_COLOR,metalness:.32,roughness:.38});
+      const gradientTime={value:0};
+      material.onBeforeCompile=shader=>{
+        shader.uniforms.gradientTime=gradientTime;
+        shader.vertexShader='varying vec3 emblemPosition;\n'+shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nemblemPosition=position;');
+        shader.fragmentShader='varying vec3 emblemPosition;uniform float gradientTime;\n'+shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nfloat blend=.5+.5*sin(emblemPosition.x*1.2+emblemPosition.y*.8+gradientTime*.3);diffuseColor.rgb*=mix(vec3(.55,.65,.58),vec3(1.7,1.8,1.65),blend);');
+      };
       const logo=new THREE.Mesh(geometry,material);group.add(logo);
       scene.add(new THREE.HemisphereLight(0xffffff,0x55786b,3));const light=new THREE.DirectionalLight(0xffffff,4);light.position.set(2,3,5);scene.add(light);
       const pointer = {x:0,y:0};
@@ -51,18 +57,20 @@ export function IntelligenceScene({ active, signals, posts }: { active: number; 
           group.rotation.x += (pointer.y*.25+(reduced.matches?0:Math.cos(time*.3)*.12)-group.rotation.x)*.06;
           group.position.y=reduced.matches?0:Math.sin(time*.65)*.065;
           if(!reduced.matches)logo.rotation.z=time*.13;
+          gradientTime.value=reduced.matches?0:time;
           group.updateMatrixWorld(true);
           cards.current.forEach((card,i)=>{
             if(!card)return;
-            const count=posts.length;
+            const count=36;
             const angle=i*2.39996+(reduced.matches?0:time*.055);
-            const radius=count===1?0:.95*Math.sqrt((i+.5)/count);
+            const radius=1.75*Math.sqrt((i+.5)/count);
             const point=new THREE.Vector3(Math.cos(angle)*radius,Math.sin(angle)*radius,.28+Math.sin(i*1.7+(reduced.matches?0:time*.5))*.14);
             point.applyMatrix4(group.matrixWorld).project(camera);
             const width=target.clientWidth,height=target.clientHeight;
             card.style.left=((point.x+1)*width/2)+'px';card.style.top=((-point.y+1)*height/2)+'px';
             card.style.transform='translate(-50%,-50%) perspective(600px) rotateY('+(group.rotation.y*25)+'deg) rotateX('+(-group.rotation.x*25)+'deg) rotate('+Math.sin(i*1.5+(reduced.matches?0:time*.3))*4+'deg)';
-            card.style.width=Math.max(30,Math.min(88,width/(Math.sqrt(count)+3)))+'px';
+            card.style.opacity=String(.25+.45*(.5+.5*Math.sin(i+time*.6)));
+            card.textContent=String((i+Math.floor(reduced.matches?0:time*.8))%2);
           });
           renderer.render(scene,camera);
         }
@@ -79,6 +87,6 @@ export function IntelligenceScene({ active, signals, posts }: { active: number; 
     };
     const change=()=>{void setup().catch(()=>{});};change();desktop.addEventListener('change',change);
     return()=>{generation++;desktop.removeEventListener('change',change);disposeScene?.();};
-  },[postKey]);
-  return <div className="intelligence-art" aria-hidden="true"><div ref={host} className="intelligence-canvas">{posts.map((post,i)=><div key={post.id} ref={node=>{cards.current[i]=node;}} className="emblem-post"><Media post={post}/><span>{post.platform}</span></div>)}</div><div className="intelligence-caption-stack">{signals.map((signal,i)=><div key={signal.title} className="intelligence-art-caption" data-current={active===i}><span>{signal.title}</span><strong>{signal.value}</strong><span>{signal.detail}</span></div>)}</div></div>;
+  },[]);
+  return <div className="intelligence-art" aria-hidden="true"><div ref={host} className="intelligence-canvas">{Array.from({length:36},(_,i)=><div key={i} ref={node=>{cards.current[i]=node;}} className="emblem-digit">{i%2}</div>)}</div><div className="intelligence-caption-stack">{signals.map((signal,i)=><div key={signal.title} className="intelligence-art-caption" data-current={active===i}><span>{signal.title}</span><strong>{signal.value}</strong><span>{signal.detail}</span></div>)}</div></div>;
 }

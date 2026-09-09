@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import styles from "./contentpreview.module.css";
 
 type InstallEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> };
@@ -28,15 +29,16 @@ export default function InstallApp() {
   }, []);
   if (installed) return null;
   return <aside className={styles.install} aria-label="Install Content Preview">
-    {instructions && <div className={styles.installHelp} role="status">
+    {instructions && <div id="install-help" className={styles.installHelp} role="region" aria-label="Installation instructions">
+      <Image unoptimized src="/contentpreview-icons/olive-silver-192.png" width={64} height={64} alt="Ysabel Society silver emblem on dark olive" />
       <strong>Ysabel on your home screen</strong>
-      <p>{ios ? 'Tap Share in your browser, then Add to Home Screen. Enable Open as Web App if shown, then tap Add.' : 'Open your browser menu and choose Install app or Add to Home screen. If unavailable, open this page in Chrome or Edge.'}</p>
+      {ios ? <ol><li>Tap the browser’s <b>Share</b> button.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Enable <b>Open as Web App</b> if shown, then tap <b>Add</b>.</li></ol> : <ol><li>Open your browser’s <b>⋮ menu</b>.</li><li>Choose <b>Install app</b> or <b>Add to Home screen</b>.</li><li>Confirm <b>Install</b>. If unavailable, open this page in Chrome or Edge.</li></ol>}
       <button onClick={() => setInstructions(false)}>Close</button>
     </div>}
-    <button className={styles.installButton} onClick={async () => {
+    <button className={styles.installButton} aria-expanded={instructions} aria-controls={instructions ? 'install-help' : undefined} onClick={async () => {
       if (!prompt) { setInstructions((value) => !value); return; }
       try { await prompt.prompt(); await prompt.userChoice; } catch { setInstructions(true); }
       setPrompt(null);
-    }}>＋ Install app</button>
+    }}><Image unoptimized src="/contentpreview-icons/olive-silver-192.png" width={32} height={32} alt="" /><span>Install Ysabel app<small>Add to your home screen</small></span><span aria-hidden="true">＋</span></button>
   </aside>;
 }

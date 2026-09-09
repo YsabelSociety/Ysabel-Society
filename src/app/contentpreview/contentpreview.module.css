@@ -21,3 +21,13 @@
 .install button:focus-visible { outline: 2px solid #34563d; outline-offset: 3px; }
 .installHelp { width: min(290px, calc(100vw - 64px)); padding: 18px; margin-bottom: 8px; border: 1px solid #c8cec5; border-radius: 12px; background: #f5f5ed; box-shadow: 0 4px 20px #0001; }
 .installHelp p { margin: 9px 0 14px; }
+.installButton { display: flex; align-items: center; gap: 10px; min-height: 52px; border-color: #59634f; background: #293024; color: #eceee6; border-radius: 12px; text-align: left; }
+.installButton img { border-radius: 7px; }
+.installButton small { display: block; font-size: 11px; color: #c6cbbf; }
+.installHelp > img { display: block; border-radius: 14px; margin-bottom: 12px; }
+.installHelp ol { padding-left: 20px; margin: 12px 0; }
+.installHelp li { margin-bottom: 9px; }
+@media (max-width: 700px) {
+  .install { right: 12px; bottom: calc(78px + env(safe-area-inset-bottom)); }
+  .installHelp { max-height: calc(100dvh - 240px); overflow: auto; font-size: 14px; }
+}

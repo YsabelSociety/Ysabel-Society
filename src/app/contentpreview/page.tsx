@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
   manifest: '/contentpreview-manifest.webmanifest',
   appleWebApp: { capable: true, title: 'Ysabel Preview', statusBarStyle: 'default' },
-  icons: { apple: '/contentpreview-icons/icon-192.png' },
+  icons: { apple: '/contentpreview-icons/olive-silver-180.png', icon: '/contentpreview-icons/olive-silver-192.png' },
 };
 
 const previewBuildTag =

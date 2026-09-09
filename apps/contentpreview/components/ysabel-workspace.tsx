@@ -65,7 +65,7 @@ type WorkspaceData = {
   publications: Publication[];
 };
 
-const FEED_SIZE = 15;
+const FEED_SIZE = 12;
 const emptyFeed = () => Array<string | null>(FEED_SIZE).fill(null);
 const COMMUNITY_CAPTION_STORAGE_KEY = 'ysabel_community_captions_v1';
 const SESSION_TOKEN_KEY = 'ysabel_session_token';
@@ -863,7 +863,7 @@ function MobilePreview(props: FeedGridProps) {
           <FeedGrid {...props} scale="phone" colorRhythm={false} />
         </div>
       </div>
-      <p className="device-label"><ChevronDown />Scroll inside the phone to see all 15 posts</p>
+      <p className="device-label"><ChevronDown />Scroll inside the phone to see all {FEED_SIZE} posts</p>
     </div>
   );
 }
@@ -894,7 +894,7 @@ function DesktopPreview(props: FeedGridProps) {
 }
 
 function GridPreview(props: FeedGridProps) {
-  return <div className="grid-only"><div className="grid-only-title"><span>September direction</span><small>3 columns · 15 positions</small></div><FeedGrid {...props} scale="large" /></div>;
+  return <div className="grid-only"><div className="grid-only-title"><span>September direction</span><small>3 columns · {FEED_SIZE} positions</small></div><FeedGrid {...props} scale="large" /></div>;
 }
 
 function CarouselEditor({ asset, assets, onChange, onAddSlides }: {
@@ -1573,7 +1573,7 @@ export default function YsabelWorkspace() {
         execute(input) { const value = (input as { view?: string }).view; if (!['mobile','desktop','grid'].includes(String(value))) throw new Error('Invalid view'); setView(value as ViewMode); setSection('feed'); return { view: value }; },
       }, { signal: lifecycle.signal }),
       context.registerTool({
-        name: 'rearrange_feed', title: 'Rearrange feed', description: 'Move or swap one 1-based position with another in the active 15-position feed.',
+        name: 'rearrange_feed', title: 'Rearrange feed', description: 'Move or swap one 1-based position with another in the active 12-position feed.',
         inputSchema: { type: 'object', properties: { fromPosition: { type: 'integer', minimum: 1, maximum: FEED_SIZE }, toPosition: { type: 'integer', minimum: 1, maximum: FEED_SIZE }, behavior: { type: 'string', enum: ['swap', 'insert'] } }, required: ['fromPosition','toPosition'], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) { const value = input as { fromPosition: number; toPosition: number; behavior?: RearrangeMode }; if (!Number.isInteger(value.fromPosition) || !Number.isInteger(value.toPosition)) throw new Error('Positions must be integers'); moveFeed(value.fromPosition - 1, value.toPosition - 1, value.behavior || 'swap'); return { moved: true, fromPosition: value.fromPosition, toPosition: value.toPosition, behavior: value.behavior || 'swap' }; },
@@ -2108,7 +2108,7 @@ export default function YsabelWorkspace() {
         {section === 'feed' && (
           <div className="workspace-body">
             <div className="canvas-meta">
-              <div><span className="eyebrow">{edit ? 'Draft' : 'Published'} · {view}</span><span className="dot" />{displayPositions.slice(0, FEED_SIZE).filter(Boolean).length} of 15 posts</div>
+              <div><span className="eyebrow">{edit ? 'Draft' : 'Published'} · {view}</span><span className="dot" />{displayPositions.slice(0, FEED_SIZE).filter(Boolean).length} of {FEED_SIZE} posts</div>
               {edit && <button className={artDirection ? 'active' : ''} onClick={() => setArtDirection(!artDirection)}><Sparkles />Art direction</button>}
             </div>
             <div className={'canvas canvas--' + view}>{renderPreview()}</div>
@@ -2240,7 +2240,7 @@ export default function YsabelWorkspace() {
 
         {section === 'versions' && <section className="versions-page"><header><div><span className="page-kicker">Safe experimentation</span><h1>Feed Versions</h1><p>Save a direction before exploring the next one</p></div><Button onClick={() => { setVersionName((activeBoard?.name || '') + ' — Approved'); setVersionOpen(true); }}><Plus />Save new version</Button></header><div className="concept-compare"><div><span>Current concept</span><h2>{activeBoard?.name}</h2><FeedGrid {...commonGridProps} edit={false} scale="mini" colorRhythm={false} similarity={false} exchangeFirst={null} /></div><div><span>Compare with</span><h2>{versions[0]?.name || 'No saved version yet'}</h2>{versions[0] ? <FeedGrid {...commonGridProps} positions={JSON.parse(versions[0].snapshot)} edit={false} scale="mini" colorRhythm={false} similarity={false} exchangeFirst={null} /> : <div className="version-empty"><Columns3 /><p>Save this feed to compare concepts side by side.</p></div>}</div></div><div className="version-list">{versions.map((version) => <button key={version.id}><div><strong>{version.name}</strong><small>{new Date(version.createdAt).toLocaleDateString()}</small></div><ChevronRight /></button>)}</div></section>}
 
-        {section === 'archive' && <section className="archive-page"><header><span className="page-kicker">Stored directions</span><h1>Archive</h1><p>Paused feed concepts and media remain recoverable</p></header><div className="archive-list">{boards.filter((board) => board.archived).length ? boards.filter((board) => board.archived).map((board) => <div key={board.id}><Archive /><span><strong>{board.name}</strong><small>Feed board · 15 positions</small></span><Button variant="outline" size="sm" onClick={() => { setBoards((current) => current.map((item) => item.id === board.id ? { ...item, archived: false } : item)); persist({ action: 'restore-board', boardId: board.id }); }}>Restore</Button></div>) : <div className="archive-empty"><Archive /><p>No archived feed boards.</p></div>}</div></section>}
+        {section === 'archive' && <section className="archive-page"><header><span className="page-kicker">Stored directions</span><h1>Archive</h1><p>Paused feed concepts and media remain recoverable</p></header><div className="archive-list">{boards.filter((board) => board.archived).length ? boards.filter((board) => board.archived).map((board) => <div key={board.id}><Archive /><span><strong>{board.name}</strong><small>Feed board · {FEED_SIZE} positions</small></span><Button variant="outline" size="sm" onClick={() => { setBoards((current) => current.map((item) => item.id === board.id ? { ...item, archived: false } : item)); persist({ action: 'restore-board', boardId: board.id }); }}>Restore</Button></div>) : <div className="archive-empty"><Archive /><p>No archived feed boards.</p></div>}</div></section>}
 
         {section === 'settings' && <section className="settings-page"><header><span className="page-kicker">Profile preview</span><h1>Ysabel Society Identity</h1><p>Profile information imported from the official Instagram account</p></header><div className="settings-content"><div className="identity-preview"><BrandAvatar size="xl" /><div><strong>Official Instagram artwork</strong><span>Current profile image · imported September 2026</span></div></div><label>Instagram username<Input defaultValue={instagramProfile.username} /></label><label>Profile name<Input defaultValue={instagramProfile.name} /></label><label>Biography<Textarea defaultValue={`${instagramProfile.category}\nReservations: ${instagramProfile.reservations}\n📍 ${instagramProfile.location}`} /></label><label>Location<Input defaultValue={instagramProfile.location} /></label><div className="settings-actions"><Button>Save profile details</Button><Button variant="outline" onClick={logout}><LogOut />Log out</Button></div></div></section>}
       </section>

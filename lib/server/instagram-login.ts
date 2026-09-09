@@ -25,14 +25,17 @@ export async function beginInstagramLogin(owner: string, req: Request) {
   await database().prepare('INSERT INTO oauth_states(state_hash,owner,provider,nonce_hash,verifier,redirect_uri,expires_at) VALUES(?,?,?,?,?,?,?)')
     .bind(await digest(state), owner, provider, await digest(nonce), '', redirect, Date.now()+600000).run();
   const url = new URL('https://www.instagram.com/oauth/authorize');
-  url.search = new URLSearchParams({ client_id: app.clientId, redirect_uri: redirect, response_type: 'code', scope: 'instagram_business_basic,instagram_business_manage_messages', enable_fb_login: '0', force_authentication: '1', state }).toString();
+  url.search = new URLSearchParams({ client_id: app.clientId, redirect_uri: redirect, response_type: 'code', scope: 'instagram_business_basic,instagram_business_manage_messages', enable_fb_login: '0', force_reauth: 'true', state }).toString();
   return { url: url.href, cookie: instagramLoginCookie(nonce, new URL(req.url).protocol === 'https:') };
 }
 async function exchange(url: string, init?: RequestInit) {
   const response = await fetch(url, { ...init, signal: AbortSignal.timeout(20000) });
-  const body: any = await response.json();
+  const envelope: any = await response.json();
+  // Instagram Login returns the short-lived grant inside data[]. The
+  // long-lived token endpoint returns the grant directly.
+  const body = Array.isArray(envelope.data) ? envelope.data[0] : envelope;
   // Never return provider URLs, codes, tokens or secrets in a browser error.
-  if (!response.ok || body.error || !body.access_token) throw new Error('INPUT:Instagram did not complete authorization. Check the Instagram app credentials, redirect URL and messaging permission, then try again.');
+  if (!response.ok || envelope.error || body?.error || !body?.access_token) throw new Error('INPUT:Instagram did not complete '+(url.startsWith('https://api.instagram.com/') ? 'the sign-in token exchange' : 'long-term authorization')+'. Check the Instagram app credentials, redirect URL and messaging permission, then try again.');
   return body;
 }
 export async function finishInstagramLogin(owner: string, req: Request) {

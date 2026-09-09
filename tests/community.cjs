@@ -1004,6 +1004,23 @@ async function main() {
     accessToken: 'direct-ig-fixture',
     apiVersion: 'v26.0',
   });
+  const graphResponder=responder;
+  responder=async(url,init)=>{
+    if (url==='https://api.instagram.com/oauth/access_token') {
+      assert.equal(init.method,'POST');
+      assert.equal(init.body.get('client_id'),'1234');
+      return {data:[{access_token:'short-fixture',user_id:'178400001',permissions:['instagram_business_basic','instagram_business_manage_messages']}]};
+    }
+    if (url.startsWith('https://graph.instagram.com/access_token?')) {
+      assert.equal(new URL(url).searchParams.get('access_token'),'short-fixture');
+      return {access_token:'direct-ig-fixture',expires_in:5184000};
+    }
+    return graphResponder(url,init);
+  };
+  const session=await login.beginInstagramLogin(owner,new Request('https://ysabel.test/marketingdata/api/instagram-messaging'));
+  await login.finishInstagramLogin(owner,new Request('https://ysabel.test/marketingdata/api/instagram-messaging/callback?code=fixture&state='+new URL(session.url).searchParams.get('state'),{headers:{cookie:session.cookie.split(';')[0]}}));
+  assert((await directInstagram.readInstagramMessaging(owner)).expiresAt>Date.now()+50*86400000,'wrapped Instagram grant exchanges for a renewable token');
+  responder=graphResponder;
   assert.equal(
     (await directInstagram.readInstagramMessaging(owner)).username,
     'ysabelsociety',

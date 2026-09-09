@@ -254,7 +254,7 @@ export default function Workspace({
   const [page, setPage] = useState(
       names.includes(initialPage) ? initialPage : 'Overview',
     ),
-    [date, setDate] = useState('Last 7 Days'),
+    [date, setDate] = useState('This Month'),
     [comparison, setComparison] = useState('Previous Period'),
     [custom, setCustom] = useState<Range>({
       start: '2026-08-01',
@@ -278,7 +278,7 @@ export default function Workspace({
     setLiveClock(true);
     if (!liveInitialized.current) {
       liveInitialized.current = true;
-      setDate('Last 7 Days');
+      setDate('This Month');
     }
   }, []);
   const source = useSourceAnalytics(unit, range, comparison, onLive),
@@ -309,6 +309,7 @@ export default function Workspace({
   );
   function navigate(name: string) {
     if (!names.includes(name)) return;
+    if (name === 'Overview') setDate('This Month');
     setMobileMenuOpen(false);
     setPage(name);
     setCommand(false);
@@ -800,11 +801,11 @@ export default function Workspace({
                         ]}
                         label="Comparison"
                       />
-                      {date !== 'Last 7 Days' && (
+                      {date !== 'This Month' && (
                         <button
                           className="clear-filters"
                           onClick={() => {
-                            setDate('Last 7 Days');
+                            setDate('This Month');
                             setComparison('Previous Period');
                           }}
                         >

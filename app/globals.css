@@ -8508,3 +8508,8 @@ h1 {
 @media(min-width:1024px){.intelligence-art{height:460px;}.intelligence-canvas{inset:0 0 110px;}.intelligence-art-caption{bottom:20px;animation:signal-reveal .65s ease both;}.intelligence-art-caption strong{display:block;font-size:48px;line-height:1.2;letter-spacing:-.04em;color:#345548;margin:8px 0;}.intelligence-art-caption span:first-child{font-size:12px;letter-spacing:.15em;}}
 @keyframes signal-reveal{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
 @media(prefers-reduced-motion:reduce){.intelligence-art-caption{animation:none;}}
+
+.intelligence-caption-stack .intelligence-art-caption{animation:none;opacity:0;transform:translateY(14px);transition:opacity 900ms ease,transform 1100ms cubic-bezier(.22,.61,.36,1);pointer-events:none;}
+.intelligence-caption-stack .intelligence-art-caption[data-current=true]{opacity:1;transform:translateY(0);}
+.intelligence-caption-stack .intelligence-art-caption strong{color:#536582;}
+@media(prefers-reduced-motion:reduce){.intelligence-caption-stack .intelligence-art-caption{transition:none;transform:none;}}

@@ -311,20 +311,6 @@ export default function Workspace({
     setMobileMenuOpen(false);
     setPage(name);
     setCommand(false);
-    // Mobile categories switch within the current workspace without routing.
-    if (window.matchMedia('(max-width: 800px)').matches) {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      return;
-    }
-    window.history.pushState(
-      {},
-      '',
-      name === 'Admin Panel'
-        ? '/marketingdata/admin'
-        : name === 'Connections'
-          ? '/marketingdata/connections'
-          : '/marketingdata/#' + encodeURIComponent(name),
-    );
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
   useEffect(() => {
@@ -618,6 +604,7 @@ export default function Workspace({
                       {group.items.map(([name, Icon]: any) => (
                         <SidebarMenuItem key={name}>
                           <SidebarMenuButton
+                            type="button"
                             data-nav={name}
                             isActive={page === name}
                             onClick={() => navigate(name)}

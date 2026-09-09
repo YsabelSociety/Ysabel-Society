@@ -2,6 +2,7 @@
 import {
   Component,
   useEffect,
+  useId,
   useMemo,
   memo,
   useState,
@@ -9,6 +10,7 @@ import {
 } from 'react';
 import {
   Bar,
+  Area,
   Line,
   ComposedChart,
   XAxis,
@@ -113,6 +115,7 @@ export function MetricCard({
   range: Range;
   basis: PerformanceBasis;
 }) {
+  const gradientId = useId().replace(/:/g, "");
   const animate = useMinimalMotion(),
     [granularity, setGranularity] = useState('Daily'),
     [hidden, setHidden] = useState<string[]>([]),
@@ -264,6 +267,7 @@ export function MetricCard({
               data={points}
               margin={{ top: 15, right: 15, left: 0, bottom: 5 }}
             >
+              <defs>{channels.map(c => <linearGradient key={c} id={gradientId + c.replace(/\s/g, '')} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={COLORS[CHANNELS.indexOf(c as (typeof CHANNELS)[number])]} stopOpacity={0.22} /><stop offset="100%" stopColor={COLORS[CHANNELS.indexOf(c as (typeof CHANNELS)[number])]} stopOpacity={0.015} /></linearGradient>)}</defs>
               <CartesianGrid
                 stroke="#d4dce5"
                 strokeDasharray="3 5"
@@ -337,19 +341,21 @@ export function MetricCard({
                       animationDuration={650}
                     />
                   ) : (
-                    <Line
+                    <Area
                       key={c + granularity}
                       dataKey={c}
                       stroke={
                         COLORS[CHANNELS.indexOf(c as (typeof CHANNELS)[number])]
                       }
                       type={metric === 'followers' ? 'linear' : 'monotone'}
+                      fill={"url(#" + gradientId + c.replace(/\s/g, "") + ")"}
                       strokeWidth={2.3}
                       connectNulls={false}
                       dot={{ r: 3, strokeWidth: 1, stroke: '#fff' }}
                       activeDot={{ r: 6 }}
                       isAnimationActive={animate}
-                      animationDuration={800}
+                      animationDuration={700}
+                      animationEasing="ease-out"
                     />
                   ),
                 )}

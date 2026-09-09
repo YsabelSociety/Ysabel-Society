@@ -8368,9 +8368,7 @@ h1 {
   .community-chart,
   .world-map,
   .world-map-stage,
-  .recharts-responsive-container,
-  .recharts-wrapper,
-  .recharts-surface {
+  .recharts-responsive-container {
     min-width: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
@@ -8428,3 +8426,21 @@ h1 {
   .metric-card, .profile-views-card, .performance-totals > div, .stat-row > div { min-width:0; overflow:hidden; }
   .view-content { animation:none; }
 }
+
+/* Let Recharts keep its measured pixel width; its inner measurement node is zero-width. */
+@media (max-width:800px) {
+  .metric-card, .profile-views-card, .performance-totals > div, .stat-row > div, .social-metric-card { container-type:inline-size; }
+  .metric-card > .spark, .profile-views-card > .spark, .performance-totals > div > .spark, .stat-row > div > .spark { height:clamp(42px,30cqw,84px); opacity:.85; }
+  .metric-mini-series { display:flex; flex-wrap:nowrap; gap:12px; }
+  .metric-mini-series > span { display:block; flex:1 1 0; min-width:0; }
+  .metric-mini-series .spark { display:block; width:100%; height:clamp(38px,18cqw,64px); }
+  .social-chart-plot { height:clamp(220px,74cqw,330px); }
+  .spark-line { animation:spark-reveal 900ms cubic-bezier(.2,.65,.3,1) both; }
+  .spark-area { animation:spark-breathe 8s ease-in-out infinite; }
+  .spark-pulse { animation:none; opacity:.18; }
+  .social-metric-card[data-platform='Instagram'] { --plot-tint:#b83d8310; }
+  .social-metric-card[data-platform='Facebook'] { --plot-tint:#3478ce10; }
+  .social-metric-card[data-platform='TikTok'] { --plot-tint:#228d9710; }
+  .social-chart-plot { border-radius:14px; background:linear-gradient(180deg,var(--plot-tint,#537b7007),transparent); }
+}
+@media (prefers-reduced-motion:reduce) { .spark-line,.spark-area,.spark-pulse { animation:none; } }

@@ -76,19 +76,24 @@ async function communityAction(body: unknown) {
   if (!r.ok) throw new Error(data.error || 'Unable to complete this action.');
   return data;
 }
+type CommunitySnapshot = { records: CommunityRecord[]; statuses: (CommunityStatus & { more?: boolean })[]; truncated?: boolean };
+// Memory only: discarded on the full-page sign-out/login boundary.
+const communitySnapshots = new Map<string, CommunitySnapshot>();
 function useCommunity(kind: string) {
-  const loadedKind = useRef('');
+  const loadedKind = useRef(communitySnapshots.has(kind) ? kind : '');
   const [data, setData] = useState<{
     records: CommunityRecord[];
     statuses: (CommunityStatus & { more?: boolean })[];
     truncated?: boolean;
-  }>({ records: [], statuses: [] });
+  }>(() => communitySnapshots.get(kind) || { records: [], statuses: [] });
   const [error, setError] = useState(''),
-    [loading, setLoading] = useState(true),
+    [loading, setLoading] = useState(!communitySnapshots.has(kind)),
     [revision, setRevision] = useState(0);
   const refresh = () => setRevision((v) => v + 1);
   useEffect(() => {
     const controller = new AbortController();
+    const saved = communitySnapshots.get(kind);
+    if (saved) { setData(saved); loadedKind.current = kind; }
     setLoading(loadedKind.current !== kind);
     setError('');
     void fetch('/marketingdata/api/community?kind=' + kind, {
@@ -98,6 +103,7 @@ function useCommunity(kind: string) {
         const d: any = await r.json();
         if (!r.ok) throw new Error(d.error);
         if (!controller.signal.aborted) {
+          communitySnapshots.set(kind, d);
           setData(d);
           loadedKind.current = kind;
           setError('');

@@ -8416,3 +8416,15 @@ h1 {
 .mobile-install-bar small { font-size:12px; opacity:.8; }
 @keyframes install-arrive { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
 @media (prefers-reduced-motion:reduce) { .login-shell .mobile-install-bar { animation:none; } }
+
+/* Login notification arrives from the bottom; never occupies the header. */
+.login-shell .mobile-install-bar { top:auto; bottom:calc(16px + env(safe-area-inset-bottom, 0px)); animation-name:install-rise; }
+@keyframes install-rise { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+@media (max-width:800px) {
+  .metric-card > .spark, .profile-views-card > .spark, .performance-totals > div > .spark, .stat-row > div > .spark { display:block; position:relative; inset:auto; width:100%; max-width:100%; height:58px; margin:12px 0 4px; opacity:.75; flex:none; }
+  .metric-mini-series { min-width:0; width:100%; flex-wrap:wrap; }
+  .metric-mini-series .spark { width:100%; height:54px; flex:1 1 100%; }
+  .channel-footer .spark { width:min(130px,45%); height:48px; flex-shrink:1; }
+  .metric-card, .profile-views-card, .performance-totals > div, .stat-row > div { min-width:0; overflow:hidden; }
+  .view-content { animation:none; }
+}

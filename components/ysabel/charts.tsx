@@ -36,6 +36,7 @@ export function Spark({
     <svg
       className="spark"
       viewBox="0 0 120 45"
+      preserveAspectRatio="none"
       aria-hidden="true"
       data-empty={!last}
     >
@@ -60,6 +61,7 @@ export function Spark({
           />
           <path
             className="spark-line"
+            vectorEffect="non-scaling-stroke"
             d={geometry.path}
             pathLength="1"
             fill="none"

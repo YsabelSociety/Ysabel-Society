@@ -311,6 +311,11 @@ export default function Workspace({
     setMobileMenuOpen(false);
     setPage(name);
     setCommand(false);
+    // Mobile categories switch within the current workspace without routing.
+    if (window.matchMedia('(max-width: 800px)').matches) {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      return;
+    }
     window.history.pushState(
       {},
       '',
@@ -874,7 +879,7 @@ export default function Workspace({
                     {source.error}
                   </div>
                 )}
-                <div className="view-content" key={page}>
+                <div className="view-content">
                   {page === 'Admin Panel' && (
                     <AdminGate title="Admin panel">
                       <AdminPanel

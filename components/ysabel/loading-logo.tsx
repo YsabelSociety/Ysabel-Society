@@ -106,7 +106,7 @@ export function LoadingLogo({
         last = 0,
         paint = 0,
         yaw = 0.08,
-        identityScale = 1;
+        identityScale = compact ? 1 : 0.3;
       let lost = false,
         firstFrame = false,
         shownProgress = 0;
@@ -392,13 +392,10 @@ export function LoadingLogo({
           still ? 0.08 : yaw + pointer.x * 0.12,
           still
             ? 0
-            : current.refreshing
-              ? t * 5.4
-              : Math.sin(t * 0.31) * 0.014,
+            : compact ? Math.sin(t * 0.31) * 0.014 : t * (Math.PI * 2 / 0.7),
         );
         logo.position.y = compact ? 0 : 0.72;
-        identityScale +=
-          ((current.refreshing ? 0.52 : 0.8) - identityScale) * ease;
+        // Keep the loading identity small at every viewport size from its first frame.
         identity.scale.setScalar(identityScale);
         identity.position.y = still ? 0 : Math.sin(motionTime * 0.8) * 0.035;
         identity.rotation.x = still ? 0 : -pointer.y * 0.018;
@@ -415,7 +412,7 @@ export function LoadingLogo({
           captionMesh.rotation.x =
             Math.sin(motionTime * 0.6) * 0.025 * captionMotion.value;
           captionMesh.scale.setScalar(
-            1 +
+            1.85 +
               Math.sin(motionTime * 0.8) * 0.006 * captionMotion.value,
           );
         }
@@ -463,6 +460,8 @@ export function LoadingLogo({
         if (!width || !height) return;
         const aspect = width / height;
         const viewHeight = compact ? 3.5 : Math.max(7, 5 / aspect);
+        const unit = Math.min(innerHeight * 0.06, innerWidth * 0.12, 42);
+        identityScale = compact ? 1 : unit * viewHeight / Math.max(1, target!.clientHeight);
         camera.left = (-viewHeight * aspect) / 2;
         camera.right = -camera.left;
         camera.top = viewHeight / 2;

@@ -24,7 +24,7 @@
   white-space: nowrap;
 }
 .fallback {
-  --unit: min(14.2857svh, 20vw);
+  --unit: min(6svh, 12vw, 42px);
   position: absolute;
   inset: 0;
   perspective: 1000px;
@@ -57,6 +57,8 @@
   top: calc(50% - var(--unit) * 0.72);
   width: calc(var(--unit) * 2.45);
   height: calc(var(--unit) * 2.45);
+  animation: loading-spin 700ms linear infinite;
+  transform-origin: center;
 }
 .fallback .fallbackWordmark {
   top: calc(50% + var(--unit) * 1.28);
@@ -78,6 +80,10 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   animation: caption-flow 7.8s ease-in-out infinite;
+}
+@keyframes loading-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 @keyframes caption-flow {
   0%,
@@ -125,7 +131,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .fallbackGroup,
-  .fallbackCaption {
+  .fallbackCaption,
+  .fallbackEmblem {
     animation: none;
   }
   .intro {

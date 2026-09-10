@@ -31,32 +31,35 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       target.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(38,1,0.1,30); camera.position.z=7;
-      const group = new THREE.Group(); scene.add(group);
+      const group = new THREE.Group(); scene.add(group); group.scale.setScalar(.8);
 
       const field=new THREE.DataTexture(new Uint8Array(fieldBytes),1536,1536,THREE.RGBAFormat);
       field.minFilter=field.magFilter=THREE.LinearFilter;field.needsUpdate=true;
       const geometry=new THREE.BoxGeometry(4.8,4.8,.32);
       const palette=[new THREE.Color('#eac426'),new THREE.Color('#1d3428'),new THREE.Color('#cd061e'),new THREE.Color('#bdbdb9')];
       const uniforms={fields:{value:field},shapeA:{value:0},shapeB:{value:1},blend:{value:0},tint:{value:palette[0].clone()},localCamera:{value:new THREE.Vector3(0,0,7)}};
-      const material=new THREE.ShaderMaterial({uniforms,
+      const material=new THREE.ShaderMaterial({uniforms,transparent:true,
         vertexShader: 'varying vec3 localPosition;void main(){localPosition=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
         fragmentShader: `
           precision highp float;
           uniform sampler2D fields;uniform int shapeA;uniform int shapeB;uniform float blend;
           uniform vec3 tint;uniform vec3 localCamera;varying vec3 localPosition;
           float channel(vec4 v,int i){if(i==0)return v.r;if(i==1)return v.g;if(i==2)return v.b;return v.a;}
-          float surface(vec3 p){
+          float silhouette(vec3 p){
             vec2 uv=vec2(p.x/4.4+.5,.5-p.y/4.4);
             vec4 sampled=texture2D(fields,clamp(uv,0.0,1.0));
             float d=(mix(channel(sampled,shapeA),channel(sampled,shapeB),blend)*255.0-128.0)*(.5*4.4/1536.0);
             d=max(d,max(abs(p.x),abs(p.y))-2.2);
-            return max(d,abs(p.z)-.085);
+            return d;
+          }
+          float surface(vec3 p){
+            return max(silhouette(p),abs(p.z)-.085);
           }
           void main(){
             vec3 direction=normalize(localPosition-localCamera);vec3 p=localPosition+direction*.0001;
             bool hit=false;
             for(int i=0;i<160;i++){
-              float d=surface(p);if(d<.00035){hit=true;break;}
+              float d=surface(p);if(d<.001){hit=true;break;}
               p+=direction*max(.00025,d*.85);
               if(abs(p.z)>.165||max(abs(p.x),abs(p.y))>2.405)break;
             }
@@ -65,7 +68,10 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
             vec3 n=normalize(vec3(surface(p+e.xyy)-surface(p-e.xyy),surface(p+e.yxy)-surface(p-e.yxy),surface(p+e.yyx)-surface(p-e.yyx)));
             vec3 light=normalize(vec3(-.4,.7,1.0));float diffuse=max(dot(n,light),0.0);
             float shine=pow(max(dot(reflect(-light,n),-direction),0.0),36.0);
-            gl_FragColor=vec4(tint*(.72+diffuse*.28)+vec3(shine*.055),1.0);
+            float edge=silhouette(p);
+            float pixel=max(fwidth(edge),.001);
+            float coverage=1.0-smoothstep(-pixel,pixel,edge);
+            gl_FragColor=vec4(tint*(.72+diffuse*.28)+vec3(shine*.055),coverage);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
           }
@@ -77,7 +83,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const draw = (now:number) => {
         frame=0;
         if (!near || document.hidden) return;
-        if(now-last>=33){time+=Math.min((now-last)/1000,.04);last=now;
+        if(now-last>=16){time+=Math.min((now-last)/1000,.1);last=now;
           group.rotation.y += (pointer.x*.35+(reduced.matches?0:Math.sin(time*.4)*.22)-group.rotation.y)*.06;
           group.rotation.x += (pointer.y*.25+(reduced.matches?0:Math.cos(time*.3)*.12)-group.rotation.x)*.06;
           group.position.y=reduced.matches?0:Math.sin(time*.65)*.065;
@@ -102,14 +108,20 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
             const width=target.clientWidth,height=target.clientHeight;
             card.style.left=((point.x+1)*width/2)+'px';card.style.top=((-point.y+1)*height/2)+'px';
             card.style.transform='translate(-50%,-50%) perspective(600px) rotateY('+(group.rotation.y*25)+'deg) rotateX('+(-group.rotation.x*25)+'deg) rotate('+Math.sin(i*1.5+(reduced.matches?0:time*.3))*4+'deg)';
-            card.style.opacity=String(.25+.45*(.5+.5*Math.sin(i+time*.6)));
-            card.textContent=String((i+Math.floor(reduced.matches?0:time*.8))%2);
+            // Exchange each digit while invisible, synchronized with the shape blend.
+            const change=Math.max(0,Math.min(1,(eased-i/count*.16)/.84));
+            const veil=Math.pow(Math.abs(2*change-1),.65);
+            card.style.opacity=String((.32+.3*(.5+.5*Math.sin(i+time*.6)))*veil);
+            card.style.translate='0 '+(-Math.sin(change*Math.PI)*8)+'px';
+            const digitShape=(index+(change>=.5?1:0))%4;
+            card.textContent=String((i*7+digitShape*3)%10);
+            card.style.color='#'+uniforms.tint.value.getHexString();
           });
           renderer.render(scene,camera);
         }
         frame=requestAnimationFrame(draw);
       };
-      const start=()=>{if(near&&!document.hidden&&!frame)frame=requestAnimationFrame(draw);};
+      const start=()=>{if(near&&!document.hidden&&!frame){last=performance.now();frame=requestAnimationFrame(draw);}};
       const observer=new IntersectionObserver(entries=>{near=entries[0].isIntersecting;if(near)start();else{cancelAnimationFrame(frame);frame=0;}},{rootMargin:'80px'});observer.observe(target);
       const resize=new ResizeObserver(()=>{const {width,height}=target.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height);camera.aspect=width/height;camera.position.z=Math.max(7,7/camera.aspect);camera.updateProjectionMatrix();});resize.observe(target);
       const move=(e:PointerEvent)=>{const r=target.getBoundingClientRect();pointer.x=(e.clientX-r.left)/r.width*2-1;pointer.y=(e.clientY-r.top)/r.height*2-1;};

@@ -23,7 +23,10 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const current = ++generation;
       disposeScene?.(); disposeScene = undefined;
       if (!desktop.matches) return;
-      const [THREE, fieldBytes] = await Promise.all([import('three'),fetch(appPath('/emblem-morph-fields.bin?v=101'),{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw new Error('Emblem shapes unavailable');return r.arrayBuffer();})]);
+      const [THREE, {SVGLoader}, vectors] = await Promise.all([
+        import('three'), import('three/examples/jsm/loaders/SVGLoader.js'),
+        Promise.all([0,1,2,3].map(i=>fetch(appPath(`/emblem-vector-${i}.svg`),{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw new Error('Emblem unavailable');return r.text();})))
+      ]);
       if (current !== generation) return;
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try { renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, powerPreference:'low-power'}); } catch { return; }
@@ -33,51 +36,20 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const camera = new THREE.PerspectiveCamera(38,1,0.1,30); camera.position.z=7;
       const group = new THREE.Group(); scene.add(group); group.scale.setScalar(.8);
 
-      const field=new THREE.DataTexture(new Uint8Array(fieldBytes),1536,1536,THREE.RGBAFormat);
-      field.minFilter=field.magFilter=THREE.LinearFilter;field.needsUpdate=true;
-      const geometry=new THREE.BoxGeometry(4.8,4.8,.32);
       const palette=[new THREE.Color('#eac426'),new THREE.Color('#1d3428'),new THREE.Color('#cd061e'),new THREE.Color('#bdbdb9')];
-      const uniforms={fields:{value:field},shapeA:{value:0},shapeB:{value:1},blend:{value:0},tint:{value:palette[0].clone()},localCamera:{value:new THREE.Vector3(0,0,7)}};
-      const material=new THREE.ShaderMaterial({uniforms,transparent:true,
-        vertexShader: 'varying vec3 localPosition;void main(){localPosition=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-        fragmentShader: `
-          precision highp float;
-          uniform sampler2D fields;uniform int shapeA;uniform int shapeB;uniform float blend;
-          uniform vec3 tint;uniform vec3 localCamera;varying vec3 localPosition;
-          float channel(vec4 v,int i){if(i==0)return v.r;if(i==1)return v.g;if(i==2)return v.b;return v.a;}
-          float silhouette(vec3 p){
-            vec2 uv=vec2(p.x/4.4+.5,.5-p.y/4.4);
-            vec4 sampled=texture2D(fields,clamp(uv,0.0,1.0));
-            float d=(mix(channel(sampled,shapeA),channel(sampled,shapeB),blend)*255.0-128.0)*(.5*4.4/1536.0);
-            d=max(d,max(abs(p.x),abs(p.y))-2.2);
-            return d;
-          }
-          float surface(vec3 p){
-            return max(silhouette(p),abs(p.z)-.085);
-          }
-          void main(){
-            vec3 direction=normalize(localPosition-localCamera);vec3 p=localPosition+direction*.0001;
-            bool hit=false;
-            for(int i=0;i<160;i++){
-              float d=surface(p);if(d<.001){hit=true;break;}
-              p+=direction*max(.00025,d*.85);
-              if(abs(p.z)>.165||max(abs(p.x),abs(p.y))>2.405)break;
-            }
-            if(!hit)discard;
-            vec2 e=vec2(.001,0.0);
-            vec3 n=normalize(vec3(surface(p+e.xyy)-surface(p-e.xyy),surface(p+e.yxy)-surface(p-e.yxy),surface(p+e.yyx)-surface(p-e.yyx)));
-            vec3 light=normalize(vec3(-.4,.7,1.0));float diffuse=max(dot(n,light),0.0);
-            float shine=pow(max(dot(reflect(-light,n),-direction),0.0),36.0);
-            float edge=silhouette(p);
-            float pixel=max(fwidth(edge),.001);
-            float coverage=1.0-smoothstep(-pixel,pixel,edge);
-            gl_FragColor=vec4(tint*(.72+diffuse*.28)+vec3(shine*.055),coverage);
-            #include <tonemapping_fragment>
-            #include <colorspace_fragment>
-          }
-        `});
-      const logo=new THREE.Mesh(geometry,material);group.add(logo);
-      const inverse=new THREE.Matrix4();
+      scene.add(new THREE.HemisphereLight(0xffffff,0x526354,2.2));
+      const key=new THREE.DirectionalLight(0xffffff,2.4);key.position.set(-3,5,7);scene.add(key);
+      const rim=new THREE.DirectionalLight(0xffffff,1.3);rim.position.set(4,-1,3);scene.add(rim);
+      const logos=vectors.map((svg,i)=>{
+        const shapes=new SVGLoader().parse(svg).paths.flatMap(path=>SVGLoader.createShapes(path));
+        const geometry=new THREE.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelThickness:.5,bevelSize:.25,bevelSegments:2,curveSegments:8});
+        geometry.center();geometry.rotateX(Math.PI);geometry.computeBoundingBox();
+        const size=geometry.boundingBox!.getSize(new THREE.Vector3());
+        const scale=4.4/Math.max(size.x,size.y);geometry.scale(scale,scale,scale);
+        const material=new THREE.MeshPhysicalMaterial({color:palette[i],metalness:.22,roughness:.36,clearcoat:.2,transparent:true,opacity:i===0?1:0,depthWrite:true});
+        const mesh=new THREE.Mesh(geometry,material);mesh.visible=i===0;group.add(mesh);return mesh;
+      });
+      const tint=palette[0].clone();
       const pointer = {x:0,y:0};
       let frame=0,near=false,last=0,time=0;
       const draw = (now:number) => {
@@ -87,17 +59,23 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
           group.rotation.y += (pointer.x*.35+(reduced.matches?0:Math.sin(time*.4)*.22)-group.rotation.y)*.06;
           group.rotation.x += (pointer.y*.25+(reduced.matches?0:Math.cos(time*.3)*.12)-group.rotation.x)*.06;
           group.position.y=reduced.matches?0:Math.sin(time*.65)*.065;
-          if(!reduced.matches)logo.rotation.z=Math.sin(time*.18)*.12;
+          
           const phase=reduced.matches?0:time/7;
           const index=Math.floor(phase)%4;
           const transition=Math.max(0,Math.min(1,((phase%1)-.5)*2));
           const eased=transition*transition*transition*(transition*(transition*6-15)+10);
-          uniforms.shapeA.value=index;uniforms.shapeB.value=(index+1)%4;uniforms.blend.value=eased;
-          uniforms.tint.value.copy(palette[index]).lerp(palette[(index+1)%4],eased);
+          tint.copy(palette[index]).lerp(palette[(index+1)%4],eased);
+          logos.forEach((logo,i)=>{
+            const incoming=i===(index+1)%4;
+            const opacity=i===index?1-eased:incoming?eased:0;
+            logo.visible=opacity>.001;logo.material.opacity=opacity;
+            logo.material.depthWrite=opacity>.98;
+            logo.scale.setScalar(i===index?1-eased*.06:1.06-eased*.06);
+            logo.rotation.z=(reduced.matches?0:Math.sin(time*.18)*.12)+(incoming?(1-eased)*.12:-eased*.12);
+            logo.position.z=incoming?.015:0;
+          });
           target.dataset.emblemShape=String(index);target.dataset.emblemBlend=eased.toFixed(3);
           group.updateMatrixWorld(true);
-          logo.updateMatrixWorld(true);
-          uniforms.localCamera.value.copy(camera.position).applyMatrix4(inverse.copy(logo.matrixWorld).invert());
           cards.current.forEach((card,i)=>{
             if(!card)return;
             const count=36;
@@ -115,7 +93,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
             card.style.translate='0 '+(-Math.sin(change*Math.PI)*8)+'px';
             const digitShape=(index+(change>=.5?1:0))%4;
             card.textContent=String((i*7+digitShape*3)%10);
-            card.style.color='#'+uniforms.tint.value.getHexString();
+            card.style.color='#'+tint.getHexString();
           });
           renderer.render(scene,camera);
         }
@@ -128,7 +106,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const leave=()=>{pointer.x=pointer.y=0;};
       const visibility=()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0;}else start();};
       target.addEventListener('pointermove',move);target.addEventListener('pointerleave',leave);document.addEventListener('visibilitychange',visibility);
-      disposeScene=()=>{cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',visibility);geometry.dispose();material.dispose();field.dispose();renderer.dispose();renderer.domElement.remove();};
+      disposeScene=()=>{cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',visibility);logos.forEach(logo=>{logo.geometry.dispose();logo.material.dispose();});renderer.dispose();renderer.domElement.remove();};
     };
     const change=()=>{void setup().catch(()=>{});};change();desktop.addEventListener('change',change);
     return()=>{generation++;desktop.removeEventListener('change',change);disposeScene?.();};

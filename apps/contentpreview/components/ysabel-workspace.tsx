@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Archive, ArrowLeftRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Columns3,
+  Archive, ArrowLeftRight, CalendarDays, CalendarHeart, Check, ChevronDown, ChevronLeft, ChevronRight, Columns3,
   Compass, Copy, Download, Expand, Grid3X3, Heart, Home, Images, Maximize2, Menu,
   MessageCircle,
   LockKeyhole, LogOut, Monitor, MoreHorizontal, Move, NotebookPen, Pause, Play, Plus, Redo2,
@@ -33,11 +33,12 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import YsabelLoginLogo from '@/components/ysabel-login-logo';
 import YsabelLoginBackground from '@/components/ysabel-login-background';
+import OccasionsCalendar from '@/components/occasions-calendar';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
-type Section = 'feed' | 'media' | 'calendar' | 'notes' | 'captions' | 'versions' | 'archive' | 'settings';
+type Section = 'feed' | 'media' | 'calendar' | 'occasions' | 'notes' | 'captions' | 'versions' | 'archive' | 'settings';
 type RearrangeMode = 'swap' | 'insert';
 type DragSource = { type: 'grid' | 'library'; index?: number; id?: string };
 
@@ -2116,7 +2117,7 @@ export default function YsabelWorkspace() {
 
   const navItems: { label: string; value: Section; icon: typeof Grid3X3 }[] = [
     { label: 'Feed', value: 'feed', icon: Grid3X3 }, { label: 'Media', value: 'media', icon: Images },
-    { label: 'Calendar', value: 'calendar', icon: CalendarDays }, { label: 'Notes', value: 'notes', icon: NotebookPen },
+    { label: 'Calendar', value: 'calendar', icon: CalendarDays }, { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
     { label: 'Captions', value: 'captions', icon: MessageCircle },
     { label: 'Versions', value: 'versions', icon: Columns3 },
     { label: 'Archive', value: 'archive', icon: Archive },
@@ -2262,6 +2263,7 @@ export default function YsabelWorkspace() {
           </div>
         </section>}
 
+        {section === 'occasions' && <OccasionsCalendar />}
         {section === 'calendar' && <section className="calendar-page">
           <header><span className="page-kicker">Publication rhythm</span><h1>{calendar.label}</h1><p>Select any day to add its creative notes</p></header>
           <div className="calendar-weekdays">{['MON','TUE','WED','THU','FRI','SAT','SUN'].map((day) => <span key={day}>{day}</span>)}</div>

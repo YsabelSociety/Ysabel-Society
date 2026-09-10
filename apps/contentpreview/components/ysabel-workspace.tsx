@@ -34,6 +34,8 @@ import { Textarea } from '@/components/ui/textarea';
 import YsabelLoginLogo from '@/components/ysabel-login-logo';
 import YsabelLoginBackground from '@/components/ysabel-login-background';
 import OccasionsCalendar from '@/components/occasions-calendar';
+import UploadStatus, { UploadBadge } from '@/components/upload-status';
+import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
 
@@ -1109,6 +1111,11 @@ export default function YsabelWorkspace() {
   const [postId, setPostId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'Saved' | 'Saving…' | 'Not saved — check connection'>('Saved');
   const [mediaProcessing, setMediaProcessing] = useState('');
+  const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
+  const uploadRecords = useRef(new Map<string, { file: File; boardId: string; replacementId: string | null; carouselId: string | null }>());
+  const activeUploads = useRef(new Set<string>());
+  const latestAssets = useRef(assets); latestAssets.current = assets;
+  const latestFeeds = useRef(feeds); latestFeeds.current = feeds;
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState('');
   const dragSource = useRef<DragSource | null>(null);
@@ -1316,6 +1323,13 @@ export default function YsabelWorkspace() {
   }, [autoPreview, autoPlaying, autoTiming, displayPositions]);
 
   const persist = (payload: Record<string, unknown>) => {
+    // Local previews must never become foreign-key references on the server.
+    const localReference = (id: unknown) => typeof id === 'string' && id.startsWith('local-');
+    const payloadAsset = payload.asset as Asset | undefined;
+    if ((Array.isArray(payload.positions) && payload.positions.some(localReference)) || (payloadAsset && (localReference(payloadAsset.id) || payloadAsset.slides?.some(localReference)))) {
+      setSaveState('Not saved — check connection');
+      return Promise.resolve();
+    }
     const revision = ++saveRevision.current;
     setSaveState('Saving…');
     // Preserve gesture order even if the connection completes requests out of order.
@@ -1358,6 +1372,8 @@ export default function YsabelWorkspace() {
   };
 
   const logout = async () => {
+    uploadRecords.current.clear();
+    setUploadTasks([]);
     assetSaveTimers.current.forEach((timer) => window.clearTimeout(timer));
     assetSaveTimers.current.clear();
     await authFetch('/contentpreview/api/auth/logout', { method: 'POST' }).catch(() => undefined);
@@ -1619,6 +1635,7 @@ export default function YsabelWorkspace() {
   const applyDrop = (source: DragSource, target: number) => {
     if (source.type === 'grid' && typeof source.index === 'number') moveFeed(source.index, target);
     if (source.type === 'library' && source.id) {
+      if (source.id.startsWith('local-')) { setPublishError('Wait until this image shows Uploaded before placing it. Retry failed uploads in the upload summary.'); return; }
       const targetAsset = positions[target] ? byId.get(String(positions[target])) : null;
       if (targetAsset?.format === 'Carousel') {
         const slides = targetAsset.slides || [];
@@ -1767,114 +1784,102 @@ export default function YsabelWorkspace() {
     }, 450));
   };
 
-  const uploadFiles = async (files: FileList | null) => {
-    if (!files?.length) return;
-    for (const file of Array.from(files)) {
-      let uploadFile = file;
-      try {
-        if (videoNeedsNormalization(file)) setMediaProcessing('Converting video for every device…');
-        uploadFile = await normalizeVideo(file);
-      } catch {
-        setMediaProcessing('Video conversion failed');
-        window.setTimeout(() => setMediaProcessing(''), 3200);
-        continue;
+  // Originals go straight to storage; previews never need to download the original.
+  const uploadQueue = useRef<Promise<void>>(Promise.resolve());
+  const runUpload = async (id: string) => {
+    const record = uploadRecords.current.get(id);
+    if (!record || activeUploads.current.has(id)) return;
+    activeUploads.current.add(id);
+    const phase = (value: UploadTask['phase'], error?: string, assetId?: string) =>
+      setUploadTasks(current => current.map(task => task.id === id ? { ...task, phase: value, error, assetId } : task));
+    try {
+      phase('preparing');
+      if (record.file.size > 90_000_000) throw new Error('Maximum original file size is 90 MB. Export a smaller file and upload it again.');
+      const file = await normalizeVideo(record.file);
+      if (!uploadRecords.current.has(id)) return;
+      if (file.size > 90_000_000) throw new Error('Converted video exceeds 90 MB. Export a smaller MP4.');
+      const optimized = await createOptimizedMedia(file);
+      if (!uploadRecords.current.has(id)) return;
+      if (!isVideoFile(file) && (!optimized.thumbnail || !optimized.display)) {
+        throw new Error('A fast image preview could not be prepared. Export this image as JPG and retry.');
       }
-      const optimized = await createOptimizedMedia(uploadFile);
-      const tempId = 'local-' + crypto.randomUUID();
-      const localSource = isVideoFile(uploadFile) ? uploadFile : optimized.thumbnail || uploadFile;
+      const previousPreview = latestAssets.current.find(asset => asset.id === id)?.url;
+      if (previousPreview?.startsWith('blob:')) URL.revokeObjectURL(previousPreview);
+      const preview = URL.createObjectURL(isVideoFile(file) ? file : optimized.thumbnail!);
       const draft: Asset = {
-        id: tempId, name: file.name.replace(/\.[^.]+$/, ''), fileName: uploadFile.name, mimeType: uploadFile.type,
-        fileSize: uploadFile.size, url: URL.createObjectURL(localSource), format: isVideoFile(uploadFile) ? 'Video' : 'Photo',
-        category: 'Other', status: 'Concept', plannedDate: null, caption: '', notes: '', slides: [], cropZoom: 100,
-        cropX: 50, cropY: 50, palette: '#1d3428,#bdbdb9,#2d2c2c', archived: false,
+        id, name: record.file.name.replace(/\.[^.]+$/, ''), fileName: file.name, mimeType: file.type,
+        fileSize: file.size, url: preview, format: isVideoFile(file) ? 'Video' : 'Photo',
+        category: 'Other', status: 'Concept', plannedDate: null, caption: '', notes: '', slides: [],
+        cropZoom: 100, cropX: 50, cropY: 50, palette: '#1d3428,#bdbdb9,#2d2c2c', archived: false,
       };
-      setAssets((current) => [draft, ...current]);
-      const replacementId = replaceTarget.current;
-      if (replacementId) {
-        const index = positions.indexOf(replacementId); if (index >= 0) { const next = [...positions]; next[index] = tempId; commitFeed(next); }
-        replaceTarget.current = null;
-      }
-      const form = new FormData(); form.append('file', uploadFile);
-      if (optimized.thumbnail) form.append('thumbnail', optimized.thumbnail, 'thumbnail.webp');
-      if (optimized.display) form.append('display', optimized.display, 'display.webp');
-      try {
-        const response = await authFetch('/contentpreview/api/media', { method: 'POST', body: form });
-        if (!response.ok) continue;
-        const saved = await response.json() as Asset;
-        const normalized = { ...saved, url: mediaUrl({ ...saved, url: '/contentpreview/api/media/' + saved.id }, authToken) };
-        setAssets((current) => current.map((item) => item.id === tempId ? normalized : item));
-        URL.revokeObjectURL(draft.url);
-        setFeeds((current) => {
-          const nextFeed = (current[activeBoardId] || emptyFeed()).map((id) => id === tempId ? saved.id : id);
-          persist({ action: 'save', boardId: activeBoardId, positions: nextFeed });
-          return { ...current, [activeBoardId]: nextFeed };
-        });
-        setMediaProcessing('');
-      } catch { /* the immediate local draft remains usable */ }
-    }
-    setMediaProcessing('');
-    if (fileInput.current) fileInput.current.value = '';
-  };
-
-  const uploadCarouselFiles = async (files: FileList | null, targetId: string | null) => {
-    const target = assets.find((asset) => asset.id === targetId);
-    if (!target || !files?.length) return;
-    const chosen = Array.from(files).slice(0, Math.max(0, 39 - (target.slides || []).length));
-    if (!chosen.length) return;
-    if (chosen.some(videoNeedsNormalization)) setMediaProcessing('Converting videos for every device…');
-    const preparedResults = await mapWithConcurrency(chosen, 2, async (file) => {
-      try {
-        const uploadFile = await normalizeVideo(file);
-        const optimized = await createOptimizedMedia(uploadFile);
-        const localSource = isVideoFile(uploadFile) ? uploadFile : optimized.thumbnail || uploadFile;
-        const draft = {
-          id: 'local-' + crypto.randomUUID(), name: file.name.replace(/\.[^.]+$/, ''), fileName: uploadFile.name,
-          mimeType: uploadFile.type, fileSize: uploadFile.size, url: URL.createObjectURL(localSource),
-          format: isVideoFile(uploadFile) ? 'Video' : 'Photo', category: 'Other', status: 'Concept',
-          plannedDate: null, caption: '', notes: '', slides: [], cropZoom: 100, cropX: 50, cropY: 50,
-          palette: '#1d3428,#bdbdb9,#2d2c2c', archived: false,
-        } satisfies Asset;
-        return { file: uploadFile, optimized, draft };
-      } catch { return null; }
-    });
-    const prepared = preparedResults.filter((item): item is NonNullable<typeof item> => item !== null);
-    setMediaProcessing(prepared.length === chosen.length ? '' : 'Some videos could not be converted');
-    if (!prepared.length) { window.setTimeout(() => setMediaProcessing(''), 3200); return; }
-    const drafts = prepared.map(({ draft }) => draft);
-    const optimistic = { ...target, format: 'Carousel', slides: [...(target.slides || []), ...drafts.map((draft) => draft.id)] };
-    setAssets((current) => [...drafts, ...current.map((asset) => asset.id === target.id ? optimistic : asset)]);
-    setSaveState('Saving…');
-
-    const resolved = new Map<string, string>();
-    await mapWithConcurrency(prepared, 2, async ({ file, optimized, draft }) => {
+      setAssets(current => [draft, ...current.filter(item => item.id !== id)]);
       const form = new FormData(); form.append('file', file);
       if (optimized.thumbnail) form.append('thumbnail', optimized.thumbnail, 'thumbnail.webp');
       if (optimized.display) form.append('display', optimized.display, 'display.webp');
-      try {
-        const response = await authFetch('/contentpreview/api/media', { method: 'POST', body: form });
-        if (!response.ok) throw new Error('Upload failed');
-        const saved = await response.json() as Asset;
-        const normalized = { ...saved, url: mediaUrl({ ...saved, url: '/contentpreview/api/media/' + saved.id }, authToken) };
-        resolved.set(draft.id, saved.id);
-        setAssets((current) => current.map((asset) => asset.id === draft.id ? normalized : asset));
-        URL.revokeObjectURL(draft.url);
-      } catch {
-        setAssets((current) => current.filter((asset) => asset.id !== draft.id));
-        URL.revokeObjectURL(draft.url);
+      phase('uploading');
+      const response = await fetch('https://ysabel-society-media-preview.arberhalili1.chatgpt.site/api/media', {
+        method: 'POST', headers: { Authorization: 'Bearer ' + authToken }, body: form, credentials: 'omit',
+      });
+      if (!response.ok) throw await mediaRequestError(response, 'Upload');
+      const saved = await response.json() as Asset;
+      if (!uploadRecords.current.has(id)) { URL.revokeObjectURL(preview); return; }
+      if (!saved.id || saved.id.startsWith('local-')) throw new Error('The server did not confirm this upload. Please retry.');
+      const normalized = { ...saved, url: mediaUrl({ ...saved, url: '/contentpreview/api/media/' + saved.id }, authToken) };
+      const remap = (positions: (string | null)[]) => positions.map(value => value === id ? saved.id : value);
+      const changedParents = new Set(latestAssets.current.filter(item => item.slides?.includes(id)).map(item => item.id));
+      const nextAssets = latestAssets.current.map(item => item.id === id ? normalized : {
+        ...item, slides: (item.slides || []).map(value => value === id ? saved.id : value),
+      });
+      if (!nextAssets.some(item => item.id === saved.id)) nextAssets.unshift(normalized);
+      const parent = record.carouselId ? nextAssets.find(item => item.id === record.carouselId) : null;
+      if (parent) { parent.format = 'Carousel'; parent.slides = [...new Set([...(parent.slides || []), saved.id])].slice(0, 39); }
+      latestAssets.current = nextAssets; setAssets(nextAssets);
+      const nextFeeds = { ...latestFeeds.current };
+      for (const [boardId, feed] of Object.entries(nextFeeds)) {
+        const next = remap(feed);
+        if (boardId === record.boardId && record.replacementId) {
+          for (let index = 0; index < next.length; index++) if (next[index] === record.replacementId) next[index] = saved.id;
+        }
+        if (next.some((value, index) => value !== feed[index])) {
+          nextFeeds[boardId] = next;
+          void persist({ action: 'save', boardId, positions: next });
+        }
       }
-    });
-
-    const draftIds = new Set(drafts.map((draft) => draft.id));
-    const finalSlides = optimistic.slides
-      .map((id) => resolved.get(id) || id)
-      .filter((id) => !draftIds.has(id));
-    const finalAsset = { ...optimistic, format: finalSlides.length ? 'Carousel' : target.format, slides: finalSlides };
-    setAssets((current) => current.map((asset) => asset.id === target.id ? finalAsset : asset));
-    persist({ action: 'save', boardId: activeBoardId, asset: finalAsset });
-    if (prepared.length === chosen.length) setMediaProcessing('');
-    else window.setTimeout(() => setMediaProcessing(''), 3200);
-    if (carouselInput.current) carouselInput.current.value = '';
+      latestFeeds.current = nextFeeds; setFeeds(nextFeeds);
+      for (const asset of nextAssets) {
+        if (asset === parent || changedParents.has(asset.id)) {
+          void persist({ action: 'save', boardId: record.boardId, asset });
+        }
+      }
+      setHistory(current => current.map(remap)); setFuture(current => current.map(remap));
+      setSelectedId(current => current === id ? saved.id : current);
+      phase('uploaded', undefined, saved.id);
+      uploadRecords.current.delete(id);
+      URL.revokeObjectURL(preview);
+    } catch (error) {
+      phase('failed', error instanceof Error ? error.message : 'Upload interrupted. Check your connection and retry.');
+    } finally { activeUploads.current.delete(id); }
   };
+  const queueUpload = (id: string) => {
+    uploadQueue.current = uploadQueue.current.catch(() => undefined).then(() => runUpload(id));
+    return uploadQueue.current;
+  };
+  const addUploads = async (files: FileList | File[] | null, carouselId: string | null = null) => {
+    if (!files?.length) return;
+    const replacementId = replaceTarget.current; replaceTarget.current = null;
+    const chosen = Array.from(files).slice(0, carouselId ? Math.max(0, 39 - (latestAssets.current.find(a => a.id === carouselId)?.slides || []).length) : undefined);
+    for (const [index, file] of chosen.entries()) {
+      const id = 'local-' + crypto.randomUUID();
+      uploadRecords.current.set(id, { file, boardId: activeBoardId, replacementId: index === 0 ? replacementId : null, carouselId });
+      setUploadTasks(current => [...current, { id, name: file.name, phase: 'preparing' }]);
+      void queueUpload(id);
+    }
+    if (fileInput.current) fileInput.current.value = '';
+    if (carouselInput.current) carouselInput.current.value = '';
+    await uploadQueue.current;
+  };
+  const uploadFiles = (files: FileList | File[] | null) => addUploads(files);
+  const uploadCarouselFiles = (files: FileList | null, targetId: string | null) => addUploads(files, targetId);
 
   const toggleMediaSelection = (id: string) => {
     setMediaSelection((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -1912,6 +1917,7 @@ export default function YsabelWorkspace() {
   const deleteMedia = async () => {
     if (!mediaDeleteIds.length || mediaDeleteBusy) return;
     const ids = [...mediaDeleteIds];
+    if (ids.some(id => activeUploads.current.has(id))) { setMediaDeleteError('This file is still uploading. Wait for it to finish before deleting it.'); return; }
     ids.forEach((id) => { window.clearTimeout(assetSaveTimers.current.get(id)); assetSaveTimers.current.delete(id); });
     const serverIds = ids.filter((id) => !id.startsWith('local-'));
     const previous = { assets, feeds, publications, mediaSelection, selectedId, postId };
@@ -1926,6 +1932,8 @@ export default function YsabelWorkspace() {
         if (!response.ok) throw new Error('Delete failed');
       }
       previous.assets.filter((asset) => ids.includes(asset.id) && asset.url.startsWith('blob:')).forEach((asset) => URL.revokeObjectURL(asset.url));
+      ids.forEach(id => uploadRecords.current.delete(id));
+      setUploadTasks(current => current.filter(task => !ids.includes(task.id) && !ids.includes(task.assetId || '')));
       setMediaDeleteIds([]);
       if (ids.length > 1) setMediaSelectMode(false);
     } catch {
@@ -1992,25 +2000,27 @@ export default function YsabelWorkspace() {
   const publishBoard = async () => {
     if (!activeBoard || publishing) return;
     setPublishing(true); setPublishError('');
-    const referenced = new Set(positions.filter(Boolean) as string[]);
-    const queue = [...referenced];
-    while (queue.length) {
-      const asset = byId.get(queue.shift() as string);
-      for (const slideId of asset?.slides || []) {
-        if (!referenced.has(slideId)) { referenced.add(slideId); queue.push(slideId); }
-      }
-    }
     try {
+      const referenced = validatePublishMedia(positions, assets);
+      await persistenceQueue.current.catch(() => undefined);
+      const check = await authFetch('/contentpreview/api/workspace', { cache: 'no-store' });
+      if (!check.ok) throw await mediaRequestError(check, 'Media verification');
+      const server = await check.json() as WorkspaceData;
+      validatePublishMedia(positions, assets, new Set(server.media.map(asset => asset.id)));
+      for (const id of referenced) {
+        window.clearTimeout(assetSaveTimers.current.get(id));
+        assetSaveTimers.current.delete(id);
+      }
       const response = await authFetch('/contentpreview/api/workspace', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ action: 'publish-board', boardId: activeBoardId, positions, assets: assets.filter((asset) => referenced.has(asset.id)) }),
       });
-      if (!response.ok) throw new Error('Publish failed');
+      if (!response.ok) throw await mediaRequestError(response, 'Publish');
       const publication = await response.json() as Publication;
       setPublications((current) => [publication, ...current.filter((item) => item.boardId !== publication.boardId)]);
       setSaveState('Saved');
       enterPublishedMode();
-    } catch { setPublishError('Publish failed — please try again'); }
+    } catch (error) { setPublishError(error instanceof Error ? error.message : 'Publishing was interrupted. Your draft is unchanged; please retry.'); }
     finally { setPublishing(false); }
   };
 
@@ -2169,12 +2179,12 @@ export default function YsabelWorkspace() {
             </div>
             <div className={'canvas canvas--' + view}>{renderPreview()}</div>
             {edit && <aside className="edit-dock"><SlidersHorizontal /><span>Drag posts directly</span><span className="dock-divider" /><button className={rearrangeMode === 'swap' ? 'active' : ''} onClick={() => setRearrangeMode('swap')}>Swap</button><button className={rearrangeMode === 'insert' ? 'active' : ''} onClick={() => setRearrangeMode('insert')}>Insert</button><span className="dock-divider" /><button className={exchangeMode ? 'active' : ''} onClick={() => { setExchangeMode(!exchangeMode); setExchangeFirst(null); }}><ArrowLeftRight />Exchange</button><button className={libraryDockOpen ? 'active' : ''} onClick={() => setLibraryDockOpen(!libraryDockOpen)}><Images />Library</button></aside>}
-            {edit && libraryDockOpen && <aside className={'library-dock library-dock--' + libraryPreviewMode} style={{ width: libraryDockSize.width, height: libraryDockSize.height }}><header><div><span>Media library</span><small>{filteredAssets.length} assets</small></div><button aria-label="Upload media" title="Upload media" onClick={() => fileInput.current?.click()}><Upload /></button><button aria-label="Close media library" title="Close" onClick={() => setLibraryDockOpen(false)}><X /></button></header><nav aria-label="Filter media">{[['all','All'],['unused','Unused'],['photo','Photo'],['video','Video']].map(([value,label]) => <button key={value} className={libraryFilter === value ? 'active' : ''} onClick={() => setLibraryFilter(value)}>{label}</button>)}</nav><div className="library-dock-grid">{filteredAssets.map((asset) => <article key={asset.id}><button className="library-dock-asset" type="button" draggable title={asset.name} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag}><AssetVisual asset={asset} original={libraryPreviewMode === 'original'} defer />{used.has(asset.id) && <i />}</button><button className="library-touch-drag" type="button" aria-label={'Drag ' + asset.name + ' into feed'} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginPointerDrag({ type: 'library', id: asset.id }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); }}><Move /></button><button className="library-dock-delete" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onPointerDown={(event) => event.stopPropagation()} onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button></article>)}</div><footer><span>Drag to place · Trash to delete</span><button type="button" onClick={toggleLibraryPreview} title="Change thumbnail framing"><Expand />{libraryPreviewMode === 'original' ? 'Original' : '4:5 crop'}</button></footer><button className="library-dock-resize" type="button" aria-label="Resize media library" title="Drag to resize" onPointerDown={beginDockResize}><span /></button></aside>}
+            {edit && libraryDockOpen && <aside className={'library-dock library-dock--' + libraryPreviewMode} style={{ width: libraryDockSize.width, height: libraryDockSize.height }}><header><div><span>Media library</span><small>{filteredAssets.length} assets</small></div><button aria-label="Upload media" title="Upload media" onClick={() => fileInput.current?.click()}><Upload /></button><button aria-label="Close media library" title="Close" onClick={() => setLibraryDockOpen(false)}><X /></button></header><nav aria-label="Filter media">{[['all','All'],['unused','Unused'],['photo','Photo'],['video','Video']].map(([value,label]) => <button key={value} className={libraryFilter === value ? 'active' : ''} onClick={() => setLibraryFilter(value)}>{label}</button>)}</nav><div className="library-dock-grid">{filteredAssets.map((asset) => <article key={asset.id}><button className="library-dock-asset" type="button" draggable title={asset.name} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag}><AssetVisual asset={asset} original={libraryPreviewMode === 'original'} defer /><UploadBadge id={asset.id} tasks={uploadTasks} />{used.has(asset.id) && <i />}</button><button className="library-touch-drag" type="button" aria-label={'Drag ' + asset.name + ' into feed'} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginPointerDrag({ type: 'library', id: asset.id }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); }}><Move /></button><button className="library-dock-delete" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onPointerDown={(event) => event.stopPropagation()} onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button></article>)}</div><footer><span>Drag to place · Trash to delete</span><button type="button" onClick={toggleLibraryPreview} title="Change thumbnail framing"><Expand />{libraryPreviewMode === 'original' ? 'Original' : '4:5 crop'}</button></footer><button className="library-dock-resize" type="button" aria-label="Resize media library" title="Drag to resize" onPointerDown={beginDockResize}><span /></button></aside>}
             {artDirection && <aside className="art-panel"><div className="art-panel-head"><div><span>Art direction</span><small>Visual continuity</small></div><button onClick={() => setArtDirection(false)}><X /></button></div><label><span><strong>Grayscale preview</strong><small>Read tonal balance</small></span><Switch checked={grayscale} onCheckedChange={setGrayscale} /></label><label><span><strong>Color rhythm</strong><small>Show dominant palettes</small></span><Switch checked={colorRhythm} onCheckedChange={setColorRhythm} /></label><label><span><strong>Similarity guidance</strong><small>Flag close compositions</small></span><Switch checked={similarity} onCheckedChange={setSimilarity} /></label><div className="direction-metric"><span>Average brightness <strong>42%</strong></span><i><b style={{ width: '42%' }} /></i></div><div className="direction-metric"><span>Visual density <strong>Balanced</strong></span><i><b style={{ width: '61%' }} /></i></div><div className="balance-row"><div><strong>83%</strong><span>Photography</span></div><div><strong>17%</strong><span>Video</span></div></div><div className="rhythm-strip">{['#1d3428','#a46e41','#d8c6a7','#8d1723','#1a1b19','#d8d4ca','#66523d','#1d3428'].map((color) => <i key={color} style={{ background: color }} />)}</div></aside>}
           </div>
         )}
 
-        {section === 'media' && <section className="library-page"><header><div><span className="page-kicker">Independent collection</span><h1>Media Library</h1><p>Upload once, then place media from the compact library beside your feed.</p></div><div className="library-page-actions">{mediaSelection.length > 0 && <Button variant="destructive" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds(mediaSelection); }}><Trash2 />Delete {mediaSelection.length}</Button>}<Button variant="outline" onClick={() => { setMediaSelectMode((current) => !current); setMediaSelection([]); }}>{mediaSelectMode ? <><X />Cancel selection</> : <><Check />Select media</>}</Button><Button variant="outline" onClick={() => { setSection('feed'); setEdit(true); setLibraryDockOpen(true); }}><Grid3X3 />Open beside feed</Button><Button onClick={() => fileInput.current?.click()}><Upload />Upload media</Button></div></header><Tabs value={libraryFilter} onValueChange={(value) => setLibraryFilter(String(value))}><TabsList variant="line" className="library-tabs">{[['all','All'],['photo','Photography'],['video','Video'],['used','Used'],['unused','Unused'],['archived','Archived']].map(([value,label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}</TabsList></Tabs><div className="library-grid">{filteredAssets.map((asset) => { const selected = mediaSelection.includes(asset.id); return <article key={asset.id} className={selected ? 'selected' : ''}><button className="library-asset-button" draggable={!mediaSelectMode} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag} onClick={() => { if (mediaSelectMode) toggleMediaSelection(asset.id); else { setSelectedId(asset.id); setEdit(true); } }}><span className="library-thumb"><AssetVisual asset={asset} defer />{used.has(asset.id) && <em>Used</em>}{mediaSelectMode && <i className="library-selection-mark">{selected && <Check />}</i>}</span><strong>{asset.name}</strong><small>{asset.format} · {asset.category}</small></button>{!mediaSelectMode && <button className="library-delete-one" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button>}</article>; })}</div></section>}
+        {section === 'media' && <section className="library-page"><header><div><span className="page-kicker">Independent collection</span><h1>Media Library</h1><p>Originals up to 90 MB · Lightweight previews keep the grid fast. Wait for “Uploaded” before placing media.</p></div><div className="library-page-actions">{mediaSelection.length > 0 && <Button variant="destructive" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds(mediaSelection); }}><Trash2 />Delete {mediaSelection.length}</Button>}<Button variant="outline" onClick={() => { setMediaSelectMode((current) => !current); setMediaSelection([]); }}>{mediaSelectMode ? <><X />Cancel selection</> : <><Check />Select media</>}</Button><Button variant="outline" onClick={() => { setSection('feed'); setEdit(true); setLibraryDockOpen(true); }}><Grid3X3 />Open beside feed</Button><Button onClick={() => fileInput.current?.click()}><Upload />Upload media</Button></div></header><Tabs value={libraryFilter} onValueChange={(value) => setLibraryFilter(String(value))}><TabsList variant="line" className="library-tabs">{[['all','All'],['photo','Photography'],['video','Video'],['used','Used'],['unused','Unused'],['archived','Archived']].map(([value,label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}</TabsList></Tabs><div className="library-grid">{filteredAssets.map((asset) => { const selected = mediaSelection.includes(asset.id); return <article key={asset.id} className={selected ? 'selected' : ''}><button className="library-asset-button" draggable={!mediaSelectMode} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag} onClick={() => { if (mediaSelectMode) toggleMediaSelection(asset.id); else { setSelectedId(asset.id); setEdit(true); } }}><span className="library-thumb"><AssetVisual asset={asset} defer /><UploadBadge id={asset.id} tasks={uploadTasks} />{used.has(asset.id) && <em>Used</em>}{mediaSelectMode && <i className="library-selection-mark">{selected && <Check />}</i>}</span><strong>{asset.name}</strong><small>{asset.format} · {asset.category}</small></button>{!mediaSelectMode && <button className="library-delete-one" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button>}</article>; })}</div></section>}
 
         {section === 'captions' && <section className="captions-page">
           <header><span className="page-kicker">Social direction writing</span><h1>Community Captions</h1><p>Keep one list of reusable caption suggestions and track what has already been used.</p></header>
@@ -2290,7 +2300,8 @@ export default function YsabelWorkspace() {
         {section === 'settings' && <section className="settings-page"><header><span className="page-kicker">Profile preview</span><h1>Ysabel Society Identity</h1><p>Profile information imported from the official Instagram account</p></header><div className="settings-content"><div className="identity-preview"><BrandAvatar size="xl" /><div><strong>Official Instagram artwork</strong><span>Current profile image · imported September 2026</span></div></div><label>Instagram username<Input defaultValue={instagramProfile.username} /></label><label>Profile name<Input defaultValue={instagramProfile.name} /></label><label>Biography<Textarea defaultValue={`${instagramProfile.category}\nReservations: ${instagramProfile.reservations}\n📍 ${instagramProfile.location}`} /></label><label>Location<Input defaultValue={instagramProfile.location} /></label><div className="settings-actions"><Button>Save profile details</Button><Button variant="outline" onClick={logout}><LogOut />Log out</Button></div></div></section>}
       </section>
 
-      <Inspector asset={selectedAsset} assets={assets} onClose={() => setSelectedId(null)} onChange={updateAsset} onReplace={() => { replaceTarget.current = selectedAsset?.id || null; fileInput.current?.click(); }} onAddSlides={() => carouselInput.current?.click()} onDuplicate={() => { if (!selectedAsset) return; const copy = { ...selectedAsset, id: 'local-' + crypto.randomUUID(), name: selectedAsset.name + ' — Copy' }; setAssets((current) => [copy, ...current]); }} onRemove={() => { if (!selectedId) return; commitFeed(positions.map((id) => id === selectedId ? null : id)); setSelectedId(null); }} />
+      <UploadStatus tasks={uploadTasks} onRetry={id => { void queueUpload(id); }} onDismiss={() => setUploadTasks(current => current.filter(task => task.phase !== 'uploaded'))} />
+      <Inspector asset={selectedAsset} assets={assets} onClose={() => setSelectedId(null)} onChange={updateAsset} onReplace={() => { replaceTarget.current = selectedAsset?.id || null; fileInput.current?.click(); }} onAddSlides={() => carouselInput.current?.click()} onDuplicate={() => { if (!selectedAsset) return; void authFetch(selectedAsset.url).then(async response => { if (!response.ok) throw await mediaRequestError(response, 'Duplicate'); const blob = await response.blob(); await uploadFiles([new File([blob], selectedAsset.fileName, { type: selectedAsset.mimeType })]); }).catch(error => setPublishError(error.message)); }} onRemove={() => { if (!selectedId) return; commitFeed(positions.map((id) => id === selectedId ? null : id)); setSelectedId(null); }} />
 
       <Dialog open={Boolean(postAsset)} onOpenChange={(open) => !open && setPostId(null)}><DialogContent className="post-dialog" showCloseButton><DialogHeader className="sr-only"><DialogTitle>Instagram post preview</DialogTitle><DialogDescription>Preview of the selected planned Instagram post.</DialogDescription></DialogHeader>{postAsset && <div className="post-layout"><div className="post-media"><CarouselVisual key={postAsset.id} asset={postAsset} assets={displayAssets} contain /></div><div className="post-copy-panel"><header><BrandAvatar size="sm" /><span><strong>{instagramProfile.username}</strong><small>{instagramProfile.location}</small></span><MoreHorizontal /></header><div className="post-caption"><BrandAvatar size="sm" /><p><strong>{instagramProfile.username}</strong> {postAsset.caption || 'A study in taste, art and rhythm.'}</p></div><div className="post-actions"><span><Heart /><MessageCircle /><Send /></span><Download /></div><strong className="likes">Liked by the Ysabel Society team</strong><small className="post-date">{postAsset.plannedDate ? new Date(postAsset.plannedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 'Date not assigned'}</small></div></div>}</DialogContent></Dialog>
 

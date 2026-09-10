@@ -16,7 +16,7 @@ test('almanac has unique valid sourced dates through New Year 2028', () => {
   for (const event of occasions) {
     assert.ok(event.date >= '2026-09-01' && event.date <= '2028-01-01');
     assert.equal(new Date(event.date).toISOString().slice(0, 10), event.date);
-    assert.ok(event.source.startsWith('https://'));
+    assert.ok(event.source.startsWith('https://') || (event.special && event.title === 'Ysabel Society Birthday'));
     assert.ok(event.idea.length > 25);
     assert.ok(event.themes.length > 0);
     assert.ok(event.themes.every(theme => data.occasionThemes.includes(theme)));
@@ -44,6 +44,16 @@ test('multi-day occasions render only once in calendar cells, including across m
   assert.ok(!eventsContinuingIntoMonth('2026-11').some(event => event.title.includes('Oktoberfest')));
   const annualKeys = occasions.map(event => `${event.date.slice(0, 4)}:${event.title}`);
   assert.equal(new Set(annualKeys).size, annualKeys.length, 'No duplicate celebration within a year');
+});
+
+test('Ysabel birthday is a special annual occasion on 15 November without duplicates', () => {
+  for (const year of [2026, 2027]) {
+    const birthdays = eventsStartingOnDate(`${year}-11-15`).filter(event => event.title === 'Ysabel Society Birthday');
+    assert.equal(birthdays.length, 1);
+    assert.equal(birthdays[0].special, true);
+    assert.equal(birthdays[0].themes.length, 4);
+  }
+  assert.ok(!data.occasionsToConfirm.some(event => event.title.includes('anniversary')));
 });
 test('researched cuisine dates, theme tags and variable wine dates are preserved', () => {
   for (const [date, title, theme] of [

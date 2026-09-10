@@ -5,7 +5,7 @@ export const occasionCategories = ['National & local', 'Food', 'Drinks', 'Music 
 export type OccasionCategory = typeof occasionCategories[number];
 export const occasionThemes = ['Ysabel Asian', 'Ysabel Italian', 'Bar & wine', 'Society & hospitality'] as const;
 export type OccasionTheme = typeof occasionThemes[number];
-export type Occasion = { id: string; date: string; endDate?: string; title: string; category: OccasionCategory; region: string; themes: OccasionTheme[]; status: 'Annual observance' | 'Informal occasion' | 'Confirmed dates' | 'Tentative'; idea: string; source: string };
+export type Occasion = { id: string; date: string; endDate?: string; title: string; category: OccasionCategory; region: string; themes: OccasionTheme[]; status: 'Annual observance' | 'Informal occasion' | 'Confirmed dates' | 'Tentative'; idea: string; source: string; special?: boolean };
 const kosovo = 'https://www.timeanddate.com/holidays/kosovo/2027';
 const albania = 'https://www.bankofalbania.org/Press/2026_Official_Bank_Holiday_Schedule/';
 const un = 'https://www.un.org/en/observances/list-days-weeks';
@@ -156,6 +156,10 @@ for (const year of [2026, 2027]) {
   );
 }
 export const occasions: Occasion[] = [
+  ...[2026, 2027].map(year => ({
+    ...make(`${year}-11-15`, 'Ysabel Society Birthday', 'Community', 'Ysabel Society', 'Celebrate the people, flavours and memories that make Ysabel Society. Plan an anniversary gathering and a special birthday content direction.', '', 'Annual observance', undefined, [...occasionThemes]),
+    special: true,
+  })),
   ...[2026, 2027, 2028].flatMap(year => annual.map(([day, title, category, region, idea, source, informal, themes]) => make(`${year}-${day}`, title, category, region, idea, source, informal ? 'Informal occasion' : 'Annual observance', undefined, themes))),
   ...dated,
 ].filter(event => event.date >= OCCASION_START && event.date <= OCCASION_END).sort((a, b) => a.date.localeCompare(b.date) || a.title.localeCompare(b.title));
@@ -165,7 +169,7 @@ export const occasionsToConfirm = [
   { title: 'Sunny Hill Festival 2027', region: 'Prishtina', idea: 'Visitor dining, diaspora reunions and music-led content. Dates not confirmed in the sources checked.', source: 'https://www.sunnyhillfestival.com/' },
   { title: 'DokuFest 2027', region: 'Prizren', idea: 'Kosovo arts and visitor hospitality; confirm the festival schedule before building content around it.', source: 'https://dokufest.com/' },
   { title: 'Negroni Week 2027', region: 'International', idea: 'Italian aperitivo and potential registered participation. Await the organiser’s dates.', source: 'https://www.negroniweek.com/faqs/' },
-  { title: 'Ysabel anniversary, guest DJs & seasonal openings', region: 'Ysabel Society', idea: 'Add the dates to your planning notes once management confirms the programme.', source: 'https://www.instagram.com/ysabelsociety/' },
+  { title: 'Guest DJs & seasonal openings', region: 'Ysabel Society', idea: 'Add the dates to your planning notes once management confirms the programme.', source: 'https://www.instagram.com/ysabelsociety/' },
 ];
 
 export function eventsOnDate(date: string, events = occasions) {

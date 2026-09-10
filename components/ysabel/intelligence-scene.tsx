@@ -23,20 +23,20 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const current = ++generation;
       disposeScene?.(); disposeScene = undefined;
       if (!desktop.matches) return;
-      const [THREE, fieldBytes] = await Promise.all([import('three'),fetch(appPath('/emblem-morph-fields.bin'),{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw new Error('Emblem shapes unavailable');return r.arrayBuffer();})]);
+      const [THREE, fieldBytes] = await Promise.all([import('three'),fetch(appPath('/emblem-morph-fields.bin?v=101'),{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw new Error('Emblem shapes unavailable');return r.arrayBuffer();})]);
       if (current !== generation) return;
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try { renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, powerPreference:'low-power'}); } catch { return; }
-      renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+      renderer.setPixelRatio(Math.min(Math.max(devicePixelRatio,1.5),2));
       target.appendChild(renderer.domElement);
       const scene = new THREE.Scene();
       const camera = new THREE.PerspectiveCamera(38,1,0.1,30); camera.position.z=7;
       const group = new THREE.Group(); scene.add(group);
 
-      const field=new THREE.DataTexture(new Uint8Array(fieldBytes),512,512,THREE.RGBAFormat);
+      const field=new THREE.DataTexture(new Uint8Array(fieldBytes),1536,1536,THREE.RGBAFormat);
       field.minFilter=field.magFilter=THREE.LinearFilter;field.needsUpdate=true;
       const geometry=new THREE.BoxGeometry(4.8,4.8,.32);
-      const palette=[new THREE.Color('#dba300'),new THREE.Color('#1d3428'),new THREE.Color('#b32632'),new THREE.Color('#b9c3cc')];
+      const palette=[new THREE.Color('#eac426'),new THREE.Color('#1d3428'),new THREE.Color('#cd061e'),new THREE.Color('#bdbdb9')];
       const uniforms={fields:{value:field},shapeA:{value:0},shapeB:{value:1},blend:{value:0},tint:{value:palette[0].clone()},localCamera:{value:new THREE.Vector3(0,0,7)}};
       const material=new THREE.ShaderMaterial({uniforms,
         vertexShader: 'varying vec3 localPosition;void main(){localPosition=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
@@ -48,24 +48,24 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
           float surface(vec3 p){
             vec2 uv=vec2(p.x/4.4+.5,.5-p.y/4.4);
             vec4 sampled=texture2D(fields,clamp(uv,0.0,1.0));
-            float d=(mix(channel(sampled,shapeA),channel(sampled,shapeB),blend)*255.0-128.0)*(.5*4.4/512.0);
+            float d=(mix(channel(sampled,shapeA),channel(sampled,shapeB),blend)*255.0-128.0)*(.5*4.4/1536.0);
             d=max(d,max(abs(p.x),abs(p.y))-2.2);
             return max(d,abs(p.z)-.085);
           }
           void main(){
             vec3 direction=normalize(localPosition-localCamera);vec3 p=localPosition+direction*.0001;
             bool hit=false;
-            for(int i=0;i<96;i++){
-              float d=surface(p);if(d<.0016){hit=true;break;}
-              p+=direction*max(.001,d*.8);
+            for(int i=0;i<160;i++){
+              float d=surface(p);if(d<.00035){hit=true;break;}
+              p+=direction*max(.00025,d*.85);
               if(abs(p.z)>.165||max(abs(p.x),abs(p.y))>2.405)break;
             }
             if(!hit)discard;
-            vec2 e=vec2(.003,0.0);
+            vec2 e=vec2(.001,0.0);
             vec3 n=normalize(vec3(surface(p+e.xyy)-surface(p-e.xyy),surface(p+e.yxy)-surface(p-e.yxy),surface(p+e.yyx)-surface(p-e.yyx)));
             vec3 light=normalize(vec3(-.4,.7,1.0));float diffuse=max(dot(n,light),0.0);
             float shine=pow(max(dot(reflect(-light,n),-direction),0.0),36.0);
-            gl_FragColor=vec4(tint*(.55+diffuse*.65)+vec3(shine*.32),1.0);
+            gl_FragColor=vec4(tint*(.72+diffuse*.28)+vec3(shine*.055),1.0);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
           }

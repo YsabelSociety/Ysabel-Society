@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Archive, ArrowLeftRight, CalendarDays, CalendarHeart, Check, ChevronDown, ChevronLeft, ChevronRight, Columns3,
+  Archive, ArrowLeftRight, CalendarHeart, Check, ChevronDown, ChevronLeft, ChevronRight,
   Compass, Copy, Download, Expand, Grid3X3, Heart, Home, Images, Maximize2, Menu,
   MessageCircle,
   LockKeyhole, LogOut, Monitor, MoreHorizontal, Move, NotebookPen, Pause, Play, Plus, Redo2,
@@ -38,7 +38,7 @@ import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
-type Section = 'feed' | 'media' | 'calendar' | 'occasions' | 'notes' | 'captions' | 'versions' | 'archive' | 'settings';
+type Section = 'feed' | 'media' | 'occasions' | 'notes' | 'captions' | 'archive' | 'settings';
 type RearrangeMode = 'swap' | 'insert';
 type DragSource = { type: 'grid' | 'library'; index?: number; id?: string };
 
@@ -1097,7 +1097,6 @@ export default function YsabelWorkspace() {
   const [activeBoardId, setActiveBoardId] = useState('board-september-2026');
   const [feeds, setFeeds] = useState<Record<string, (string | null)[]>>({});
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [versions, setVersions] = useState<Version[]>([]);
   const [notes, setNotes] = useState<CalendarNote[]>([]);
   const [publications, setPublications] = useState<Publication[]>([]);
   const [captionStore, setCaptionStore] = useState<CommunityCaptionStore>({});
@@ -1130,8 +1129,6 @@ export default function YsabelWorkspace() {
   const [autoTiming, setAutoTiming] = useState(4);
   const [newBoardOpen, setNewBoardOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState('September — Direction B');
-  const [versionOpen, setVersionOpen] = useState(false);
-  const [versionName, setVersionName] = useState('September — Approved');
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -1220,7 +1217,6 @@ export default function YsabelWorkspace() {
         for (const item of data.positions) { if (!next[item.boardId]) next[item.boardId] = emptyFeed(); if (item.position < FEED_SIZE) next[item.boardId][item.position] = item.mediaId; }
         setFeeds(next);
       } else setFeeds({});
-      setVersions(Array.isArray(data.versions) ? data.versions : []);
       setNotes(Array.isArray(data.notes) ? data.notes : []);
       setPublications(Array.isArray(data.publications) ? data.publications : []);
       try {
@@ -1368,7 +1364,7 @@ export default function YsabelWorkspace() {
     setAuthToken('');
     clearSessionToken();
     setLoginPassword(''); setLoginError(''); setLoginFocused(false); setLoginEntering(false); setWorkspaceReady(false); setAuthState('login'); setPresentation(false);
-    setAssets([]); setBoards([]); setFeeds({}); setVersions([]); setNotes([]); setPublications([]);
+    setAssets([]); setBoards([]); setFeeds({}); setNotes([]); setPublications([]);
   };
 
   const updateNote = (body: string) => {
@@ -1986,16 +1982,6 @@ export default function YsabelWorkspace() {
     setBoards((current) => current.map((board) => board.id === activeBoardId ? { ...board, name: renameValue } : board));
     persist({ action: 'rename-board', boardId: activeBoardId, name: renameValue }); setRenameOpen(false);
   };
-  const saveVersion = async () => {
-    const payload = { action: 'save-version', boardId: activeBoardId, name: versionName, positions };
-    try {
-      const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-      const savedVersion = await response.json() as Version;
-      setVersions((current) => [savedVersion, ...current]);
-    }
-    catch { setVersions((current) => [{ id: crypto.randomUUID(), boardId: activeBoardId, name: versionName, snapshot: JSON.stringify(positions), createdAt: Date.now() }, ...current]); }
-    setVersionOpen(false); setSaveState('Saved');
-  };
 
   const enterPublishedMode = () => {
     setEdit(false); setSelectedId(null); setLibraryDockOpen(false); setArtDirection(false); setExchangeFirst(null);
@@ -2117,9 +2103,8 @@ export default function YsabelWorkspace() {
 
   const navItems: { label: string; value: Section; icon: typeof Grid3X3 }[] = [
     { label: 'Feed', value: 'feed', icon: Grid3X3 }, { label: 'Media', value: 'media', icon: Images },
-    { label: 'Calendar', value: 'calendar', icon: CalendarDays }, { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
+    { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
     { label: 'Captions', value: 'captions', icon: MessageCircle },
-    { label: 'Versions', value: 'versions', icon: Columns3 },
     { label: 'Archive', value: 'archive', icon: Archive },
   ];
 
@@ -2264,17 +2249,6 @@ export default function YsabelWorkspace() {
         </section>}
 
         {section === 'occasions' && <OccasionsCalendar />}
-        {section === 'calendar' && <section className="calendar-page">
-          <header><span className="page-kicker">Publication rhythm</span><h1>{calendar.label}</h1><p>Select any day to add its creative notes</p></header>
-          <div className="calendar-weekdays">{['MON','TUE','WED','THU','FRI','SAT','SUN'].map((day) => <span key={day}>{day}</span>)}</div>
-          <div className="calendar-grid">{Array.from({ length: calendar.cells }, (_, index) => {
-            const day = index - calendar.first + 1;
-            const dateKey = day > 0 && day <= calendar.days ? calendar.dateForDay(day) : '';
-            const asset = dateKey ? assets.find((item) => item.plannedDate === dateKey) : undefined;
-            const hasNote = dateKey ? activeNotes.some((note) => note.noteDate === dateKey && note.body.trim()) : false;
-            return <button key={index} className={!dateKey ? 'outside' : (hasNote ? 'has-note' : '')} disabled={!dateKey} onClick={() => { if (dateKey) { setSelectedNoteDate(dateKey); setSection('notes'); } }}><span>{dateKey ? day : ''}{hasNote && <NotebookPen className="calendar-note-icon" aria-label="Notes saved" />}</span>{asset && <div><AssetVisual asset={asset} /><small>{asset.name}</small></div>}</button>;
-          })}</div>
-        </section>}
 
         {section === 'notes' && <section className="notes-page">
           <header><span className="page-kicker">Monthly creative record</span><h1>{calendar.label} Notes</h1><p>Notes are private, attached to this feed direction and saved automatically.</p></header>
@@ -2310,7 +2284,6 @@ export default function YsabelWorkspace() {
           </section>
         </section>}
 
-        {section === 'versions' && <section className="versions-page"><header><div><span className="page-kicker">Safe experimentation</span><h1>Feed Versions</h1><p>Save a direction before exploring the next one</p></div><Button onClick={() => { setVersionName((activeBoard?.name || '') + ' — Approved'); setVersionOpen(true); }}><Plus />Save new version</Button></header><div className="concept-compare"><div><span>Current concept</span><h2>{activeBoard?.name}</h2><FeedGrid {...commonGridProps} edit={false} scale="mini" colorRhythm={false} similarity={false} exchangeFirst={null} /></div><div><span>Compare with</span><h2>{versions[0]?.name || 'No saved version yet'}</h2>{versions[0] ? <FeedGrid {...commonGridProps} positions={JSON.parse(versions[0].snapshot)} edit={false} scale="mini" colorRhythm={false} similarity={false} exchangeFirst={null} /> : <div className="version-empty"><Columns3 /><p>Save this feed to compare concepts side by side.</p></div>}</div></div><div className="version-list">{versions.map((version) => <button key={version.id}><div><strong>{version.name}</strong><small>{new Date(version.createdAt).toLocaleDateString()}</small></div><ChevronRight /></button>)}</div></section>}
 
         {section === 'archive' && <section className="archive-page"><header><span className="page-kicker">Stored directions</span><h1>Archive</h1><p>Paused feed concepts and media remain recoverable</p></header><div className="archive-list">{boards.filter((board) => board.archived).length ? boards.filter((board) => board.archived).map((board) => <div key={board.id}><Archive /><span><strong>{board.name}</strong><small>Feed board · {FEED_SIZE} positions</small></span><Button variant="outline" size="sm" onClick={() => { setBoards((current) => current.map((item) => item.id === board.id ? { ...item, archived: false } : item)); persist({ action: 'restore-board', boardId: board.id }); }}>Restore</Button></div>) : <div className="archive-empty"><Archive /><p>No archived feed boards.</p></div>}</div></section>}
 
@@ -2324,7 +2297,6 @@ export default function YsabelWorkspace() {
       <Dialog open={autoPreview} onOpenChange={setAutoPreview}><DialogContent className="auto-dialog" showCloseButton={false}><DialogHeader className="auto-head"><DialogTitle>Auto Preview</DialogTitle><DialogDescription>Cinematic sequence review · {activeBoard?.name}</DialogDescription></DialogHeader><div className="auto-stage">{(() => { const planned = displayPositions.filter(Boolean) as string[]; const asset = displayById.get(planned[autoIndex % Math.max(1, planned.length)]); return asset ? <CarouselVisual key={asset.id} asset={asset} assets={displayAssets} contain /> : <span>No planned media</span>; })()}</div><div className="auto-controls"><Button variant="ghost" size="icon" onClick={() => { const count = Math.max(1, displayPositions.filter(Boolean).length); setAutoIndex((autoIndex - 1 + count) % count); }}><ChevronLeft /></Button><Button className="auto-play" size="icon-lg" onClick={() => setAutoPlaying(!autoPlaying)}>{autoPlaying ? <Pause /> : <Play fill="currentColor" />}</Button><Button variant="ghost" size="icon" onClick={() => setAutoIndex((autoIndex + 1) % Math.max(1, displayPositions.filter(Boolean).length))}><ChevronRight /></Button><Select value={String(autoTiming)} onValueChange={(value) => setAutoTiming(Number(value))}><SelectTrigger size="sm"><SelectValue /></SelectTrigger><SelectContent>{[2,4,6].map((n) => <SelectItem key={n} value={String(n)}>{n} sec</SelectItem>)}</SelectContent></Select><Button variant="ghost" onClick={() => setAutoPreview(false)}>Close</Button></div></DialogContent></Dialog>
 
       <Dialog open={newBoardOpen} onOpenChange={setNewBoardOpen}><DialogContent className="small-dialog"><DialogHeader><DialogTitle>New feed direction</DialogTitle><DialogDescription>Create a clean board or duplicate the current arrangement.</DialogDescription></DialogHeader><label className="dialog-label">Board name<Input value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} /></label><DialogFooter><Button variant="outline" onClick={() => createBoard(false)}>Create empty</Button><Button onClick={() => createBoard(true)}><Copy />Duplicate current</Button></DialogFooter></DialogContent></Dialog>
-      <Dialog open={versionOpen} onOpenChange={setVersionOpen}><DialogContent className="small-dialog"><DialogHeader><DialogTitle>Save feed version</DialogTitle><DialogDescription>Preserve this exact arrangement for review or comparison.</DialogDescription></DialogHeader><label className="dialog-label">Version name<Input value={versionName} onChange={(e) => setVersionName(e.target.value)} /></label><DialogFooter><Button onClick={saveVersion}>Save version</Button></DialogFooter></DialogContent></Dialog>
       <Dialog open={renameOpen} onOpenChange={setRenameOpen}><DialogContent className="small-dialog"><DialogHeader><DialogTitle>Rename feed</DialogTitle><DialogDescription>Update the board name without changing its arrangement.</DialogDescription></DialogHeader><label className="dialog-label">Feed name<Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} /></label><DialogFooter><Button onClick={renameBoard}>Rename</Button></DialogFooter></DialogContent></Dialog>
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this feed?</AlertDialogTitle><AlertDialogDescription>The feed board and its arrangement will be deleted. Media assets remain in the library.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" onClick={deleteBoard}>Delete feed</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>
       <AlertDialog open={mediaDeleteIds.length > 0} onOpenChange={(open) => { if (!open && !mediaDeleteBusy) { setMediaDeleteIds([]); setMediaDeleteError(''); } }}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete {mediaDeleteIds.length === 1 ? 'this media file' : `${mediaDeleteIds.length} media files`}?</AlertDialogTitle><AlertDialogDescription>The selected media will be permanently removed from the server, all feed positions, and carousel slides. This cannot be undone.</AlertDialogDescription></AlertDialogHeader>{mediaDeleteError && <p className="media-delete-error" role="alert">{mediaDeleteError}</p>}<AlertDialogFooter><AlertDialogCancel disabled={mediaDeleteBusy}>Cancel</AlertDialogCancel><AlertDialogAction variant="destructive" disabled={mediaDeleteBusy} onClick={(event) => { event.preventDefault(); void deleteMedia(); }}>{mediaDeleteBusy ? 'Deleting…' : 'Delete permanently'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog>

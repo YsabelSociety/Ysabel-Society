@@ -43,6 +43,7 @@ test('uploads attach to the target only after confirmation, retain failures for 
       isVideoFile: () => false, URL: { createObjectURL: () => 'blob:preview', revokeObjectURL: () => {} },
       setAssets: fn => { assets = typeof fn === 'function' ? fn(assets) : fn; latestAssets.current = assets; },
       FormData, fetch: async () => success ? Response.json({ id: 'saved', slides: [] }) : new Response('', { status: 503 }),
+      authFetch: async () => Response.json({ authenticated: true, token: 'verified-cookie-token' }),
       authToken: 'test', mediaRequestError, mediaUrl: asset => asset.url,
       latestAssets, latestFeeds: { current: { board: Array(12).fill(null) } },
       persist: payload => { writes.push(payload); }, setFeeds: () => {}, setHistory: () => {}, setFuture: () => {}, setSelectedId: () => {},

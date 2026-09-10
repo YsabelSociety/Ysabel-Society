@@ -760,3 +760,6 @@ button:focus-visible { outline: 2px solid #1d3428; outline-offset: 2px; }
 .media-upload-status li strong { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500; }
 .media-upload-status small { display:block; font-size:11px; line-height:1.5; color:#787d71; }
 .library-dock-asset { position:relative; }
+.media-upload-retry { padding:8px; background:#fff3ef; color:#803d30; font-size:12px; line-height:1.5; }
+.media-upload-retry p { margin:0 0 5px; }
+.media-upload-retry button { display:flex; align-items:center; gap:5px; padding:5px 0; font-weight:600; cursor:pointer; }

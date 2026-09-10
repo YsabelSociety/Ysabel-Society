@@ -14,6 +14,7 @@ async function restore({ token = 'saved-session', status = 200, data = { boards:
     useEffect: (callback) => callback(),
     readSessionToken: () => token,
     setAuthToken: () => {},
+    storeSessionToken: value => { state.stored = value; },
     setConnectionError: (value) => { state.error = value; },
     setAuthState: (value) => { state.auth = value; },
     clearSessionToken: () => { state.cleared = true; },
@@ -48,4 +49,10 @@ test('offline, server failures and malformed responses keep the token and offer 
 });
 test('a first visit still requires confirmed authentication', async () => {
   assert.equal((await restore({ token: '', data: { authenticated: false } })).auth, 'login');
+});
+
+test('cookie-only sessions recover their verified token for direct uploads', async () => {
+  const state = await restore({ token: '', data: { authenticated: true, token: 'verified-cookie-token' } });
+  assert.equal(state.auth, 'ready');
+  assert.equal(state.stored, 'verified-cookie-token');
 });

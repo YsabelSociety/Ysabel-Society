@@ -17,6 +17,10 @@ export function ImportedPostDetail({
 }) {
   const extra = post as unknown as Record<string, unknown>;
   const fields = [
+    ['replies','Story replies'],
+    ['navigation','Story navigation actions'],
+    ['linkClicks','Story link clicks'],
+    ['totalInteractions','Total interactions'],
     ['views', 'Views'],
     ['reach', 'Reach'],
     ['likes', post.platform === 'Facebook' ? 'Reactions' : 'Likes'],
@@ -45,7 +49,7 @@ export function ImportedPostDetail({
         <div className="detail-body">
           {post.image && (
             <div className="detail-media">
-              <img src={post.image} alt={post.title} />
+              {post.mediaType==='video'?<video src={post.image} controls playsInline preload="metadata" />:<img src={post.image} alt={post.title} />}
             </div>
           )}
           <p className="footnote">
@@ -67,7 +71,7 @@ export function ImportedPostDetail({
             </a>
           )}
           <div className="detail-stats">
-            {fields.map(([key, label]) => (
+            {fields.filter(([key])=>post.format==='Story'||!['replies','navigation','linkClicks','totalInteractions'].includes(key)).map(([key, label]) => (
               <div key={key}>
                 <span>
                   <DataIcon name={label} />

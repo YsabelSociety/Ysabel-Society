@@ -197,6 +197,7 @@ async function main() {
       return JSON.parse(init.body.get('batch')).map((job) => {
         const u = new URL(job.relative_url, 'https://graph.test/'),
           metric = u.searchParams.get('metric');
+        if (metric?.includes(',')) return {code:400,body:JSON.stringify({error:{code:100}})};
         if (['profile_links_taps', 'follows'].includes(metric))
           return { code: 400, body: JSON.stringify({ error: { code: 100 } }) };
         if (metric === 'profile_views')
@@ -267,6 +268,26 @@ async function main() {
       (c) => c.key === 'profile_links_taps' && c.status === 'unavailable',
     ),
   );
+  const feedResponder=responder;
+  let storyAccess=true;
+  responder=(url,init)=>{
+    const u=new URL(url);
+    if(u.pathname.endsWith('/stories')){
+      if(!storyAccess)throw new Error('Story access denied');
+      if(u.searchParams.has('after'))return {data:[{id:'story-two',timestamp:range.start+'T13:00:00Z',media_type:'IMAGE',media_url:'https://example.com/story.jpg'}]};
+      return {data:[{id:'story-one',timestamp:range.start+'T12:00:00Z',media_type:'VIDEO',media_url:'https://example.com/story.mp4'}],paging:{next:'provider-cursor',cursors:{after:'story-page-2'}}};
+    }
+    return feedResponder(url,init);
+  };
+  const withStories=await meta.importMeta({...context,importMode:'content'},'instagram',range);
+  assert.equal(withStories.posts.filter(p=>p.format==='Story').length,2,'stories paginate independently of feed');
+  assert.equal(withStories.posts.find(p=>p.id==='Instagram:story-one').mediaType,'video');
+  assert.ok(withStories.posts.find(p=>p.id==='Instagram:story-two').sourceMetrics.expiresAt);
+  storyAccess=false;
+  const withoutStories=await meta.importMeta({...context,importMode:'content'},'instagram',range);
+  assert.equal(withoutStories.posts.length,1,'story failure must preserve real feed posts');
+  assert.ok(withoutStories.checks.some(c=>c.key==='stories'&&c.status==='unavailable'));
+  if(process.argv.includes('--meta-content')){console.log('Meta content checks passed: feed, story pagination, media types, story access isolation, metric availability.');return;}
   let allowFacebookInteractions = false;
   responder = (url, init) => {
     if (init?.body instanceof URLSearchParams && init.body.has('batch'))

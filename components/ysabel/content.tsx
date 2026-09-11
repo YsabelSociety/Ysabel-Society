@@ -79,7 +79,8 @@ export function Media({
   post: Post;
   controls?: boolean;
 }) {
-  if (!post.image)
+  const [failed,setFailed]=useState('');
+  if (!post.image || failed===post.image)
     return (
       <div className="media-unavailable">
         <Play size={24} />
@@ -88,6 +89,7 @@ export function Media({
     );
   return post.mediaType === 'video' ? (
     <video
+      onError={()=>setFailed(post.image)}
       src={post.image}
       controls={controls}
       muted={!controls}
@@ -95,7 +97,7 @@ export function Media({
       preload="metadata"
     />
   ) : (
-    <img src={post.image} alt={post.title} loading="lazy" />
+    <img src={post.image} alt={post.title} loading="lazy" onError={()=>setFailed(post.image)} />
   );
 }
 export function Empty({
@@ -236,11 +238,12 @@ export function ContentIntelligence({
     [tab, setTab] = useState('Content');
   const published = data.posts.filter(
     (p) =>
-      p.status === 'Published' && p.date >= range.start && p.date <= range.end,
+      !!p.origin && p.status === 'Published' && p.date >= range.start && p.date <= range.end,
   );
   const filtered = published
     .filter(
       (p) =>
+        (tab !== 'Stories' || p.format === 'Story') &&
         (platform === 'All platforms' || p.platform === platform) &&
         (format === 'All formats' || p.format === format) &&
         (campaign === 'All campaigns' || p.campaign === campaign) &&
@@ -281,37 +284,38 @@ export function ContentIntelligence({
           selected period. Missing fields remain unavailable.
         </p>
       )}
+      <p className="source-live-note">Stories include saved imports and active stories returned by connected providers. Expired stories not previously captured cannot be reconstructed; unavailable metrics and expired previews are identified in the details.</p>
       <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
         <TabsList className="page-tabs">
-          {['Content', 'Formats & timing', 'Creative patterns'].map((t) => (
+          {['Content', 'Stories', 'Formats & timing', 'Creative patterns'].map((t) => (
             <TabsTrigger key={t} value={t}>
               {t}
             </TabsTrigger>
           ))}
         </TabsList>
       </Tabs>
-      {tab === 'Content' ? (
+      {tab === 'Content' || tab === 'Stories' ? (
         <>
           <div className="section-head standalone">
             <div>
-              <h2>Content that moved the conversation</h2>
+              <h2>{tab==='Stories'?'Published stories':'Content that moved the conversation'}</h2>
               <p>Published content · sorted by views</p>
             </div>
-            <span className="pill">DEMO MEDIA</span>
+            <span className="pill">IMPORTED CONTENT</span>
           </div>
-          {published.length ? (
+          {filtered.length ? (
             <MediaCards
-              posts={[...published]
+              posts={[...filtered]
                 .sort((a, b) => b.views - a.views)
                 .slice(0, 4)}
               onSelect={onSelect}
             />
           ) : (
-            <Empty />
+            <Empty title="No imported content in this view" text="Sync connected accounts or change the publication dates. No sample media is displayed." />
           )}
           <section className="surface table-surface">
             <div className="section-head">
-              <h2>Content performance</h2>
+              <h2>{tab==='Stories'?'Story performance':'Content performance'}</h2>
               <span className="muted">{filtered.length} posts</span>
             </div>
             <div className="content-filters">

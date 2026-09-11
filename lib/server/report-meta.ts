@@ -158,6 +158,17 @@ async function mediaList(
   }
   return items;
 }
+// Stories are a separate edge; feed /media never enumerates them.
+async function activeStories(context: ReportingContext, range: Range) {
+  const items: any[]=[];let after='';
+  for(let page=0;page<20;page++){
+    const r=await graphGet(context,encodeURIComponent(context.externalId)+'/stories?'+query({fields:'id,caption,media_type,media_url,thumbnail_url,permalink,timestamp',limit:'50',...(after?{after}:{})}));
+    for(const item of r.data||[]){const date=String(item.timestamp||'').slice(0,10);if(date>=range.start&&date<=range.end)items.push({...item,media_product_type:'STORY'});}
+    const next=r.paging?.cursors?.after||'';if(!r.paging?.next||!next||next===after)break;after=next;
+    if(page===19)throw new Error('INPUT:Story pagination exceeded this import. Retry or import a provider export.');
+  }
+  return items;
+}
 export async function importMeta(
   context: ReportingContext,
   source: 'instagram' | 'facebook',
@@ -448,13 +459,16 @@ export async function importMeta(
     }
   }
   if (context.importMode !== 'reports') {
-    const media = await collect(
+    const feed = await collect(
       result,
       'content',
       'Published content',
       () => mediaList(context, source, range, result),
       (r) => r.length,
     );
+    const stories=instagram ? await collect(result,'stories','Published Instagram stories',()=>activeStories(context,range),r=>r.length):[];
+    const media=[...new Map([...(feed||[]),...(stories||[])].map(m=>[m.id,m])).values()];
+    if(instagram)result.checks.push({key:'story-history',label:'Story archive coverage',status:'unavailable',records:stories?.length||0,detail:'Active stories are captured at refresh. Previously imported records remain saved. Expired stories not captured by this app require an available provider export; expired media links may no longer play.'});
     // Optional user-content permissions must not prevent importing the Page's posts.
     if (!instagram && media?.length) {
       const formats = await graphBatch(
@@ -509,12 +523,13 @@ export async function importMeta(
         channel,
         m.id,
         m.timestamp || m.created_time,
-        m.caption || m.message || 'Published content',
+        m.caption || m.message || (m.media_product_type==='STORY'?'Instagram story · '+String(m.timestamp||'').slice(0,10):'Published content'),
       );
       p.image = safeMedia(m.thumbnail_url || m.media_url || m.full_picture);
+      p.mediaType=m.media_type==='VIDEO'&&!m.thumbnail_url?'video':'image';
       p.permalink = safeMedia(m.permalink || m.permalink_url);
       p.format = instagram
-        ? m.media_product_type === 'REELS'
+        ? m.media_product_type === 'STORY' ? 'Story' : m.media_product_type === 'REELS'
           ? 'Reel'
           : m.media_type === 'CAROUSEL_ALBUM'
             ? 'Carousel'
@@ -547,6 +562,8 @@ export async function importMeta(
         likesDefinition: instagram ? 'Instagram likes' : 'Facebook reactions',
         metricScope: 'lifetime',
         publishedAt: p.publishedAt,
+        mediaProductType:m.media_product_type||p.format,
+        ...(p.format==='Story'?{expiresAt:new Date(Date.parse(p.publishedAt!)+86400000).toISOString(),archiveScope:'Captured story; availability and media playback depend on the provider.'}:{}),
       };
       return p;
     });
@@ -567,7 +584,7 @@ export async function importMeta(
           ['post_clicks', 'clicks'],
         ];
     const jobs = posts.flatMap((p, i) =>
-      metricSpecs.map(([metric, field]) => ({
+      (p.format==='Story' ? [['views','views'],['reach','reach'],['replies','replies'],['shares','shares'],['total_interactions','totalInteractions'],['profile_visits','profileVisits'],['follows','followers'],['navigation','navigation'],['link_clicks','linkClicks']] : metricSpecs).map(([metric, field]) => ({
         i,
         id: (media || [])[i].id,
         metric,
@@ -595,6 +612,11 @@ export async function importMeta(
         };
         imported++;
       } else if (r.error) failed++;
+    }
+    const storyPosts=posts.filter(p=>p.format==='Story');
+    if(storyPosts.length){
+      const navigation=await graphBatch(context,storyPosts.map(p=>encodeURIComponent(p.id.slice(p.id.indexOf(':')+1))+'/insights?'+query({metric:'navigation',breakdown:'story_navigation_action_type'})));
+      navigation.forEach((r,i)=>{if(r.body?.data)storyPosts[i].sourceMetrics={...storyPosts[i].sourceMetrics,storyNavigation:r.body.data};});
     }
     result.checks.push({
       key: 'post-insights',

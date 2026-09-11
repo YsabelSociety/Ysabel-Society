@@ -33,7 +33,7 @@ export function BrandLogo({
             style={{ maskType: 'alpha' }}
           >
             <image
-              href={appPath('/ysabel-society-logo.png')}
+              href={appPath('/ysabel-loading-identity.png')}
               width={8000}
               height={4500}
             />
@@ -47,7 +47,7 @@ export function BrandLogo({
     );
   return (
     <img
-      src={appPath('/ysabel-society-logo.png')}
+      src={appPath('/ysabel-loading-identity.png')}
       alt="Ysabel Society"
       width={8000}
       height={4500}

@@ -71,12 +71,12 @@ export function useSourceAnalytics(
                   previousRange(range, comparison),
                 )
               : previous.rows;
-          setResult({
+          setResult(saved => ({
             key,
             mode: current.mode,
             rows: current.rows,
-            previous: safePrevious,
-            comparisonLimited:
+            previous: saved?.key === key ? saved.previous : safePrevious,
+            comparisonLimited: saved?.key === key ? saved.comparisonLimited :
               current.mode === 'live' &&
               comparison !== 'No Comparison' &&
               !safePrevious.some((r: Daily) => r.available?.length),
@@ -88,7 +88,7 @@ export function useSourceAnalytics(
             posts: current.posts || [],
             monthlyPosts: current.monthlyPosts || [],
             tables: current.tables || [],
-          });
+          }));
           setError('');
           window.dispatchEvent(new Event('ysabel:sources-rendered'));
           setLoading(false);

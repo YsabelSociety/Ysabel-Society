@@ -40,6 +40,7 @@ export default function Overview({
   onSelect,
   onMetric,
   live = false,
+  sceneEnabled = true,
 }: {
   rows: Daily[];
   range: Range;
@@ -50,6 +51,7 @@ export default function Overview({
   onSelect: (p: Post) => void;
   onMetric: (key: string) => void;
   live?: boolean;
+  sceneEnabled?: boolean;
 }) {
   const [activeSignal, setActiveSignal] = useState(0);
   useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
@@ -197,7 +199,7 @@ export default function Overview({
               </button>
             );
           })}
-          </div><IntelligenceScene active={activeSignal} signals={signals}/></div>
+          </div>{sceneEnabled ? <IntelligenceScene active={activeSignal} signals={signals}/> : <div className="intelligence-art" aria-hidden="true" />}</div>
           <button className="text-link" onClick={() => setPage('Insights')}>
             Open intelligence <ArrowUpRight size={14} />
           </button>

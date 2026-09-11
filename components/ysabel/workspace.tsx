@@ -1,7 +1,7 @@
 'use client';
 import { BrandLogo } from './brand-logo';
 import { ChartBoundary } from './social-performance';
-import { Activity, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Activity, memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import {
   LayoutDashboard,
@@ -139,6 +139,8 @@ const groups = [
     ],
   },
 ];
+const StableOverview = memo(Overview);
+const StablePerformance = memo(PerformancePage);
 const names = groups.flatMap((g) => g.items.map((i) => String(i[0])));
 const dateOptions = [
   'Today',
@@ -284,8 +286,9 @@ export default function Workspace({
   const source = useSourceAnalytics(unit, range, comparison, onLive),
     rows = source.rows,
     previous = source.previous;
-  const analyticsData =
-    source.mode === 'live' ? { ...data, posts: source.posts } : data;
+  const analyticsData = useMemo(() =>
+    source.mode === 'live' ? { ...data, posts: source.posts } : data,
+    [source.mode, source.posts, data.posts, data.settings, data.annotations, data.reports, data.user, data.ready, data.error, data.busy, data.notice]);
   useEffect(() => {
     const showHistory = (event: Event) => {
       const value = (event as CustomEvent<Range>).detail;
@@ -304,17 +307,17 @@ export default function Workspace({
     return () =>
       window.removeEventListener('ysabel:history-range', showHistory);
   }, []);
-  const visiblePosts = analyticsData.posts.filter(
+  const visiblePosts = useMemo(() => analyticsData.posts.filter(
     (p) => p.date >= range.start && p.date <= range.end,
-  );
-  function navigate(name: string) {
+  ), [analyticsData.posts, range]);
+  const navigate = useCallback((name: string) => {
     if (!names.includes(name)) return;
     if (name === 'Overview') setDate('This Month');
     setMobileMenuOpen(false);
     setPage(name);
     setCommand(false);
     window.scrollTo({ top: 0, behavior: 'instant' });
-  }
+  }, []);
   useEffect(() => {
     const read = () => {
       let name =
@@ -530,7 +533,6 @@ export default function Workspace({
     (!data.ready ? data.error : '') ||
     (!source.ready ? source.error : '') ||
     (communityKind === communityLoad.kind ? communityLoad.error : '');
-  const [introSceneReady, setIntroSceneReady] = useState(false);
   const initialReady =
     data.ready && source.ready && communityReady && !initialError;
   const initialStages = [
@@ -545,7 +547,7 @@ export default function Workspace({
   const syncProgress = syncState.job?.tasks.length
     ? syncState.job.completed / syncState.job.tasks.length
     : 0;
-  const intro = useWorkspaceIntro(!!initialReady, introSceneReady);
+  const intro = useWorkspaceIntro(!!initialReady);
   const introProgress = refreshingScene ? syncProgress : initialProgress;
   const showLoadingScene = intro.visible || refreshingScene;
   const retryInitialLoad = () => {
@@ -568,7 +570,6 @@ export default function Workspace({
           refreshing={refreshingScene && !syncState.foregroundLeaving}
           error={initialError}
           onRetry={retryInitialLoad}
-          onSceneReady={() => setIntroSceneReady(true)}
         />
       )}
       <div
@@ -881,7 +882,8 @@ export default function Workspace({
                       />
                     </AdminGate>
                   )}
-                  <Activity mode={page === 'Overview' ? 'visible' : 'hidden'}><Overview
+                  <Activity mode={page === 'Overview' ? 'visible' : 'hidden'}><StableOverview
+                      sceneEnabled={!intro.visible}
                       live={source.mode === 'live'}
                       range={range}
                       rows={rows}
@@ -892,7 +894,7 @@ export default function Workspace({
                       onSelect={setPost}
                       onMetric={setMetric}
                     /></Activity>
-                  <Activity mode={page === 'Performance' ? 'visible' : 'hidden'}><ChartBoundary><PerformancePage
+                  <Activity mode={page === 'Performance' ? 'visible' : 'hidden'}><ChartBoundary><StablePerformance
                       rows={rows}
                       previous={previous}
                       data={analyticsData}

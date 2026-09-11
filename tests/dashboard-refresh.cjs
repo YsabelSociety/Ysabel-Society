@@ -213,21 +213,11 @@ function verifyIntro() {
     fast.h.cleanup();
     const preparingLogo = setup(true);
     preparingLogo.render(true, false);
-    advance(10000);
-    assert.equal(
-      preparingLogo.render(true, false).visible,
-      true,
-      'Ready data waits for the animated logo to render or its availability deadline',
-    );
-    preparingLogo.render(true, true);
     advance(timing.settle);
-    preparingLogo.render(true, true);
+    assert.equal(preparingLogo.render(true, false).leaving, true,
+      'Data does not wait for GPU startup');
     advance(timing.exit);
-    assert.equal(
-      preparingLogo.render(true, true).visible,
-      false,
-      'Data and scene readiness start the reveal immediately',
-    );
+    assert.equal(preparingLogo.render(true, false).visible, false);
     preparingLogo.h.cleanup();
     const slow = setup(false);
     slow.render();
@@ -240,18 +230,10 @@ function verifyIntro() {
     slow.render(true);
     advance(timing.settle);
     assert.equal(slow.render(true).leaving, true);
-    assert.equal(
-      slow.render(false).leaving,
-      false,
-      'A changed date range cancels an in-progress reveal',
-    );
+    assert.equal(slow.render(false).leaving, true,
+      'A background request cannot reverse an in-progress fade');
     advance(timing.exit + 1);
-    assert.equal(slow.render(false).visible, true);
-    slow.render(true);
-    advance(timing.settle);
-    slow.render(true);
-    advance(timing.exit);
-    assert.equal(slow.render(true).visible, false);
+    assert.equal(slow.render(false).visible, false);
     const html = renderToStaticMarkup(
       React.createElement(slow.m.exports.WorkspaceIntro, {
         error: 'Request failed',
@@ -259,8 +241,8 @@ function verifyIntro() {
       }),
     );
     assert(
-      html.includes('data-loading-logo="animated"'),
-      'The loading overlay uses the shared animated emblem',
+      html.includes('data-loading-identity="fallback"'),
+      'The immediate identity remains while GPU work is deferred',
     );
     assert(
       html.includes('Retry loading') && html.includes('role="alert"'),
@@ -379,6 +361,32 @@ async function main() {
   );
   h.cleanup();
 
+  // Slow comparison requests cannot clear current data or existing comparisons.
+  const comparisonHooks = harness();
+  const comparisonHook = load('components/ysabel/use-analytics.ts', comparisonHooks.hooks).useSourceAnalytics;
+  const requests = [];
+  global.fetch = (url) => new Promise(resolve => requests.push({url,resolve}));
+  const comparisonRange = {start:'2026-09-07',end:'2026-09-07'};
+  const compare = () => comparisonHooks.render(() =>
+    comparisonHook('Ysabel Society',comparisonRange,'Previous Period'));
+  const priorPayload = {...payload(80), rows:[{...payload(80).rows[0],date:'2026-09-06'}]};
+  compare();
+  const respond = (dailyOnly, body) => requests.find(r => !r.done &&
+    r.url.includes('dailyOnly=1') === dailyOnly);
+  const respondNext = (dailyOnly, body) => {
+    const request=respond(dailyOnly); request.done=true; request.resolve(Response.json(body));
+  };
+  respondNext(false,payload(100)); await settle();
+  assert.equal(compare().rows[0].views,100,'Current report displays while comparison is pending');
+  assert.equal(compare().loading,false);
+  respondNext(true,priorPayload); await settle();
+  assert.equal(compare().previous[0].views,80);
+  window.dispatchEvent(new Event('ysabel:sources-updated')); compare();
+  respondNext(false,payload(125)); await settle();
+  assert.equal(compare().previous[0].views,80,'Background imports preserve comparisons until replacement arrives');
+  respondNext(true,priorPayload); await settle();
+  comparisonHooks.cleanup();
+
   const auto = harness(),
     { useAutoRefresh } = load(
       'components/ysabel/use-auto-refresh.ts',
@@ -437,7 +445,7 @@ async function main() {
     global.setInterval = originalInterval;
   }
 
-  // A loaded off-screen chart renders immediately, independent of viewport state.
+  // Charts mount once after entering the viewport and remain mounted.
   const source = ts.createSourceFile(
     'chart.tsx',
     fs.readFileSync(
@@ -458,6 +466,7 @@ async function main() {
       target: ts.ScriptTarget.ES2022,
     },
   }).outputText;
+  const chartHooks = harness();
   const m = { exports: {} };
   new Function(
     'require',
@@ -473,17 +482,13 @@ async function main() {
     m,
     m.exports,
     (p) => p.children,
-    React.useRef,
-    React.useState,
-    React.useEffect,
+    () => ({ current: {} }),
+    chartHooks.hooks.useState,
+    chartHooks.hooks.useEffect,
   );
-  const html = renderToStaticMarkup(
-    React.createElement(
-      m.exports.DeferredChart,
-      { loading: false, title: 'Views' },
-      React.createElement('strong', null, 'Loaded chart'),
-    ),
-  );
+  const html = renderToStaticMarkup(chartHooks.render(() =>
+    m.exports.DeferredChart({loading:false,title:'Views',
+      children:React.createElement('strong',null,'Loaded chart')})));
   assert(html.includes('Loaded chart'));
   assert(
     !html.includes('Chart loads as you scroll') &&
@@ -491,7 +496,7 @@ async function main() {
   );
   verifyIntro();
   console.log(
-    'Dashboard refresh: loaded charts persist, scrolling is read-free, new periods stay scoped, failed refreshes retain data, inbox batches do not reload analytics, and off-screen charts render immediately.',
+    'Dashboard refresh: loaded charts persist, scrolling is read-free, new periods stay scoped, failed refreshes retain data, inbox batches do not reload analytics, and visible charts remain mounted.',
   );
 }
 main().catch((e) => {

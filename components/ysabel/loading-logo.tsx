@@ -38,6 +38,7 @@ export function LoadingLogo({
   useEffect(() => {
     const target = host.current;
     if (!target) return;
+    const mountedAt = performance.now();
     let disposed = false;
     let availability: boolean | undefined;
     let cleanup = () => {};
@@ -77,7 +78,7 @@ export function LoadingLogo({
       if (disposed) return;
       const renderer = new THREE.WebGLRenderer({
         alpha: compact,
-        antialias: !compact,
+        antialias: true,
         powerPreference: 'low-power',
       });
       renderer.setPixelRatio(
@@ -102,7 +103,7 @@ export function LoadingLogo({
       const pointer = new THREE.Vector2();
       const resources: { dispose: () => void }[] = [];
       let frame = 0,
-        elapsed = 0,
+        elapsed = (performance.now() - mountedAt) / 1000,
         last = 0,
         paint = 0,
         yaw = 0.08,
@@ -264,11 +265,7 @@ export function LoadingLogo({
       let captionContext: CanvasRenderingContext2D | null = null;
       let previousCaption = '';
       if (bitmap) {
-        const image = await createImageBitmap(bitmap, 1502, 2158, 4996, 1916, {
-          resizeWidth: 1499,
-          resizeHeight: 575,
-          resizeQuality: 'high',
-        });
+        const image = await createImageBitmap(bitmap);
         if (disposed) {
           image.close();
           return;
@@ -281,7 +278,11 @@ export function LoadingLogo({
           image.close();
           throw new Error('Lettering unavailable');
         }
-        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        // The optimized image is 1600x900; crop in normalized artwork coordinates.
+        context.drawImage(image,
+          image.width * 1502 / 8000, image.height * 2158 / 4500,
+          image.width * 4996 / 8000, image.height * 1916 / 4500,
+          0, 0, canvas.width, canvas.height);
         image.close();
         context.globalCompositeOperation = 'source-in';
         context.fillStyle = INTRO_TEXT_COLOR;
@@ -442,7 +443,7 @@ export function LoadingLogo({
           return;
         }
         frame = requestAnimationFrame(tick);
-        if (now - paint < 1000 / 30) return;
+        if (now - paint < 1000 / 60 - 1) return;
         const delta = last ? Math.min((now - last) / 1000, 0.1) : 1 / 30;
         elapsed += delta;
         last = now;

@@ -12,7 +12,7 @@ export default function LoginForm() {
   return (
     <main className="login-shell">
       {!busy && <MobileInstall />}
-      {busy && <WorkspaceIntro signingIn />}
+      {busy && <WorkspaceIntro signingIn animate={false} />}
       {!busy && <LoginScene />}
       <section className="login-access">
         <div className="login-card">

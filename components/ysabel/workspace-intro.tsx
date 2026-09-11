@@ -10,6 +10,7 @@ export const INTRO_KEY = 'ysabel:login-intro';
 // Only a short reveal transition remains; loading itself has no cinematic delay.
 export const INTRO_TIMING = { settle: 120, exit: 420 };
 export function WorkspaceIntro({
+  animate = true,
   leaving = false,
   signingIn = false,
   error = '',
@@ -19,6 +20,7 @@ export function WorkspaceIntro({
   onRetry,
   onSceneReady,
 }: {
+  animate?: boolean;
   leaving?: boolean;
   signingIn?: boolean;
   error?: string;
@@ -29,6 +31,13 @@ export function WorkspaceIntro({
   onSceneReady?: () => void;
 }) {
   const [rendered, setRendered] = useState(false);
+  const [sceneStarted, setSceneStarted] = useState(false);
+  useEffect(() => {
+    // Fast loads keep the immediate identity; don't compile a GPU scene during exit.
+    if (!animate || complete || leaving || sceneStarted) return;
+    const timer = setTimeout(() => setSceneStarted(true), 180);
+    return () => clearTimeout(timer);
+  }, [animate, complete, leaving, sceneStarted]);
   const caption = signingIn
     ? 'Signing in…'
     : error
@@ -52,7 +61,7 @@ export function WorkspaceIntro({
       }
     >
       <div className={styles.gpu} aria-hidden="true">
-        <LoadingLogo
+        {sceneStarted && <LoadingLogo
           progress={progress}
           complete={complete}
           refreshing={refreshing}
@@ -61,9 +70,9 @@ export function WorkspaceIntro({
             setRendered(available);
             onSceneReady?.();
           }}
-        />
+        />}
       </div>
-      {!rendered && <LoadingIdentity caption={caption} />}
+      <LoadingIdentity caption={caption} />
       <span className={styles.accessible}>{caption}</span>
       {error && (
         <div className={styles.failure}>
@@ -77,7 +86,7 @@ export function WorkspaceIntro({
   );
 }
 
-export function useWorkspaceIntro(ready: boolean, sceneReady = true) {
+export function useWorkspaceIntro(ready: boolean) {
   const [visible, setVisible] = useState(true);
   const [leaving, setLeaving] = useState(false);
   const [reduced, setReduced] = useState(false);
@@ -92,26 +101,15 @@ export function useWorkspaceIntro(ready: boolean, sceneReady = true) {
     return () => preference.removeEventListener?.('change', update);
   }, []);
   useEffect(() => {
-    if (!visible) return;
-    if (!ready || !sceneReady) {
-      setLeaving(false);
-      return;
-    }
-    let exit: ReturnType<typeof setTimeout> | undefined;
-    const settle = setTimeout(
-      () => {
-        setLeaving(true);
-        exit = setTimeout(
-          () => setVisible(false),
-          reduced ? 150 : INTRO_TIMING.exit,
-        );
-      },
-      reduced ? 0 : INTRO_TIMING.settle,
-    );
-    return () => {
-      clearTimeout(settle);
-      if (exit) clearTimeout(exit);
-    };
-  }, [ready, sceneReady, reduced, visible]);
-  return { visible, leaving: leaving && ready && sceneReady };
+    if (!visible || leaving || !ready) return;
+    const timer = setTimeout(() => setLeaving(true), reduced ? 0 : INTRO_TIMING.settle);
+    return () => clearTimeout(timer);
+  }, [ready, reduced, visible, leaving]);
+  useEffect(() => {
+    // Once revealed, a background request must never reverse the fade.
+    if (!leaving) return;
+    const timer = setTimeout(() => setVisible(false), reduced ? 150 : INTRO_TIMING.exit);
+    return () => clearTimeout(timer);
+  }, [leaving, reduced]);
+  return { visible, leaving };
 }

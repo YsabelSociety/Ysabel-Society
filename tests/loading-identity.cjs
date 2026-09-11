@@ -90,7 +90,7 @@ for (const [props, caption] of [
     );
   assert(html.includes(caption));
   assert(
-    html.includes('ysabel-society-logo.png'),
+    html.includes('ysabel-loading-identity.png'),
     'Original script wordmark accompanies the emblem',
   );
   assert(

@@ -47,6 +47,8 @@ export async function GET(req: Request) {
     const rows = consolidateDaily(
       records.results.map((r: any) => JSON.parse(r.normalized) as Daily),
     );
+    // Comparisons only require daily metrics, not media or report-table payloads.
+    if (q.get('dailyOnly') === '1') return json({ mode: 'live', rows });
     const postRows = await db
       .prepare(
         'SELECT p.payload FROM source_posts p JOIN platform_accounts a ON a.id=p.account_id WHERE a.owner=? AND a.enabled=1 AND p.published_date>=? AND p.published_date<=? ORDER BY p.published_date DESC LIMIT 5000',

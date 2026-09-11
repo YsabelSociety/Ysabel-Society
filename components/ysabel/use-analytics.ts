@@ -44,8 +44,9 @@ export function useSourceAnalytics(
     setError('');
     async function run() {
       try {
-        const read = async (r: Range) => {
+        const read = async (r: Range, dailyOnly = false) => {
           const q = new URLSearchParams({ unit, start: r.start, end: r.end });
+          if (dailyOnly) q.set('dailyOnly', '1');
           const response = await fetch('/marketingdata/api/analytics?' + q, {
             signal: AbortSignal.any([abort.signal, AbortSignal.timeout(30000)]),
           });
@@ -53,12 +54,12 @@ export function useSourceAnalytics(
           if (!response.ok) throw new Error(data.error);
           return data;
         };
-        const [current, previous] = await Promise.all([
-          read(range),
-          comparison === 'No Comparison'
-            ? Promise.resolve({ rows: [] })
-            : read(previousRange(range, comparison)),
-        ]);
+        // Comparison failures must never discard a valid current-period report.
+        const previousRequest = comparison === 'No Comparison'
+          ? Promise.resolve({ rows: [] })
+          : read(previousRange(range, comparison), true).catch(() => ({ rows: [] }));
+        const current = await read(range);
+        const previous = { rows: [] as Daily[] };
         if (!abort.signal.aborted) {
           if (current.mode === 'live') onLive?.();
           const safePrevious =
@@ -90,6 +91,19 @@ export function useSourceAnalytics(
           });
           setError('');
           window.dispatchEvent(new Event('ysabel:sources-rendered'));
+          setLoading(false);
+          const prior = await previousRequest;
+          if (!abort.signal.aborted) {
+            const compared = current.mode === 'live'
+              ? comparablePrevious(current.rows, prior.rows, range, previousRange(range, comparison))
+              : prior.rows;
+            setResult(value => value?.key === key ? {
+              ...value,
+              previous: compared,
+              comparisonLimited: current.mode === 'live' && comparison !== 'No Comparison' &&
+                !compared.some((row: Daily) => row.available?.length),
+            } : value);
+          }
         }
       } catch (e) {
         if (!abort.signal.aborted)

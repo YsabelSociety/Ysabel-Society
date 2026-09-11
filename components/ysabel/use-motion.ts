@@ -1,6 +1,7 @@
 'use client';
 import { useSyncExternalStore } from 'react';
-const query = '(prefers-reduced-motion: reduce)';
+// Keep CSS micro-motion, but avoid simultaneous JS chart interpolation on touch devices.
+const query = '(prefers-reduced-motion: reduce), (pointer: coarse), (max-width: 767px)';
 const subscribe = (notify: () => void) => {
   const media = window.matchMedia(query);
   media.addEventListener('change', notify);

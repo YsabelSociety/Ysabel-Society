@@ -158,7 +158,7 @@ function WebsiteReport({
                   <Tooltip />
                   {plot.keys.map((k, i) => (
                     <Area
-                      key={k + active + table.observedAt}
+                      key={k + active}
                       dataKey={k}
                       type="monotone"
                       stroke={palette[i % palette.length]}
@@ -322,7 +322,7 @@ export function WebsiteReports({
       <div className="website-reports-grid">
         {reports.map(({ key, name, table }, i) => (
           <DeferredChart
-            key={key + table?.observedAt + table?.period.start}
+            key={key}
             title={name}
             loading={false}
           >

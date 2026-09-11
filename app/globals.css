@@ -8527,3 +8527,29 @@ h1 {
 .intelligence-signals .insight-row p strong{font-size:20px;font-weight:600;}
 .intelligence-signals .insight-row > span:last-child{font-size:11px;}
 @media(max-width:600px){.intelligence-signals .insight-row{padding:17px 8px;}.intelligence-signals .insight-row p{font-size:14px;}}
+
+/* Avoid a separate backdrop buffer for every report card during fast scrolling. */
+.workspace-shell .surface,
+.workspace-shell .metric-card {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html[data-scrolling='true'] .workspace-shell *,
+html[data-scrolling='true'] .workspace-shell *::before,
+html[data-scrolling='true'] .workspace-shell *::after {
+  animation-play-state: paused !important;
+}
+@media (pointer: coarse), (max-width: 767px) {
+  .workspace-shell .topbar,
+  .workspace-shell .ys-sidebar [data-slot='sidebar-inner'],
+  .workspace-shell .highlight-format {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .workspace-shell .topbar { background: #f3f5f4f5; }
+  .workspace-shell .view-enter,
+  .workspace-shell .view-content,
+  .workspace-shell .metric-card,
+  .workspace-shell .social-metric-card,
+  .workspace-shell .website-report-card { animation: none; }
+}

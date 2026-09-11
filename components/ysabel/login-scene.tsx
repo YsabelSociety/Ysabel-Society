@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeftRight, Pause, Play } from 'lucide-react';
 import { appPath } from '@/lib/app-path';
+import { canvasPixelRatio, releaseRenderer } from '@/lib/render-budget';
 import { BrandLogo } from './brand-logo';
 import {
   INTRO_BACKGROUND,
@@ -82,7 +83,7 @@ export function LoginScene() {
       renderer.setClearColor(0x000000, 0);
       renderer.toneMapping = THREE.ACESFilmicToneMapping;
       renderer.toneMappingExposure = 1;
-      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.enabled = !matchMedia('(pointer: coarse)').matches;
       renderer.shadowMap.type = THREE.PCFShadowMap;
       renderer.domElement.setAttribute('aria-hidden', 'true');
       target!.appendChild(renderer.domElement);
@@ -105,8 +106,7 @@ export function LoginScene() {
               item as InstanceType<typeof THREE.DirectionalLight>
             ).shadow?.map?.dispose();
         });
-        renderer.dispose();
-        renderer.domElement.remove();
+        releaseRenderer(renderer);
       };
       cleanup = dispose;
 
@@ -218,7 +218,10 @@ export function LoginScene() {
       let dragging = false;
       let previousX = 0;
       let previousY = 0;
+      let inView = true;
+      let contextLost = false;
       let visible = !document.hidden;
+      let viewportObserver: IntersectionObserver | undefined;
       let last = 0;
       let elapsed = 0;
       let cameraDistance = 9.6;
@@ -263,6 +266,8 @@ export function LoginScene() {
       const resize = () => {
         const width = target!.clientWidth;
         const height = target!.clientHeight;
+        if (!width || !height) return;
+        renderer.setPixelRatio(canvasPixelRatio(width, height, devicePixelRatio, matchMedia('(pointer: coarse)').matches));
         renderer.setSize(width, height, false);
         camera.aspect = width / Math.max(1, height);
         cameraDistance = Math.max(9.6, 8.8 / camera.aspect);
@@ -341,7 +346,7 @@ export function LoginScene() {
         renderer.render(scene, camera);
       }
       const onVisibility = () => {
-        visible = !document.hidden;
+        visible = !contextLost && !document.hidden && inView;
         cancelAnimationFrame(frame);
         if (visible) {
           last = 0;
@@ -350,10 +355,13 @@ export function LoginScene() {
       };
       const onContextLost = (event: Event) => {
         event.preventDefault();
+        contextLost = true;
         visible = false;
         cancelAnimationFrame(frame);
         setReady(false);
       };
+      viewportObserver = new IntersectionObserver(entries => { inView = entries[0].isIntersecting; onVisibility(); });
+      viewportObserver.observe(target!);
       target!.addEventListener('pointermove', onMove);
       target!.addEventListener('pointerdown', onDown);
       target!.addEventListener('pointerup', onUp);
@@ -364,6 +372,7 @@ export function LoginScene() {
       document.addEventListener('visibilitychange', onVisibility);
       renderer.domElement.addEventListener('webglcontextlost', onContextLost);
       cleanup = () => {
+        viewportObserver?.disconnect();
         target!.removeEventListener('pointermove', onMove);
         target!.removeEventListener('pointerdown', onDown);
         target!.removeEventListener('pointerup', onUp);

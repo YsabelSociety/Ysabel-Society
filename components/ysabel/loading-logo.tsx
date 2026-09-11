@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
+import { canvasPixelRatio, releaseRenderer } from '@/lib/render-budget';
 import styles from './loading-logo.module.css';
 import emblemPaths from './emblem-paths.json';
 import {
@@ -100,6 +101,7 @@ export function LoadingLogo({
       );
       camera.position.z = 10;
       const preference = matchMedia('(prefers-reduced-motion: reduce)');
+      const touch = matchMedia('(pointer: coarse)');
       const pointer = new THREE.Vector2();
       const resources: { dispose: () => void }[] = [];
       let frame = 0,
@@ -150,8 +152,7 @@ export function LoadingLogo({
         document.removeEventListener('visibilitychange', onVisible);
         preference.removeEventListener('change', onPreference);
         resources.forEach((resource) => resource.dispose());
-        renderer.dispose();
-        renderer.domElement.remove();
+        releaseRenderer(renderer);
       };
       const background = compact
         ? null
@@ -443,7 +444,7 @@ export function LoadingLogo({
           return;
         }
         frame = requestAnimationFrame(tick);
-        if (now - paint < 1000 / 60 - 1) return;
+        if (now - paint < 1000 / (touch.matches ? 30 : 60) - 1) return;
         const delta = last ? Math.min((now - last) / 1000, 0.1) : 1 / 30;
         elapsed += delta;
         last = now;
@@ -468,6 +469,7 @@ export function LoadingLogo({
         camera.top = viewHeight / 2;
         camera.bottom = -camera.top;
         camera.updateProjectionMatrix();
+        renderer.setPixelRatio(canvasPixelRatio(width, height, devicePixelRatio, touch.matches));
         renderer.setSize(width, height, false);
         draw();
       };

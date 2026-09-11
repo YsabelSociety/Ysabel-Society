@@ -1,6 +1,7 @@
 'use client';
 import { BrandLogo } from './brand-logo';
 import { useScrollBudget } from './use-scroll-budget';
+import { useSessionRetention } from './use-session-retention';
 import { ChartBoundary } from './social-performance';
 import { Activity, memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
@@ -247,6 +248,7 @@ export default function Workspace({
   initialPage?: string;
 }) {
   useScrollBudget();
+  useSessionRetention();
   const data = useWorkspace();
   const syncState = useAutoRefresh(data.ready, data.settings.timezone);
   useInboxSync(data.ready);

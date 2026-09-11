@@ -3,6 +3,8 @@ import { passwordHash, constantEqual } from '@/lib/password';
 import {
   newSession,
   revokeSession,
+  renewSession,
+  SESSION_MAX_AGE,
   sessionCookie,
   tokenHash,
   verifyOrigin,
@@ -81,11 +83,26 @@ export async function POST(req: Request) {
           'Cache-Control': 'no-store',
           'Set-Cookie': sessionCookie(
             token,
-            86400,
+            SESSION_MAX_AGE,
             new URL(req.url).protocol === 'https:',
           ),
         },
       },
+    );
+  } catch (e) {
+    return apiError(e);
+  }
+}
+export async function PATCH(req: Request) {
+  try {
+    verifyOrigin(req);
+    const token = await renewSession(req);
+    return Response.json(
+      { ok: true },
+      { headers: {
+        'Cache-Control': 'private, no-store',
+        'Set-Cookie': sessionCookie(token, SESSION_MAX_AGE, new URL(req.url).protocol === 'https:'),
+      } },
     );
   } catch (e) {
     return apiError(e);

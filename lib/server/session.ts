@@ -6,6 +6,8 @@ import type { ChatGPTUser } from '@/app/chatgpt-auth';
 const settings = () => env as unknown as Record<string, string>;
 const db = () => (env as unknown as { DB: D1Database }).DB;
 export const SESSION_COOKIE = 'ys_marketing_session';
+// Renewed while the app is used; the password is never stored on the device.
+export const SESSION_MAX_AGE = 365 * 24 * 60 * 60;
 export function cookieValue(cookies: string, name: string) {
   return (
     cookies
@@ -24,7 +26,8 @@ export async function tokenHash(token: string) {
   ).join('');
 }
 export function sessionCookie(value: string, age: number, secure = true) {
-  return `${SESSION_COOKIE}=${value}; Path=${APP_BASE}; HttpOnly; SameSite=Lax; Max-Age=${age}${secure ? '; Secure' : ''}`;
+  const expires = new Date(age > 0 ? Date.now() + age * 1000 : 0).toUTCString();
+  return `${SESSION_COOKIE}=${value}; Path=${APP_BASE}; HttpOnly; SameSite=Lax; Max-Age=${age}; Expires=${expires}${secure ? '; Secure' : ''}`;
 }
 export function verifyOrigin(req: Request) {
   const origin = req.headers.get('origin');
@@ -71,9 +74,22 @@ export async function newSession() {
       .bind(
         await tokenHash(token),
         settings().MARKETING_OWNER_ID,
-        Date.now() + 86400000,
+        Date.now() + SESSION_MAX_AGE * 1000,
       ),
   ]);
+  return token;
+}
+export async function renewSession(req: Request) {
+  const token = cookieValue(req.headers.get('cookie') || '', SESSION_COOKIE);
+  const owner = settings().MARKETING_OWNER_ID;
+  if (!/^[a-f0-9]{64}$/.test(token) || !owner) throw new Error('UNAUTHORIZED');
+  const now = Date.now();
+  // Update only a still-valid session. A revoked or expired login cannot return.
+  const renewed = await db()
+    .prepare('UPDATE marketing_sessions SET expires_at=? WHERE token_hash=? AND owner=? AND expires_at>? RETURNING owner')
+    .bind(now + SESSION_MAX_AGE * 1000, await tokenHash(token), owner, now)
+    .first<{ owner: string }>();
+  if (!renewed) throw new Error('UNAUTHORIZED');
   return token;
 }
 export async function revokeSession(req: Request) {

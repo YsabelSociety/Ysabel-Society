@@ -88,6 +88,9 @@ export default function LoginForm() {
               {busy ? 'Signing in…' : 'Sign in'}
               <ArrowRight size={17} />
             </button>
+            <p className="muted" style={{ fontSize: 12, marginTop: 12 }}>
+              You’ll stay signed in on this device.
+            </p>
           </form>
           <p className="login-private">
             <LockKeyhole size={13} /> Private workspace · Ysabel Society

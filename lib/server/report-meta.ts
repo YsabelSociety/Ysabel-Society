@@ -523,7 +523,7 @@ export async function importMeta(
         channel,
         m.id,
         m.timestamp || m.created_time,
-        m.caption || m.message || (m.media_product_type==='STORY'?'Instagram story · '+String(m.timestamp||'').slice(0,10):'Published content'),
+        m.caption || m.message || (m.media_product_type==='STORY'?'Instagram story Â· '+String(m.timestamp||'').slice(0,10):'Published content'),
       );
       p.image = safeMedia(m.thumbnail_url || m.media_url || m.full_picture);
       p.mediaType=m.media_type==='VIDEO'&&!m.thumbnail_url?'video':'image';

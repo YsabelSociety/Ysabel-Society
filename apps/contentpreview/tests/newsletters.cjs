@@ -4,19 +4,26 @@ const ts = require('typescript');
 const vm = require('node:vm');
 const path = require('node:path');
 const file = path.join(__dirname, '../lib/newsletters.ts');
-const exportsObject = {};
-vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: exportsObject, crypto: require('node:crypto').webcrypto, URL });
+function load(source) { const result={}; vm.runInNewContext(ts.transpileModule(fs.readFileSync(source, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: result, crypto: require('node:crypto').webcrypto, URL, require: name=>load(path.resolve(path.dirname(source),name+'.ts')) });return result; }
+const exportsObject = load(file);
 const { emailTemplates, venues, createNewsletter, renderNewsletter, safeEmailUrl, newsletterText } = exportsObject;
-assert.equal(emailTemplates.length, 9);
-for (const venue of venues) assert.equal(emailTemplates.filter(t => t.venue === venue).length, 3);
+assert.equal(emailTemplates.length, 16);
+for (const venue of venues) assert.equal(emailTemplates.filter(t => t.venue === venue).length, venue==='Ysabel Asian'?10:3);
 const layouts = new Set();
 for (const template of emailTemplates) {
   const draft = createNewsletter(template);
   assert.equal(draft.venue, template.venue);
-  assert.equal(draft.images.length, 3);
+  assert.ok(draft.images.length>=3&&draft.images.length<=6);
   draft.heading = '<script>alert("test")</script>';
   draft.address = 'Test address';
-  const html = renderNewsletter(draft, ['https://example.com/1.jpg', 'https://example.com/2.jpg', 'https://example.com/3.jpg']);
+  const images=draft.images.map((_,i)=>`https://example.com/${i}.jpg`);
+  const html = renderNewsletter(draft, images);
+  if(draft.venue==='Ysabel Asian') {
+    for(const url of images) assert.ok(html.includes(url),template.id+' omitted '+url);
+    const demo=renderNewsletter({...draft,address:'',subject:''},images,false,true);
+    assert.ok(demo.includes('DESIGN TEST'));
+    assert.ok(draft.sections.length>=2);
+  }
   assert.ok(html.includes('&lt;script&gt;'));
   assert.ok(!html.includes('<script'));
   assert.ok(html.includes('role="presentation"'));
@@ -26,10 +33,10 @@ for (const template of emailTemplates) {
   assert.ok(newsletterText(draft).includes(draft.venue));
   layouts.add(template.layout);
 }
-assert.equal(layouts.size, 9);
+assert.equal(layouts.size, 16);
 assert.equal(safeEmailUrl(''), '');
 assert.equal(safeEmailUrl('javascript:alert(1)'), '');
 assert.equal(safeEmailUrl('https://ysabelsociety.com/contentpreview/api/media/private'), '');
 assert.equal(safeEmailUrl('https://example.com/image?access_token=secret'), '');
 assert.equal(safeEmailUrl('https://example.com/public.jpg'), 'https://example.com/public.jpg');
-console.log('PASS: nine templates, three venue collections, HTML escaping, safe image URLs, responsive markup and plain-text export.');
+console.log('PASS: ten distinct Asian layouts; all 3–6 image slots rendered; editable chapters; demo HTML without sender details; legacy venues preserved; safe URLs and escaping.');

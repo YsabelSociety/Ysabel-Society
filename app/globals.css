@@ -6897,6 +6897,8 @@ h1 {
 /* Independently rendered, source-scoped performance panels. */
 .social-performance {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 22px;
 }
 .performance-controls {
@@ -8552,4 +8554,14 @@ html[data-scrolling='true'] .workspace-shell *::after {
   .workspace-shell .metric-card,
   .workspace-shell .social-metric-card,
   .workspace-shell .website-report-card { animation: none; }
+}
+/* Retain report state while skipping layout and paint for off-screen charts.
+   Full-screen charts must escape containment to cover the whole viewport. */
+.workspace-shell .metric-slot {
+  content-visibility: auto;
+  contain-intrinsic-block-size: auto 440px;
+}
+.workspace-shell .metric-slot:has(.chart-full) {
+  content-visibility: visible;
+  contain: none;
 }

@@ -53,8 +53,6 @@ export default function Overview({
   live?: boolean;
   sceneEnabled?: boolean;
 }) {
-  const [activeSignal, setActiveSignal] = useState(0);
-  useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
   const tiktokPosts = posts.filter(
     (p) =>
       p.platform === 'TikTok' &&
@@ -69,7 +67,6 @@ export default function Overview({
     ) && tiktokPosts.length > 0;
   const month = calendarDate('Europe/Tirane').slice(0,7);
   const highlights = monthlyPosts.filter(p => p.status === 'Published' && p.date.startsWith(month) && ['Instagram','Facebook','TikTok'].includes(p.platform)).sort((a,b) => (b.views||0)-(a.views||0));
-  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'—',detail:CHANNELS[idx]+' · '+(idx===4?'website visits':'content views')};});
   return (
     <>
       <ProfileViews rows={rows} previous={previous} />
@@ -148,63 +145,7 @@ export default function Overview({
         {!highlights.length && <p className="muted">No social posts have been imported for the current month yet.</p>}
       </section>
 
-      <div className="overview-intelligence">
-        <section className="intelligence surface">
-          <div className="section-head">
-            <h2>
-              <Sparkles size={16} /> Digital Intelligence
-            </h2>
-            <span className="pill">{live ? 'LIVE' : 'PREVIEW'}</span>
-          </div>
-          <p className="intelligence-intro">The story behind the numbers.</p>
-<div className="intelligence-composition"><div className="intelligence-signals">
-          {[0, 2, 4].map((idx, i) => {
-            const c = CHANNELS[idx],
-              v = total(
-                rows.filter((r) => r.channel === c),
-                idx === 4 ? 'sessions' : 'views',
-              );
-            return (
-              <button
-                key={c}
-                className="insight-row"
-                data-active={activeSignal === i}
-                onMouseEnter={() => setActiveSignal(i)}
-                onFocus={() => setActiveSignal(i)}
-                onClick={() => setPage('Insights')}
-              >
-                <span className="insight-kicker">
-                  {['MOMENTUM', 'CHANNEL SPOTLIGHT', 'BEYOND SOCIAL'][i]}
-                </span>
-                <p>
-                  {c}{' '}
-                  <strong>
-                    {metricAvailable(
-                      rows.filter((r) => r.channel === c),
-                      idx === 4 ? 'sessions' : 'views',
-                    )
-                      ? compact(v)
-                      : idx === 2 && tiktokContent
-                        ? compact(tiktokViews)
-                        : '—'}
-                  </strong>{' '}
-                  {idx === 2 && tiktokContent
-                    ? 'lifetime views on videos published in this period.'
-                    : (idx === 4 ? 'website visits' : 'content views') +
-                      ' this period.'}
-                </p>
-                <span>
-                  Explore the signal <ArrowUpRight size={13} />
-                </span>
-              </button>
-            );
-          })}
-          </div>{sceneEnabled ? <IntelligenceScene active={activeSignal} signals={signals}/> : <div className="intelligence-art" aria-hidden="true" />}</div>
-          <button className="text-link" onClick={() => setPage('Insights')}>
-            Open intelligence <ArrowUpRight size={14} />
-          </button>
-        </section>
-      </div>
+      <OverviewIntelligence rows={rows} tiktokContent={tiktokContent} tiktokViews={tiktokViews} live={live} sceneEnabled={sceneEnabled} setPage={setPage} />
       <div className="section-head standalone">
         <div>
           <h2>Channel performance</h2>
@@ -343,5 +284,71 @@ export default function Overview({
         </>
       )}
     </>
+  );
+}
+
+// Keep the five-second editorial cycle independent of the report/chart tree.
+function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEnabled, setPage }: { rows: Daily[]; tiktokContent: boolean; tiktokViews: number; live: boolean; sceneEnabled: boolean; setPage: (page: string) => void }) {
+  const [activeSignal, setActiveSignal] = useState(0);
+  useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
+  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'—',detail:CHANNELS[idx]+' · '+(idx===4?'website visits':'content views')};});
+  return (
+      <div className="overview-intelligence">
+        <section className="intelligence surface">
+          <div className="section-head">
+            <h2>
+              <Sparkles size={16} /> Digital Intelligence
+            </h2>
+            <span className="pill">{live ? 'LIVE' : 'PREVIEW'}</span>
+          </div>
+          <p className="intelligence-intro">The story behind the numbers.</p>
+<div className="intelligence-composition"><div className="intelligence-signals">
+          {[0, 2, 4].map((idx, i) => {
+            const c = CHANNELS[idx],
+              v = total(
+                rows.filter((r) => r.channel === c),
+                idx === 4 ? 'sessions' : 'views',
+              );
+            return (
+              <button
+                key={c}
+                className="insight-row"
+                data-active={activeSignal === i}
+                onMouseEnter={() => setActiveSignal(i)}
+                onFocus={() => setActiveSignal(i)}
+                onClick={() => setPage('Insights')}
+              >
+                <span className="insight-kicker">
+                  {['MOMENTUM', 'CHANNEL SPOTLIGHT', 'BEYOND SOCIAL'][i]}
+                </span>
+                <p>
+                  {c}{' '}
+                  <strong>
+                    {metricAvailable(
+                      rows.filter((r) => r.channel === c),
+                      idx === 4 ? 'sessions' : 'views',
+                    )
+                      ? compact(v)
+                      : idx === 2 && tiktokContent
+                        ? compact(tiktokViews)
+                        : '—'}
+                  </strong>{' '}
+                  {idx === 2 && tiktokContent
+                    ? 'lifetime views on videos published in this period.'
+                    : (idx === 4 ? 'website visits' : 'content views') +
+                      ' this period.'}
+                </p>
+                <span>
+                  Explore the signal <ArrowUpRight size={13} />
+                </span>
+              </button>
+            );
+          })}
+          </div>{sceneEnabled ? <IntelligenceScene active={activeSignal} signals={signals}/> : <div className="intelligence-art" aria-hidden="true" />}</div>
+          <button className="text-link" onClick={() => setPage('Insights')}>
+            Open intelligence <ArrowUpRight size={14} />
+          </button>
+        </section>
+      </div>
   );
 }

@@ -3,7 +3,8 @@ import { BrandLogo } from './brand-logo';
 import { useScrollBudget } from './use-scroll-budget';
 import { useSessionRetention } from './use-session-retention';
 import { ChartBoundary } from './social-performance';
-import { Activity, memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { VisitedPanel } from './visited-panel';
 import dynamic from 'next/dynamic';
 import {
   LayoutDashboard,
@@ -250,8 +251,6 @@ export default function Workspace({
   useScrollBudget();
   useSessionRetention();
   const data = useWorkspace();
-  const syncState = useAutoRefresh(data.ready, data.settings.timezone);
-  useInboxSync(data.ready);
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -290,6 +289,12 @@ export default function Workspace({
   const source = useSourceAnalytics(unit, range, comparison, onLive),
     rows = source.rows,
     previous = source.previous;
+  // Display the saved reports before background provider calls compete for IO.
+  // Keep this ready once loaded so changing the date does not restart a sync.
+  const reportsLoaded = useRef(false);
+  if (source.ready) reportsLoaded.current = true;
+  const syncState = useAutoRefresh(data.ready && reportsLoaded.current, data.settings.timezone);
+  useInboxSync(data.ready && reportsLoaded.current);
   const analyticsData = useMemo(() =>
     source.mode === 'live' ? { ...data, posts: source.posts } : data,
     [source.mode, source.posts, data.posts, data.settings, data.annotations, data.reports, data.user, data.ready, data.error, data.busy, data.notice]);
@@ -886,7 +891,7 @@ export default function Workspace({
                       />
                     </AdminGate>
                   )}
-                  <Activity mode={page === 'Overview' ? 'visible' : 'hidden'}><StableOverview
+                  <VisitedPanel active={page === 'Overview'}><StableOverview
                       sceneEnabled={!intro.visible}
                       live={source.mode === 'live'}
                       range={range}
@@ -897,8 +902,8 @@ export default function Workspace({
                       monthlyPosts={source.mode === 'live' ? source.monthlyPosts : data.posts}
                       onSelect={setPost}
                       onMetric={setMetric}
-                    /></Activity>
-                  <Activity mode={page === 'Performance' ? 'visible' : 'hidden'}><ChartBoundary><StablePerformance
+                    /></VisitedPanel>
+                  <VisitedPanel active={page === 'Performance'}><ChartBoundary><StablePerformance
                       rows={rows}
                       previous={previous}
                       data={analyticsData}
@@ -911,7 +916,7 @@ export default function Workspace({
                       )}
                       websiteRealtime={source.websiteRealtime}
                       tables={source.tables}
-                    /></ChartBoundary></Activity>
+                    /></ChartBoundary></VisitedPanel>
                   {page === 'Content Intelligence' && (
                     <ContentIntelligence
                       data={analyticsData}

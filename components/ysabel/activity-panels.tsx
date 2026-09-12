@@ -197,7 +197,13 @@ type DailyKey =
   | 'reservation'
   | 'follows'
   | 'unfollows';
-export function DailyMetricGraph({
+export function DailyMetricGraph(props: Parameters<typeof DailyMetricGraphContent>[0]) {
+  return <DeferredChart title={props.label} loading={false}>
+    <DailyMetricGraphContent {...props} />
+  </DeferredChart>;
+}
+
+function DailyMetricGraphContent({
   rows,
   channel,
   metric,
@@ -317,15 +323,14 @@ export function WebsiteMetricGraphs({ rows }: { rows: Daily[] }) {
   return (
     <div className="performance-chart-grid website-metric-grid">
       {metrics.map(([metric, label, color]) => (
-        <DeferredChart key={metric} title={label} loading={false}>
           <DailyMetricGraph
+            key={metric}
             rows={rows}
             channel="Website"
             metric={metric}
             label={label}
             color={color}
           />
-        </DeferredChart>
       ))}
     </div>
   );

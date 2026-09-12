@@ -2,10 +2,20 @@
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import { canvasPixelRatio, releaseRenderer } from '@/lib/render-budget';
-
-
-
-
+// Public, immutable artwork only. Reuse the four triangulations across visits;
+// GPU buffers and contexts are still released each time the scene is hidden.
+let artwork: Promise<[typeof import('three'), typeof import('three/examples/jsm/loaders/SVGLoader.js'), string[]]> | undefined;
+const geometryCache: import('three').ExtrudeGeometry[] = [];
+function loadArtwork() {
+  if (!artwork) artwork = Promise.all([
+    import('three'), import('three/examples/jsm/loaders/SVGLoader.js'),
+    Promise.all([0,1,2,3].map(i => fetch(appPath(`/emblem-vector-${i}.svg`), {signal: AbortSignal.timeout(15000)}).then(r => {
+      if (!r.ok) throw new Error('Emblem unavailable');
+      return r.text();
+    }))),
+  ]).catch(error => { artwork = undefined; throw error; });
+  return artwork;
+}
 // Decorative connection between the three editorial signals, not a metric scale.
 export function IntelligenceScene({ active, signals }: { active: number; signals: {title:string;value:string;detail:string}[] }) {
   const host = useRef<HTMLDivElement>(null);
@@ -25,10 +35,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const current = ++generation;
       disposeScene?.(); disposeScene = undefined;
       if (!desktop.matches) return;
-      const [THREE, {SVGLoader}, vectors] = await Promise.all([
-        import('three'), import('three/examples/jsm/loaders/SVGLoader.js'),
-        Promise.all([0,1,2,3].map(i=>fetch(appPath(`/emblem-vector-${i}.svg`),{signal:AbortSignal.timeout(15000)}).then(r=>{if(!r.ok)throw new Error('Emblem unavailable');return r.text();})))
-      ]);
+      const [THREE, {SVGLoader}, vectors] = await loadArtwork();
       if (current !== generation) return;
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try { renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, powerPreference:'low-power'}); } catch { return; }
@@ -45,17 +52,25 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       scene.add(new THREE.HemisphereLight(0xffffff,0x526354,2.2));
       const key=new THREE.DirectionalLight(0xffffff,2.4);key.position.set(-3,5,7);scene.add(key);
       const rim=new THREE.DirectionalLight(0xffffff,1.3);rim.position.set(4,-1,3);scene.add(rim);
-      const logos=vectors.map((svg,i)=>{
-        const shapes=new SVGLoader().parse(svg).paths.flatMap(path=>SVGLoader.createShapes(path));
-        const geometry=new THREE.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelThickness:.5,bevelSize:.25,bevelSegments:2,curveSegments:8});
+      const logos: import('three').Mesh<import('three').ExtrudeGeometry, import('three').MeshPhysicalMaterial>[] = [];
+      for (let i=0; i<vectors.length; i++) {
+        // Give input and navigation a turn between the expensive vector shapes.
+        await new Promise(resolve => setTimeout(resolve, 0));
+        if (current !== generation) return;
+        let geometry=geometryCache[i];
+        if (!geometry) {
+          const shapes=new SVGLoader().parse(vectors[i]).paths.flatMap(path=>SVGLoader.createShapes(path));
+          geometry=new THREE.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelThickness:.5,bevelSize:.25,bevelSegments:2,curveSegments:8});
+          geometry.center();geometry.rotateX(Math.PI);geometry.computeBoundingBox();
+          const size=geometry.boundingBox!.getSize(new THREE.Vector3());
+          const scale=4.4/Math.max(size.x,size.y);geometry.scale(scale,scale,scale);
+          geometryCache[i]=geometry;
+        }
         resources.push(geometry);
-        geometry.center();geometry.rotateX(Math.PI);geometry.computeBoundingBox();
-        const size=geometry.boundingBox!.getSize(new THREE.Vector3());
-        const scale=4.4/Math.max(size.x,size.y);geometry.scale(scale,scale,scale);
         const material=new THREE.MeshPhysicalMaterial({color:palette[i],metalness:.22,roughness:.36,clearcoat:.2,transparent:true,opacity:i===0?1:0,depthWrite:true});
         resources.push(material);
-        const mesh=new THREE.Mesh(geometry,material);mesh.visible=i===0;group.add(mesh);return mesh;
-      });
+        const mesh=new THREE.Mesh(geometry,material);mesh.visible=i===0;group.add(mesh);logos.push(mesh);
+      }
       const tint=palette[0].clone();
       const point = new THREE.Vector3();
       let width = 0, height = 0;
@@ -119,8 +134,20 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       target.addEventListener('pointermove',move);target.addEventListener('pointerleave',leave);document.addEventListener('visibilitychange',visibility);
       cleanupRuntime=()=>{renderer.domElement.removeEventListener('webglcontextlost',contextLost);cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',visibility);};
     };
-    const change=()=>{const pending=setup(),expected=generation;void pending.catch(()=>{if(expected===generation){disposeScene?.();disposeScene=undefined;}});};change();desktop.addEventListener('change',change);
-    return()=>{generation++;desktop.removeEventListener('change',change);disposeScene?.();};
+    let inView=false;
+    const change=()=>{
+      if (!desktop.matches) { generation++; disposeScene?.(); disposeScene=undefined; return; }
+      if (!inView || disposeScene) return;
+      const pending=setup(),expected=generation;
+      void pending.catch(()=>{if(expected===generation){disposeScene?.();disposeScene=undefined;}});
+    };
+    // Do not download or triangulate the desktop artwork before it is visible.
+    const admission=new IntersectionObserver(entries=>{
+      inView=entries.some(entry=>entry.isIntersecting);
+      if(inView)change();
+    },{rootMargin:'80px'});
+    admission.observe(target);desktop.addEventListener('change',change);
+    return()=>{generation++;admission.disconnect();desktop.removeEventListener('change',change);disposeScene?.();};
   },[]);
   return <div className="intelligence-art" aria-hidden="true"><div ref={host} className="intelligence-canvas">{Array.from({length:36},(_,i)=><div key={i} ref={node=>{cards.current[i]=node;}} className="emblem-digit">{i%2}</div>)}</div><div className="intelligence-caption-stack">{signals.map((signal,i)=><div key={signal.title} className="intelligence-art-caption" data-current={active===i}><span>{signal.title}</span><strong>{signal.value}</strong><span>{signal.detail}</span></div>)}</div></div>;
 }

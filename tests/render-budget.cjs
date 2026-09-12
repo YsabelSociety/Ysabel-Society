@@ -8,7 +8,7 @@ function load(file, globals = {}) {
   const exports = {};
   const code = ts.transpileModule(
     fs.readFileSync(path.resolve(__dirname, '..', file), 'utf8'),
-    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } },
+    { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX } },
   ).outputText;
   vm.runInNewContext(code, { exports, ...globals });
   return exports;
@@ -71,4 +71,24 @@ for (let navigation = 0; navigation < 30; navigation++) {
   document.dispatchEvent(new Event('scroll'));
   assert.equal(timers.size, 0, 'Navigation removed the scroll listener');
 }
-console.log('Rendering budget: high-DPR canvas allocations are bounded; scene cleanup and rapid-scroll lifecycle checks pass.');
+// An unopened category must not mount any reports. Once visited, its Activity
+// remains in the tree so chart selections survive leaving and returning.
+let visited;
+const { VisitedPanel } = load('components/ysabel/visited-panel.tsx', {
+  require: name => name === 'react' ? {
+    Activity: 'activity',
+    useState: initial => {
+      visited ??= initial;
+      return [visited, value => { visited = value; }];
+    },
+  } : { jsx: (type, props) => ({ type, props }) },
+});
+const report = { selectedPlatform: 'TikTok', interval: 'Weekly' };
+assert.equal(VisitedPanel({ active: false, children: report }), null);
+assert.equal(visited, false);
+assert.equal(VisitedPanel({ active: true, children: report }).props.mode, 'visible');
+const hidden = VisitedPanel({ active: false, children: report });
+assert.equal(hidden.props.mode, 'hidden');
+assert.equal(hidden.props.children, report);
+assert.equal(VisitedPanel({ active: true, children: report }).props.children, report);
+console.log('Rendering budget: canvas allocations, scene cleanup, rapid scrolling, deferred categories and retained report state pass.');

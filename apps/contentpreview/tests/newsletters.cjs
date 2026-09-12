@@ -1,0 +1,35 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const ts = require('typescript');
+const vm = require('node:vm');
+const path = require('node:path');
+const file = path.join(__dirname, '../lib/newsletters.ts');
+const exportsObject = {};
+vm.runInNewContext(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, { exports: exportsObject, crypto: require('node:crypto').webcrypto, URL });
+const { emailTemplates, venues, createNewsletter, renderNewsletter, safeEmailUrl, newsletterText } = exportsObject;
+assert.equal(emailTemplates.length, 9);
+for (const venue of venues) assert.equal(emailTemplates.filter(t => t.venue === venue).length, 3);
+const layouts = new Set();
+for (const template of emailTemplates) {
+  const draft = createNewsletter(template);
+  assert.equal(draft.venue, template.venue);
+  assert.equal(draft.images.length, 3);
+  draft.heading = '<script>alert("test")</script>';
+  draft.address = 'Test address';
+  const html = renderNewsletter(draft, ['https://example.com/1.jpg', 'https://example.com/2.jpg', 'https://example.com/3.jpg']);
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.ok(!html.includes('<script'));
+  assert.ok(html.includes('role="presentation"'));
+  assert.ok(html.includes('max-width:640px'));
+  assert.ok(html.includes('*|UNSUB|*'));
+  assert.ok(html.includes('ysabel-logo-'));
+  assert.ok(newsletterText(draft).includes(draft.venue));
+  layouts.add(template.layout);
+}
+assert.equal(layouts.size, 9);
+assert.equal(safeEmailUrl(''), '');
+assert.equal(safeEmailUrl('javascript:alert(1)'), '');
+assert.equal(safeEmailUrl('https://ysabelsociety.com/contentpreview/api/media/private'), '');
+assert.equal(safeEmailUrl('https://example.com/image?access_token=secret'), '');
+assert.equal(safeEmailUrl('https://example.com/public.jpg'), 'https://example.com/public.jpg');
+console.log('PASS: nine templates, three venue collections, HTML escaping, safe image URLs, responsive markup and plain-text export.');

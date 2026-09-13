@@ -7703,12 +7703,12 @@ h1 {
   animation: spark-reveal 1.2s ease-out both;
 }
 .spark-area {
-  animation: spark-breathe 6s ease-in-out infinite;
+  opacity: 0.78;
 }
 .spark-pulse {
   transform-box: fill-box;
   transform-origin: center;
-  animation: spark-beacon 3.8s ease-out infinite;
+  opacity: 0.42;
 }
 @keyframes spark-reveal {
   from {
@@ -8546,8 +8546,7 @@ h1 {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-.workspace-shell .spark[data-in-view='false'] :is(.spark-area, .spark-pulse, .spark-line),
-html[data-scrolling='true'] .workspace-shell :is(.spark-area, .spark-pulse, .spark-line) {
+.workspace-shell .spark[data-in-view='false'] .spark-line {
   animation-play-state: paused !important;
 }
 .workspace-shell .topbar,
@@ -8564,7 +8563,8 @@ html[data-scrolling='true'] .workspace-shell :is(.spark-area, .spark-pulse, .spa
 .workspace-shell .metric-card:hover,
 .workspace-shell .stat-row > div:hover { animation: none; }
 .workspace-shell .metric-placeholder > div { animation: none; }
-.retained-report-panel[hidden] { display: none !important; }
+.retained-report-panel[hidden],
+.visited-panel[hidden] { display: none !important; }
 .stable-chart-container { min-width: 0; }
 .platform-workspace .studio-toolbar > [data-slot='tabs'] {
   min-width: 0;
@@ -8583,6 +8583,15 @@ html[data-scrolling='true'] .workspace-shell :is(.spark-area, .spark-pulse, .spa
 .workspace-shell .metric-slot {
   content-visibility: auto;
   contain-intrinsic-block-size: auto 440px;
+}
+@media (min-width: 768px) {
+  .workspace-shell .metric-slot-tall {
+    min-height: 749px;
+    contain-intrinsic-block-size: auto 749px;
+  }
+  .workspace-shell .metric-slot-tall .metric-placeholder {
+    min-height: 749px;
+  }
 }
 .workspace-shell .metric-slot:has(.chart-full) {
   content-visibility: visible;

@@ -167,6 +167,7 @@ export function ChannelTimeline({
             key={channel}
             title={channel + ' views'}
             loading={false}
+            tall
           >
             <PlatformTimeline
               channel={channel}

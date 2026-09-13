@@ -67,10 +67,10 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       let width = 0, height = 0, bounds: DOMRect | undefined;
       const pointer = {x:0,y:0};
       let frame=0,near=false,last=0,time=0,morphTime=0,lost=false;
+      let scrollRestTimer: ReturnType<typeof setTimeout> | undefined;
       const draw = (now:number) => {
         frame=0;
         if (lost || !near || document.hidden) return;
-        if(document.documentElement.dataset.scrolling === 'true') { last=now; frame=requestAnimationFrame(draw); return; }
         if(now-last>=32){const elapsed=Math.min((now-last)/1000,.1);time+=elapsed;if(logos.length===4)morphTime+=elapsed;last=now;
           if(!bounds)bounds=target.getBoundingClientRect();
           group.rotation.y += (pointer.x*.35+(reduced.matches?0:Math.sin(time*.4)*.22)-group.rotation.y)*.06;
@@ -120,7 +120,12 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const observer=new IntersectionObserver(entries=>{near=entries[0].isIntersecting;if(near)start();else{cancelAnimationFrame(frame);frame=0;}},{rootMargin:'80px'});observer.observe(target);
       const resize=new ResizeObserver(()=>{bounds=target.getBoundingClientRect();width=bounds.width;height=bounds.height;if(!width||!height)return;renderer.setPixelRatio(canvasPixelRatio(width,height,devicePixelRatio,touch.matches));renderer.setSize(width,height,false);camera.aspect=width/height;camera.position.z=Math.max(7,7/camera.aspect);camera.updateProjectionMatrix();});resize.observe(target);
       const enter=()=>{bounds=target.getBoundingClientRect();};
-      const scrolled=()=>{bounds=undefined;};
+      const scrolled=()=>{
+        bounds=undefined;
+        cancelAnimationFrame(frame); frame=0;
+        clearTimeout(scrollRestTimer);
+        scrollRestTimer=setTimeout(start,120);
+      };
       // Pointer movement only reads cached bounds; it never forces a layout
       // between the animated digit transforms.
       const move=(e:PointerEvent)=>{const r=bounds;if(!r?.width||!r.height)return;pointer.x=(e.clientX-r.left)/r.width*2-1;pointer.y=(e.clientY-r.top)/r.height*2-1;};
@@ -129,7 +134,7 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       renderer.domElement.addEventListener('webglcontextlost',contextLost);
       const visibility=()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0;}else start();};
       target.addEventListener('pointerenter',enter);target.addEventListener('pointermove',move);target.addEventListener('pointerleave',leave);document.addEventListener('scroll',scrolled,{capture:true,passive:true});document.addEventListener('visibilitychange',visibility);
-      cleanupRuntime=()=>{renderer.domElement.removeEventListener('webglcontextlost',contextLost);cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointerenter',enter);target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('scroll',scrolled,true);document.removeEventListener('visibilitychange',visibility);};
+      cleanupRuntime=()=>{renderer.domElement.removeEventListener('webglcontextlost',contextLost);cancelAnimationFrame(frame);clearTimeout(scrollRestTimer);observer.disconnect();resize.disconnect();target.removeEventListener('pointerenter',enter);target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('scroll',scrolled,true);document.removeEventListener('visibilitychange',visibility);};
       // First emblem is already interactive. Load the remaining shapes in order
       // without delaying the initial scene or admitting work after navigation.
       void (async () => {

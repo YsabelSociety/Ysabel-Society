@@ -1,9 +1,8 @@
 'use client';
 import { BrandLogo } from './brand-logo';
-import { useScrollBudget } from './use-scroll-budget';
 import { useSessionRetention } from './use-session-retention';
 import { ChartBoundary } from './social-performance';
-import { memo, useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { memo, useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { VisitedPanel } from './visited-panel';
 import {
   LayoutDashboard,
@@ -247,7 +246,6 @@ export default function Workspace({
 }: {
   initialPage?: string;
 }) {
-  useScrollBudget();
   useSessionRetention();
   const data = useWorkspace();
   const unit = 'Ysabel Society';
@@ -324,8 +322,10 @@ export default function Workspace({
     setMobileMenuOpen(false);
     setPage(name);
     setCommand(false);
-    window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [page]);
   useEffect(() => {
     const read = () => {
       let name =

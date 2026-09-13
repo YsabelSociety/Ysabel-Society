@@ -51,7 +51,7 @@ import { AudienceMap } from './audience-map';
 import { PostPerformance } from './post-performance';
 import { Spark } from './charts';
 import { DataIcon } from './data-icons';
-import { ResponsiveContainer } from './stable-chart-container';
+import { ResponsiveContainer, observeNearViewport } from './stable-chart-container';
 
 export class ChartBoundary extends Component<
   { children: ReactNode },
@@ -77,22 +77,18 @@ export class ChartBoundary extends Component<
     );
   }
 }
-export function DeferredChart({children, loading, title}: {children: ReactNode; loading: boolean; title: string}) {
+export function DeferredChart({children, loading, title, tall = false}: {children: ReactNode; loading: boolean; title: string; tall?: boolean}) {
   const slot = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
-    if (visible || !slot.current) return;
-    if (!('IntersectionObserver' in window)) { setVisible(true); return; }
-    const observer = new IntersectionObserver(entries => {
-      if (entries.some(entry => entry.isIntersecting)) {
-        startTransition(() => setVisible(true));
-        observer.disconnect();
-      }
-    }, {rootMargin: '240px 0px'});
-    observer.observe(slot.current);
-    return () => observer.disconnect();
-  }, [visible]);
-  return <div ref={slot} className="metric-slot" aria-busy={loading}>
+    const element = slot.current;
+    return element
+      ? observeNearViewport(element, near => {
+          startTransition(() => setVisible(near));
+        })
+      : undefined;
+  }, []);
+  return <div ref={slot} className={'metric-slot' + (tall ? ' metric-slot-tall' : '')} aria-busy={loading}>
     {visible && !loading ? <ChartBoundary>{children}</ChartBoundary> :
       <section className="surface metric-placeholder"><h3>{title}</h3>
         {loading && <p role="status">Loading source data…</p>}<div />
@@ -708,6 +704,7 @@ export const SocialPerformance = memo(function SocialPerformance({
               key={metric.key + group.join(',') + basis + format}
               title={metric.label}
               loading={loading}
+              tall
             >
               <MetricCard
                 metric={metric.key}

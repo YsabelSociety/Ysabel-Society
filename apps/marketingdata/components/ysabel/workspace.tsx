@@ -290,7 +290,7 @@ export default function Workspace({
   // Keep this ready once loaded so changing the date does not restart a sync.
   const reportsLoaded = useRef(false);
   if (source.ready) reportsLoaded.current = true;
-  const syncState = useAutoRefresh(data.ready && reportsLoaded.current, data.settings.timezone);
+  const syncState = useAutoRefresh(data.ready, data.settings.timezone);
   useInboxSync(data.ready && reportsLoaded.current);
   const analyticsData = useMemo(() =>
     source.mode === 'live' ? { ...data, posts: source.posts } : data,

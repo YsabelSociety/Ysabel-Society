@@ -55,15 +55,16 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
     let reportedJob = '',
       communityJob = '';
     const updated = (next: RefreshJob) => {
-      // Message pagination does not change analytics. Publish reports once when
-      // their phase finishes, then community records when the run finishes.
+      // Publish each completed provider immediately, without waiting for the
+      // slowest platform. Unchanged message steps do not reload analytics.
+      const reportRevision = next.id + ':' + next.tasks
+        .filter(task => task.kind === 'reports' && task.state !== 'pending')
+        .map(task => task.source + ':' + task.state + ':' + task.pages).join('|');
       if (
-        next.id !== reportedJob &&
-        next.tasks.every(
-          (task) => task.kind !== 'reports' || task.state !== 'pending',
-        )
+        reportRevision !== reportedJob &&
+        next.tasks.some(task => task.kind === 'reports' && task.state !== 'pending')
       ) {
-        reportedJob = next.id;
+        reportedJob = reportRevision;
         window.dispatchEvent(new Event('ysabel:sources-updated'));
       }
       if (next.id !== communityJob && next.status !== 'running') {
@@ -108,17 +109,18 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
       setRunning(true);
       setStatus('Starting online import…');
       try {
-        const metadata = await fetch(appPath('/api/refresh'), {
+        void fetch(appPath('/api/refresh'), {
           cache: 'no-store',
           signal: controller.signal,
         })
           .then((r) =>
             r.ok ? (r.json() as Promise<{ schedule: string | null }>) : null,
           )
+          .then(metadata => { if (metadata && !controller.signal.aborted) setSchedule(metadata.schedule); })
           .catch(() => null);
-        if (metadata) setSchedule(metadata.schedule);
         let next = await call({ op: 'start', force });
         publish(next);
+        updated(next);
         let failures = 0;
         for (let step = 0; next.status === 'running' && step < 240; step++) {
           if (controller.signal.aborted) return;

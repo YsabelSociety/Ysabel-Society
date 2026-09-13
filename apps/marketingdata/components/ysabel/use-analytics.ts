@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   filterDaily,
   comparablePrevious,
@@ -16,6 +16,7 @@ export function useSourceAnalytics(
   comparison: string,
   onLive?: () => void,
 ) {
+  const comparisonCache = useRef<{ key: string; at: number; rows: Daily[] } | null>(null);
   const [result, setResult] = useState<{
     key: string;
     mode: 'demo' | 'live';
@@ -55,9 +56,15 @@ export function useSourceAnalytics(
           return data;
         };
         // Comparison failures must never discard a valid current-period report.
+        const cached = comparisonCache.current;
         const previousRequest = comparison === 'No Comparison'
           ? Promise.resolve({ rows: [] })
-          : read(previousRange(range, comparison), true).catch(() => ({ rows: [] }));
+          : cached?.key === key && Date.now() - cached.at < 60000
+            ? Promise.resolve({ rows: cached.rows })
+            : read(previousRange(range, comparison), true).then(data => {
+                if (!abort.signal.aborted) comparisonCache.current = { key, at: Date.now(), rows: data.rows };
+                return data;
+              }).catch(() => ({ rows: [] }));
         const current = await read(range);
         const previous = { rows: [] as Daily[] };
         if (!abort.signal.aborted) {

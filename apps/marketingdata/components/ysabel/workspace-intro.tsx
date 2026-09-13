@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { RefreshCw } from 'lucide-react';
 import styles from './workspace-intro.module.css';
 import { LoadingIdentity } from './loading-identity';
@@ -64,35 +64,10 @@ export function WorkspaceIntro({
   );
 }
 
-export function useWorkspaceIntro(ready: boolean) {
-  const [visible, setVisible] = useState(true);
-  const [leaving, setLeaving] = useState(false);
-  const [reduced, setReduced] = useState(false);
+export function useWorkspaceIntro(_ready: boolean) {
   useEffect(() => {
-    try {
-      sessionStorage.removeItem(INTRO_KEY);
-    } catch {}
-    const preference = matchMedia('(prefers-reduced-motion: reduce)');
-    const update = () => setReduced(preference.matches);
-    update();
-    preference.addEventListener?.('change', update);
-    return () => preference.removeEventListener?.('change', update);
+    try { sessionStorage.removeItem(INTRO_KEY); } catch {}
   }, []);
-  useEffect(() => {
-    if (!visible || leaving) return;
-    const timer = setTimeout(() => setLeaving(true), INTRO_TIMING.maximum);
-    return () => clearTimeout(timer);
-  }, [visible, leaving]);
-  useEffect(() => {
-    if (!visible || leaving || !ready) return;
-    const timer = setTimeout(() => setLeaving(true), reduced ? 0 : INTRO_TIMING.settle);
-    return () => clearTimeout(timer);
-  }, [ready, reduced, visible, leaving]);
-  useEffect(() => {
-    // Once revealed, a background request must never reverse the fade.
-    if (!leaving) return;
-    const timer = setTimeout(() => setVisible(false), reduced ? 80 : INTRO_TIMING.exit);
-    return () => clearTimeout(timer);
-  }, [leaving, reduced]);
-  return { visible, leaving };
+  // The workspace renders immediately. Each report owns its actual loading state.
+  return { visible: false, leaving: false };
 }

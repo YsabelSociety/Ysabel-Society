@@ -1,5 +1,5 @@
 'use client';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   Search,
   Plus,
@@ -118,9 +118,11 @@ export function Empty({
 export function MediaCards({
   posts,
   onSelect,
+  deferPreviews = false,
 }: {
   posts: Post[];
   onSelect: (p: Post) => void;
+  deferPreviews?: boolean;
 }) {
   return (
     <div className="media-cards">
@@ -132,7 +134,7 @@ export function MediaCards({
           onClick={() => onSelect(p)}
         >
           <div className="media-photo">
-            <Media post={p} />
+            {deferPreviews ? <GalleryPreview post={p} /> : <Media post={p} />}
             <span className="media-platform">
               {p.platform} <span>· {p.format}</span>
             </span>
@@ -173,6 +175,24 @@ export function MediaCards({
       ))}
     </div>
   );
+}
+function GalleryPreview({ post }: { post: Post }) {
+  const host = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (visible || !host.current) return;
+    if (!('IntersectionObserver' in window)) { setVisible(true); return; }
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '240px' });
+    observer.observe(host.current);
+    return () => observer.disconnect();
+  }, [visible]);
+  // Every card is present; only media downloads wait until the card is nearby.
+  return <div ref={host} className="content-gallery-preview">{visible && <Media post={post} />}</div>;
 }
 const tableFields: {
   key: keyof Post | 'engagementRate' | 'performanceScore';
@@ -233,7 +253,7 @@ export function ContentIntelligence({
     [distribution, setDistribution] = useState('All distribution'),
     [sort, setSort] = useState('views'),
     [direction, setDirection] = useState(-1),
-    [page, setPage] = useState(0),
+    [detailsOpen, setDetailsOpen] = useState(false),
     [level, setLevel] = useState('All performance'),
     [tab, setTab] = useState('Content');
   const published = data.posts.filter(
@@ -276,7 +296,7 @@ export function ContentIntelligence({
     },
   );
   return (
-    <div className="view-enter">
+    <div className="view-enter content-intelligence">
       {data.posts.some((p) => p.origin) && (
         <p className="source-live-note">
           Imported content · dates filter publication dates. Post metrics are
@@ -298,26 +318,12 @@ export function ContentIntelligence({
         <>
           <div className="section-head standalone">
             <div>
-              <h2>{tab==='Stories'?'Published stories':'Content that moved the conversation'}</h2>
-              <p>Published content · sorted by views</p>
+              <h2>{tab==='Stories'?'Published stories':'All published content'}</h2>
+              <p>{filtered.length} posts across {new Set(filtered.map(p => p.platform)).size} platforms · selected publication dates</p>
             </div>
             <span className="pill">IMPORTED CONTENT</span>
           </div>
-          {filtered.length ? (
-            <MediaCards
-              posts={[...filtered]
-                .sort((a, b) => b.views - a.views)
-                .slice(0, 4)}
-              onSelect={onSelect}
-            />
-          ) : (
-            <Empty title="No imported content in this view" text="Sync connected accounts or change the publication dates. No sample media is displayed." />
-          )}
-          <section className="surface table-surface">
-            <div className="section-head">
-              <h2>{tab==='Stories'?'Story performance':'Content performance'}</h2>
-              <span className="muted">{filtered.length} posts</span>
-            </div>
+          <section className="surface content-gallery-filters" aria-label="Content filters">
             <div className="content-filters">
               <label className="search-field">
                 <Search size={15} />
@@ -327,7 +333,6 @@ export function ContentIntelligence({
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
-                    setPage(0);
                   }}
                 />
               </label>
@@ -383,12 +388,26 @@ export function ContentIntelligence({
                   options={options}
                   onChange={(v) => {
                     setter(v);
-                    setPage(0);
                   }}
                 />
               ))}
             </div>
-            <Table>
+          </section>
+          {filtered.length ? (
+            <MediaCards
+              posts={filtered}
+              deferPreviews
+              onSelect={onSelect}
+            />
+          ) : (
+            <Empty title="No imported content in this view" text="Sync connected accounts or change the publication dates. No sample media is displayed." />
+          )}
+          <details className="surface table-surface content-statistics" onToggle={event => setDetailsOpen(event.currentTarget.open)}>
+            <summary className="section-head">
+              <h2>{tab==='Stories'?'Story performance':'Content performance'}</h2>
+              <span className="muted">{filtered.length} posts · detailed statistics</span>
+            </summary>
+            {detailsOpen && <Table>
               <TableHeader>
                 <TableRow>
                   {tableFields.map((f) => (
@@ -407,7 +426,7 @@ export function ContentIntelligence({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.slice(page * 8, (page + 1) * 8).map((p) => (
+                {filtered.map((p) => (
                   <TableRow key={p.id} onClick={() => onSelect(p)}>
                     {tableFields.map((f) => (
                       <TableCell key={f.key}>
@@ -453,24 +472,9 @@ export function ContentIntelligence({
                   </TableRow>
                 ))}
               </TableBody>
-            </Table>
+            </Table>}
             {!filtered.length && <Empty />}
-            <div className="pagination">
-              <span>
-                {filtered.length ? Math.min(page * 8 + 1, filtered.length) : 0}–
-                {Math.min((page + 1) * 8, filtered.length)} of {filtered.length}
-              </span>
-              <button disabled={page === 0} onClick={() => setPage(page - 1)}>
-                <ChevronLeft size={16} /> Previous
-              </button>
-              <button
-                disabled={(page + 1) * 8 >= filtered.length}
-                onClick={() => setPage(page + 1)}
-              >
-                Next <ChevronRight size={16} />
-              </button>
-            </div>
-          </section>
+          </details>
         </>
       ) : tab === 'Formats & timing' ? (
         <div className="two-col">

@@ -1271,7 +1271,9 @@ h1 {
   background: #e7e9eb;
 }
 .media-photo > img,
-.media-photo > video {
+.media-photo > video,
+.content-gallery-preview > img,
+.content-gallery-preview > video {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -6901,6 +6903,13 @@ h1 {
   min-width: 0;
   gap: 22px;
 }
+.content-gallery-preview { position: absolute; inset: 0; }
+.content-gallery-filters { padding: 20px; margin-bottom: 24px; }
+.content-gallery-filters .content-filters { margin: 0; }
+.content-intelligence .media-cards { margin-bottom: 28px; }
+.content-statistics > summary { cursor: pointer; flex-wrap: wrap; gap: 12px; }
+.content-statistics > summary::after { content: '+'; font-size: 20px; color: #536173; }
+.content-statistics[open] > summary::after { content: '−'; }
 .performance-controls {
   padding: 24px;
   display: flex;

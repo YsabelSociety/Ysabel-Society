@@ -15,6 +15,7 @@ import { type Range } from '@/lib/analytics';
 import { ReviewDateControls } from './review-date-controls';
 import { ReviewAI } from './review-ai';
 import { ReviewBody } from './review-body';
+import { REVIEW_CATEGORIES, reviewCategoryLabel } from '@/lib/review-categories';
 import { DataIcon } from './data-icons';
 import { MiniHistory } from './mini-history';
 import { reviewMonthHistory } from '@/lib/review-history';
@@ -88,6 +89,10 @@ export function ReviewReports({
     [records, localFilters, dates, range.start, range.end, timezone],
   );
   const ratingBasis = ratingReports.flatMap((report) => report.rows);
+  const categorySelection = useMemo(
+    () => makeReviewReport(records, {...filters,topic:'All topics',evidence:'Criticism detected'}, reportRange, timezone, title),
+    [records, localFilters, dates, range.start, range.end, timezone, title],
+  );
   async function exportIllustrated() {
     if (!snapshot || busy) return;
     setBusy(true);
@@ -184,26 +189,9 @@ export function ReviewReports({
       <div className="review-report-controls">
         <Picker
           label="Report topic"
-          value={filters.topic}
-          options={[
-            'Food & drinks',
-            'Food',
-            'Drinks',
-            'Service & staff',
-            'Atmosphere',
-            'Waiting time',
-            'Price & value',
-            'Cleanliness',
-            'Hospitality',
-            'Menu',
-            'Reservations',
-            'Accessibility',
-            'Opening hours',
-            'Dietary needs',
-            'Other',
-            'All topics',
-          ]}
-          onChange={(v) => patch({ topic: v as ReviewReportFilters['topic'] })}
+          value={reviewCategoryLabel(filters.topic === 'Service & staff' ? 'Service' : filters.topic)}
+          options={['All topics','Food & drinks',...REVIEW_CATEGORIES.map(c=>c.label)]}
+          onChange={(v) => {const topic=REVIEW_CATEGORIES.find(c=>c.label===v)?.topic||v;patch({topic:(topic==='Service'?'Service & staff':topic) as ReviewReportFilters['topic']});}}
         />
         <Picker
           label="Report feedback"
@@ -327,28 +315,32 @@ export function ReviewReports({
           />
         </div>
       </div>
-      {!!selection.rows.length && (
+      {(
         <div
           className="review-report-issues"
-          aria-label="Most frequent criticism in selected reviews"
+          aria-label="All criticism categories"
         >
-          {selection.issues.slice(0, 6).map((issue) => (
-            <div key={issue.topic}>
+          <div className="review-category-heading"><h3>Criticism categories</h3><p>Every category is available. Counts follow the selected ratings, dates and search. One review can contain several concerns.</p><button className="secondary" onClick={()=>patch({topic:'All topics'})}>Show all categories</button></div>
+          {REVIEW_CATEGORIES.map((category) => {
+            const issue=categorySelection.issues.find(i=>i.topic===category.topic);
+            const topic=category.topic==='Service'?'Service & staff':category.topic;
+            return <button className="review-category-card" key={category.topic} aria-pressed={filters.topic===topic} onClick={()=>patch({topic,evidence:'Criticism detected'})}>
               <span>
-                <DataIcon name={issue.topic} />
-                {issue.topic}
-                <b>{issue.count}</b>
+                <DataIcon name={category.topic} />
+                {category.label}
+                <b>{loading?'—':issue?.count||0}</b>
               </span>
+              <small>{category.detail}</small>
               <div>
                 <i
                   style={{
-                    width: (issue.count / selection.rows.length) * 100 + '%',
+                    width: ((issue?.count||0) / Math.max(1,categorySelection.rows.length)) * 100 + '%',
                   }}
                 />
               </div>
-              <p>{'explanation' in issue ? String(issue.explanation) : issue.excerpt}</p>
-            </div>
-          ))}
+              <p>{issue?.excerpt || (loading?'Loading reviews…':'No criticism detected in the selected reviews.')}</p>
+            </button>;
+          })}
         </div>
       )}
       {!loading && !selection.rows.length && (

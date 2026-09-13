@@ -8560,6 +8560,11 @@ h1 {
 .workspace-shell .spark[data-in-view='false'] .spark-line {
   animation-play-state: paused !important;
 }
+.review-category-heading {grid-column:1 / -1;}
+.review-category-card {min-width:0;text-align:left;padding:16px;border:1px solid #cad3ca;border-radius:14px;background:linear-gradient(125deg,#f8faf9,#e7ece7);color:#28352f;cursor:pointer;overflow-wrap:anywhere;}
+.review-category-card[aria-pressed='true'] {border-color:#365746;box-shadow:inset 0 0 0 1px #365746;}
+.review-category-card small {display:block;color:#596961;margin:8px 0;line-height:1.5;}
+.review-category-card > div {height:5px;background:#dce3dc;margin-top:10px;border-radius:8px;}
 .workspace-shell .topbar,
 .workspace-shell .ys-sidebar [data-slot='sidebar-inner'],
 .workspace-shell .highlight-format {

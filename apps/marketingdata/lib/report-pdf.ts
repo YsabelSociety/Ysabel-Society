@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { REVIEW_CATEGORIES } from './review-categories';
 import { autoTable } from 'jspdf-autotable';
 import {
   CHANNELS,
@@ -1123,6 +1124,7 @@ export async function createReportPDF(
   const criticism = reviews.flatMap((r) =>
     reviewTopics(r).criticisms.map((c) => c.topic),
   );
+  table('Category|Reviews with criticism|What it covers'.split('|'),REVIEW_CATEGORIES.map(c=>[c.label, reviews.filter(r=>reviewTopics(r).criticisms.some(issue=>issue.topic===c.topic)).length,c.detail]));
   bars(
     'Criticism themes',
     [...new Set(criticism)]

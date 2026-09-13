@@ -903,7 +903,7 @@ export default function Workspace({
                       onSelect={setPost}
                       onMetric={setMetric}
                     /></VisitedPanel>
-                  <VisitedPanel active={page === 'Performance'}><ChartBoundary><StablePerformance
+                  <VisitedPanel active={page === 'Performance'} retainCharts><ChartBoundary><StablePerformance
                       rows={rows}
                       previous={previous}
                       data={analyticsData}

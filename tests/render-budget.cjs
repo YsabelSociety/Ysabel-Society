@@ -43,7 +43,10 @@ assert.equal(disposed, 100);
 // Fast nested scrolling uses one pending timer, resumes after settling, and
 // never leaves a pause flag or event handler behind after navigating away.
 const document = new EventTarget();
-document.documentElement = { dataset: {} };
+let scrollAttributeWrites = 0;
+document.documentElement = { dataset: new Proxy({}, {
+  set(target, key, value) { scrollAttributeWrites++; target[key] = value; return true; },
+}) };
 const timers = new Map();
 let id = 0, cleanup;
 const { useScrollBudget } = load('components/ysabel/use-scroll-budget.ts', {
@@ -59,7 +62,9 @@ const settle = () => {
 };
 for (let navigation = 0; navigation < 30; navigation++) {
   useScrollBudget();
+  const beforeWrites = scrollAttributeWrites;
   for (let scroll = 0; scroll < 50; scroll++) document.dispatchEvent(new Event('scroll'));
+  assert.equal(scrollAttributeWrites - beforeWrites, 1, 'One style invalidation per scroll burst');
   assert.equal(document.documentElement.dataset.scrolling, 'true');
   assert.equal(timers.size, 1);
   settle();
@@ -91,4 +96,9 @@ const hidden = VisitedPanel({ active: false, children: report });
 assert.equal(hidden.props.mode, 'hidden');
 assert.equal(hidden.props.children, report);
 assert.equal(VisitedPanel({ active: true, children: report }).props.children, report);
+const retained = VisitedPanel({ active: false, children: report, retainCharts: true });
+assert.equal(retained.type, 'div');
+assert.equal(retained.props.hidden, true);
+assert.equal(retained.props.children, report);
+assert.equal(VisitedPanel({ active: true, children: report, retainCharts: true }).props.hidden, false);
 console.log('Rendering budget: canvas allocations, scene cleanup, rapid scrolling, deferred categories and retained report state pass.');

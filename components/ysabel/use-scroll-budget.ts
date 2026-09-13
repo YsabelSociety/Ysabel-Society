@@ -8,7 +8,9 @@ export function useScrollBudget() {
     const root = document.documentElement;
     const rest = () => { delete root.dataset.scrolling; };
     const scroll = () => {
-      root.dataset.scrolling = 'true';
+      // Rewriting this attribute on every scroll event invalidates thousands
+      // of descendant styles even though the value has not changed.
+      if (root.dataset.scrolling !== 'true') root.dataset.scrolling = 'true';
       clearTimeout(timer);
       timer = setTimeout(rest, 180);
     };

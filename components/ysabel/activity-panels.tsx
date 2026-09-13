@@ -7,8 +7,8 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
+import { ResponsiveContainer } from './stable-chart-container';
 import {
   CHANNELS,
   COLORS,

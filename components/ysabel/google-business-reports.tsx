@@ -8,11 +8,11 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
-  ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
+import { ResponsiveContainer } from './stable-chart-container';
 import {
   Download,
   Search,

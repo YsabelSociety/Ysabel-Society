@@ -1,6 +1,6 @@
 'use client';
 import { useMinimalMotion } from './use-motion';
-import { useState, useId } from 'react';
+import { useState, useId, useRef, useEffect } from 'react';
 import {
   Area,
   Line,
@@ -9,9 +9,9 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Brush,
 } from 'recharts';
+import { ResponsiveContainer } from './stable-chart-container';
 import {
   CHANNELS,
   metricAvailable,
@@ -24,17 +24,45 @@ import {
 import { Picker } from './controls';
 import { Maximize2, ArrowUpRight } from 'lucide-react';
 import { sparkline } from '@/lib/sparkline';
+
+// One observer controls all decorative mini charts. Off-screen SVG animations
+// stay paused without React updates or individual scroll listeners.
+let sparkObserver: IntersectionObserver | undefined;
+let observedSparks = 0;
+function observeSpark(element: SVGSVGElement) {
+  if (!('IntersectionObserver' in window)) {
+    element.dataset.inView = 'true';
+    return () => {};
+  }
+  sparkObserver ??= new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      const target = entry.target as SVGSVGElement, value = String(entry.isIntersecting);
+      if (target.dataset.inView !== value) target.dataset.inView = value;
+    }
+  }, { rootMargin: '40px' });
+  const observer = sparkObserver;
+  observedSparks++;
+  observer.observe(element);
+  return () => {
+    observer.unobserve(element);
+    if (--observedSparks === 0) { observer.disconnect(); sparkObserver = undefined; }
+  };
+}
 export function Spark({
   values = [],
 }: {
   values?: (number | null | undefined)[];
 }) {
+  const element = useRef<SVGSVGElement>(null);
+  useEffect(() => element.current ? observeSpark(element.current) : undefined, []);
   const id = useId().replace(/:/g, ''),
     geometry = sparkline(values),
     last = geometry.points.at(-1);
   return (
     <svg
+      ref={element}
       className="spark"
+      data-in-view="false"
       viewBox="0 0 120 45"
       preserveAspectRatio="none"
       aria-hidden="true"

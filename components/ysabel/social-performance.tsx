@@ -7,6 +7,7 @@ import {
   useMemo,
   memo,
   useState,
+  startTransition,
   type ReactNode,
 } from 'react';
 import {
@@ -18,7 +19,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Brush,
 } from 'recharts';
 import { RotateCcw, Maximize2 } from 'lucide-react';
@@ -51,6 +51,7 @@ import { AudienceMap } from './audience-map';
 import { PostPerformance } from './post-performance';
 import { Spark } from './charts';
 import { DataIcon } from './data-icons';
+import { ResponsiveContainer } from './stable-chart-container';
 
 export class ChartBoundary extends Component<
   { children: ReactNode },
@@ -84,7 +85,7 @@ export function DeferredChart({children, loading, title}: {children: ReactNode; 
     if (!('IntersectionObserver' in window)) { setVisible(true); return; }
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) {
-        setVisible(true);
+        startTransition(() => setVisible(true));
         observer.disconnect();
       }
     }, {rootMargin: '240px 0px'});

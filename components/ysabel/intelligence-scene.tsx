@@ -2,27 +2,26 @@
 import { useEffect, useRef } from 'react';
 import { appPath } from '@/lib/app-path';
 import { canvasPixelRatio, releaseRenderer } from '@/lib/render-budget';
-// Public, immutable artwork only. Reuse the four triangulations across visits;
-// GPU buffers and contexts are still released each time the scene is hidden.
-let artwork: Promise<[typeof import('three'), typeof import('three/examples/jsm/loaders/SVGLoader.js'), string[]]> | undefined;
-const geometryCache: import('three').ExtrudeGeometry[] = [];
-function loadArtwork() {
-  if (!artwork) artwork = Promise.all([
-    import('three'), import('three/examples/jsm/loaders/SVGLoader.js'),
-    Promise.all([0,1,2,3].map(i => fetch(appPath(`/emblem-vector-${i}.svg`), {signal: AbortSignal.timeout(15000)}).then(r => {
-      if (!r.ok) throw new Error('Emblem unavailable');
-      return r.text();
-    }))),
-  ]).catch(error => { artwork = undefined; throw error; });
-  return artwork;
+// Cache immutable public mesh buffers, never GPU resources. Compression is
+// expanded by the browser stream; there is no XML parsing or triangulation here.
+const meshes = new Map<number, Promise<ArrayBuffer>>();
+function loadMesh(index: number) {
+  let pending = meshes.get(index);
+  if (!pending) {
+    pending = fetch(appPath(`/emblem-mesh-${index}.bin.gz`), { signal: AbortSignal.timeout(15000) })
+      .then(async response => {
+        if (!response.ok || !response.body) throw new Error('Emblem unavailable');
+        return new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+      }).catch(error => { meshes.delete(index); throw error; });
+    meshes.set(index, pending);
+  }
+  return pending;
 }
 // Decorative connection between the three editorial signals, not a metric scale.
 export function IntelligenceScene({ active, signals }: { active: number; signals: {title:string;value:string;detail:string}[] }) {
   const host = useRef<HTMLDivElement>(null);
   const cards = useRef<(HTMLDivElement | null)[]>([]);
 
-  const selected = useRef(active);
-  selected.current = active;
   useEffect(() => {
     const target = host.current;
     if (!target) return;
@@ -35,7 +34,9 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       const current = ++generation;
       disposeScene?.(); disposeScene = undefined;
       if (!desktop.matches) return;
-      const [THREE, {SVGLoader}, vectors] = await loadArtwork();
+      const [THREE, {decodeEmblem}, firstMesh] = await Promise.all([
+        import('three'), import('@/lib/emblem-geometry'), loadMesh(0),
+      ]);
       if (current !== generation) return;
       let renderer: InstanceType<typeof THREE.WebGLRenderer>;
       try { renderer = new THREE.WebGLRenderer({alpha:true, antialias:true, powerPreference:'low-power'}); } catch { return; }
@@ -52,40 +53,31 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       scene.add(new THREE.HemisphereLight(0xffffff,0x526354,2.2));
       const key=new THREE.DirectionalLight(0xffffff,2.4);key.position.set(-3,5,7);scene.add(key);
       const rim=new THREE.DirectionalLight(0xffffff,1.3);rim.position.set(4,-1,3);scene.add(rim);
-      const logos: import('three').Mesh<import('three').ExtrudeGeometry, import('three').MeshPhysicalMaterial>[] = [];
-      for (let i=0; i<vectors.length; i++) {
-        // Give input and navigation a turn between the expensive vector shapes.
-        await new Promise(resolve => setTimeout(resolve, 0));
-        if (current !== generation) return;
-        let geometry=geometryCache[i];
-        if (!geometry) {
-          const shapes=new SVGLoader().parse(vectors[i]).paths.flatMap(path=>SVGLoader.createShapes(path));
-          geometry=new THREE.ExtrudeGeometry(shapes,{depth:8,steps:1,bevelEnabled:true,bevelThickness:.5,bevelSize:.25,bevelSegments:2,curveSegments:8});
-          geometry.center();geometry.rotateX(Math.PI);geometry.computeBoundingBox();
-          const size=geometry.boundingBox!.getSize(new THREE.Vector3());
-          const scale=4.4/Math.max(size.x,size.y);geometry.scale(scale,scale,scale);
-          geometryCache[i]=geometry;
-        }
+      const logos: import('three').Mesh<import('three').BufferGeometry, import('three').MeshPhysicalMaterial>[] = [];
+      const addLogo = (i:number, buffer:ArrayBuffer) => {
+        const geometry = decodeEmblem(buffer);
         resources.push(geometry);
         const material=new THREE.MeshPhysicalMaterial({color:palette[i],metalness:.22,roughness:.36,clearcoat:.2,transparent:true,opacity:i===0?1:0,depthWrite:true});
         resources.push(material);
         const mesh=new THREE.Mesh(geometry,material);mesh.visible=i===0;group.add(mesh);logos.push(mesh);
-      }
+      };
+      addLogo(0, firstMesh);
       const tint=palette[0].clone();
       const point = new THREE.Vector3();
-      let width = 0, height = 0;
+      let width = 0, height = 0, bounds: DOMRect | undefined;
       const pointer = {x:0,y:0};
-      let frame=0,near=false,last=0,time=0,lost=false;
+      let frame=0,near=false,last=0,time=0,morphTime=0,lost=false;
       const draw = (now:number) => {
         frame=0;
         if (lost || !near || document.hidden) return;
         if(document.documentElement.dataset.scrolling === 'true') { last=now; frame=requestAnimationFrame(draw); return; }
-        if(now-last>=32){time+=Math.min((now-last)/1000,.1);last=now;
+        if(now-last>=32){const elapsed=Math.min((now-last)/1000,.1);time+=elapsed;if(logos.length===4)morphTime+=elapsed;last=now;
+          if(!bounds)bounds=target.getBoundingClientRect();
           group.rotation.y += (pointer.x*.35+(reduced.matches?0:Math.sin(time*.4)*.22)-group.rotation.y)*.06;
           group.rotation.x += (pointer.y*.25+(reduced.matches?0:Math.cos(time*.3)*.12)-group.rotation.x)*.06;
           group.position.y=reduced.matches?0:Math.sin(time*.65)*.065;
           
-          const phase=reduced.matches?0:time/7;
+          const phase=reduced.matches?0:morphTime/7;
           const index=Math.floor(phase)%4;
           const transition=Math.max(0,Math.min(1,((phase%1)-.5)*2));
           const eased=transition*transition*transition*(transition*(transition*6-15)+10);
@@ -101,6 +93,8 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
           });
           target.dataset.emblemShape=String(index);target.dataset.emblemBlend=eased.toFixed(3);
           group.updateMatrixWorld(true);
+          const color='#'+tint.getHexString();
+          target.style.color=color;
           cards.current.forEach((card,i)=>{
             if(!card)return;
             const count=36;
@@ -108,16 +102,15 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
             const radius=1.75*Math.sqrt((i+.5)/count);
             point.set(Math.cos(angle)*radius,Math.sin(angle)*radius,.28+Math.sin(i*1.7+(reduced.matches?0:time*.5))*.14);
             point.applyMatrix4(group.matrixWorld).project(camera);
-            card.style.left=((point.x+1)*width/2)+'px';card.style.top=((-point.y+1)*height/2)+'px';
-            card.style.transform='translate(-50%,-50%) perspective(600px) rotateY('+(group.rotation.y*25)+'deg) rotateX('+(-group.rotation.x*25)+'deg) rotate('+Math.sin(i*1.5+(reduced.matches?0:time*.3))*4+'deg)';
             // Exchange each digit while invisible, synchronized with the shape blend.
             const change=Math.max(0,Math.min(1,(eased-i/count*.16)/.84));
             const veil=Math.pow(Math.abs(2*change-1),.65);
             card.style.opacity=String((.32+.3*(.5+.5*Math.sin(i+time*.6)))*veil);
-            card.style.translate='0 '+(-Math.sin(change*Math.PI)*8)+'px';
+            const x=(point.x+1)*width/2, y=(-point.y+1)*height/2-Math.sin(change*Math.PI)*8;
+            card.style.transform='translate3d('+x+'px,'+y+'px,0) translate(-50%,-50%) perspective(600px) rotateY('+(group.rotation.y*25)+'deg) rotateX('+(-group.rotation.x*25)+'deg) rotate('+Math.sin(i*1.5+(reduced.matches?0:time*.3))*4+'deg)';
             const digitShape=(index+(change>=.5?1:0))%4;
-            card.textContent=String((i*7+digitShape*3)%10);
-            card.style.color='#'+tint.getHexString();
+            const digit=String((i*7+digitShape*3)%10);
+            if(card.textContent!==digit)card.textContent=digit;
           });
           renderer.render(scene,camera);
         }
@@ -125,14 +118,27 @@ export function IntelligenceScene({ active, signals }: { active: number; signals
       };
       const start=()=>{if(!lost&&near&&!document.hidden&&!frame){last=performance.now();frame=requestAnimationFrame(draw);}};
       const observer=new IntersectionObserver(entries=>{near=entries[0].isIntersecting;if(near)start();else{cancelAnimationFrame(frame);frame=0;}},{rootMargin:'80px'});observer.observe(target);
-      const resize=new ResizeObserver(()=>{const bounds=target.getBoundingClientRect();width=bounds.width;height=bounds.height;if(!width||!height)return;renderer.setPixelRatio(canvasPixelRatio(width,height,devicePixelRatio,touch.matches));renderer.setSize(width,height,false);camera.aspect=width/height;camera.position.z=Math.max(7,7/camera.aspect);camera.updateProjectionMatrix();});resize.observe(target);
-      const move=(e:PointerEvent)=>{const r=target.getBoundingClientRect();pointer.x=(e.clientX-r.left)/r.width*2-1;pointer.y=(e.clientY-r.top)/r.height*2-1;};
+      const resize=new ResizeObserver(()=>{bounds=target.getBoundingClientRect();width=bounds.width;height=bounds.height;if(!width||!height)return;renderer.setPixelRatio(canvasPixelRatio(width,height,devicePixelRatio,touch.matches));renderer.setSize(width,height,false);camera.aspect=width/height;camera.position.z=Math.max(7,7/camera.aspect);camera.updateProjectionMatrix();});resize.observe(target);
+      const enter=()=>{bounds=target.getBoundingClientRect();};
+      const scrolled=()=>{bounds=undefined;};
+      // Pointer movement only reads cached bounds; it never forces a layout
+      // between the animated digit transforms.
+      const move=(e:PointerEvent)=>{const r=bounds;if(!r?.width||!r.height)return;pointer.x=(e.clientX-r.left)/r.width*2-1;pointer.y=(e.clientY-r.top)/r.height*2-1;};
       const leave=()=>{pointer.x=pointer.y=0;};
       const contextLost=(event:Event)=>{event.preventDefault();lost=true;cancelAnimationFrame(frame);frame=0;renderer.domElement.style.visibility='hidden';};
       renderer.domElement.addEventListener('webglcontextlost',contextLost);
       const visibility=()=>{if(document.hidden){cancelAnimationFrame(frame);frame=0;}else start();};
-      target.addEventListener('pointermove',move);target.addEventListener('pointerleave',leave);document.addEventListener('visibilitychange',visibility);
-      cleanupRuntime=()=>{renderer.domElement.removeEventListener('webglcontextlost',contextLost);cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('visibilitychange',visibility);};
+      target.addEventListener('pointerenter',enter);target.addEventListener('pointermove',move);target.addEventListener('pointerleave',leave);document.addEventListener('scroll',scrolled,{capture:true,passive:true});document.addEventListener('visibilitychange',visibility);
+      cleanupRuntime=()=>{renderer.domElement.removeEventListener('webglcontextlost',contextLost);cancelAnimationFrame(frame);observer.disconnect();resize.disconnect();target.removeEventListener('pointerenter',enter);target.removeEventListener('pointermove',move);target.removeEventListener('pointerleave',leave);document.removeEventListener('scroll',scrolled,true);document.removeEventListener('visibilitychange',visibility);};
+      // First emblem is already interactive. Load the remaining shapes in order
+      // without delaying the initial scene or admitting work after navigation.
+      void (async () => {
+        for (let i=1; i<4 && current===generation; i++) {
+          const buffer=await loadMesh(i);
+          if (current!==generation) return;
+          addLogo(i,buffer);
+        }
+      })().catch(()=>{ /* Keep the first emblem if later artwork is unavailable. */ });
     };
     let inView=false;
     const change=()=>{

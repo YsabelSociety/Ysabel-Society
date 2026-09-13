@@ -13,7 +13,6 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
@@ -21,6 +20,7 @@ import {
   Scatter,
   ZAxis,
 } from 'recharts';
+import { ResponsiveContainer } from './stable-chart-container';
 import {
   Sparkles,
   ArrowUpRight,

@@ -16,8 +16,8 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  ResponsiveContainer,
 } from 'recharts';
+import { ResponsiveContainer } from './stable-chart-container';
 import { Tabs, TabsList, TabsContent } from '@/components/ui/tabs';
 import { DataIcon, DataTab as TabsTrigger } from './data-icons';
 import { MiniHistory } from './mini-history';

@@ -9,9 +9,9 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
   Cell,
 } from 'recharts';
+import { ResponsiveContainer } from './stable-chart-container';
 import type { ReportTable } from '@/lib/reporting';
 import { number, compact } from '@/lib/analytics';
 import {

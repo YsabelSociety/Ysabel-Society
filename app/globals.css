@@ -8530,6 +8530,7 @@ h1 {
 .emblem-post img,.emblem-post video{width:100%;height:100%;object-fit:cover;display:block;}.emblem-post>span{position:absolute;bottom:0;left:0;right:0;padding:3px;background:#1d3428bc;color:white;font-size:7px;text-align:center;}.emblem-post .media-unavailable{height:100%;font-size:8px;}.emblem-post .media-unavailable svg{width:16px;}
 
 .emblem-digit{position:absolute;z-index:1;pointer-events:none;color:#426c54;font:400 13px/1 ui-monospace,SFMono-Regular,Consolas,monospace;text-shadow:none;will-change:transform;letter-spacing:.05em;}
+.intelligence-canvas .emblem-digit{left:0;top:0;color:inherit;}
 
 /* Proportional editorial signals beside the vector emblem. */
 .intelligence-signals .insight-row{padding:20px 12px;border-radius:12px;}
@@ -8545,19 +8546,32 @@ h1 {
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
-html[data-scrolling='true'] .workspace-shell *,
-html[data-scrolling='true'] .workspace-shell *::before,
-html[data-scrolling='true'] .workspace-shell *::after {
+.workspace-shell .spark[data-in-view='false'] :is(.spark-area, .spark-pulse, .spark-line),
+html[data-scrolling='true'] .workspace-shell :is(.spark-area, .spark-pulse, .spark-line) {
   animation-play-state: paused !important;
 }
+.workspace-shell .topbar,
+.workspace-shell .ys-sidebar [data-slot='sidebar-inner'],
+.workspace-shell .highlight-format {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.workspace-shell .topbar { background: #f3f5f4f5; }
+/* Keep channel gradients while avoiding full-card repaints every frame. */
+.workspace-shell .social-metric-card,
+.workspace-shell .audience-map-card,
+.workspace-shell .page-tabs [data-slot='tabs-trigger'],
+.workspace-shell .metric-card:hover,
+.workspace-shell .stat-row > div:hover { animation: none; }
+.workspace-shell .metric-placeholder > div { animation: none; }
+.retained-report-panel[hidden] { display: none !important; }
+.stable-chart-container { min-width: 0; }
+.platform-workspace .studio-toolbar > [data-slot='tabs'] {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
 @media (pointer: coarse), (max-width: 767px) {
-  .workspace-shell .topbar,
-  .workspace-shell .ys-sidebar [data-slot='sidebar-inner'],
-  .workspace-shell .highlight-format {
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
-  .workspace-shell .topbar { background: #f3f5f4f5; }
   .workspace-shell .view-enter,
   .workspace-shell .view-content,
   .workspace-shell .metric-card,

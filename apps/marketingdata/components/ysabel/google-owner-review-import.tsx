@@ -21,6 +21,12 @@ export function GoogleOwnerReviewImport({ records, onSaved }: { records: Communi
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || 'Review import failed.');
       }
+      const photos=JSON.parse(raw).reviews.filter((r:{photos?:unknown[]})=>r.photos?.length).map((r:{profileId:string;photos:unknown[]})=>({profileId:r.profileId,photos:r.photos}));
+      if(photos.length){
+        setStatus('Saving customer review photos…');
+        const response=await fetch('/marketingdata/api/review-enrichment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reviews:photos}),signal:AbortSignal.timeout(60000)});
+        const data=await response.json();if(!response.ok)throw new Error(data.error||'Photos could not be saved. Reviews were imported; retry the snapshot to save photos.');
+      }
       setStatus(`${preview.added} new reviews imported · ${preview.updated} existing reviews updated.`);
       setRaw(''); setPreview(null); onSaved();
       window.dispatchEvent(new Event('ysabel:community-updated'));

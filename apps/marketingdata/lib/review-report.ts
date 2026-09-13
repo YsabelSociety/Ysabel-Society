@@ -21,6 +21,10 @@ export type ReviewReportFilters = {
     | 'Hospitality'
     | 'Menu'
     | 'Reservations'
+    | 'Accessibility'
+    | 'Opening hours'
+    | 'Dietary needs'
+    | 'Other'
     | 'All topics';
   evidence: 'Criticism detected' | 'All matching reviews';
   period: 'All imported reviews' | 'Selected dates';
@@ -39,7 +43,7 @@ export type ReviewReport = {
   issues: { topic: string; count: number; excerpt: string }[];
 };
 export const DEFAULT_REVIEW_FILTERS: ReviewReportFilters = {
-  stars: [1, 2, 3, 4],
+  stars: [1, 2, 3, 4, 5],
   topic: 'Food & drinks',
   evidence: 'Criticism detected',
   period: 'All imported reviews',
@@ -99,7 +103,7 @@ export function makeReviewReport(
       const current = counts.get(c.topic) || {
         topic: c.topic,
         count: 0,
-        excerpt: c.excerpt,
+        excerpt: 'explanation' in c ? String(c.explanation) : c.excerpt,
       };
       current.count++;
       counts.set(c.topic, current);

@@ -76,6 +76,7 @@ const IMPLICIT: [string, RegExp][] = [
 ];
 
 export function classifyReview(review: CommunityRecord) {
+  if (review.reviewAnalysis) return {categories:review.reviewAnalysis.categories,criticisms:review.reviewAnalysis.criticisms};
   const text = review.text.startsWith('(Translated by Google)')
     ? review.text.split('(Original)')[0]
     : review.text;

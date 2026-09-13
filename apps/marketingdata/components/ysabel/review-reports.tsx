@@ -13,6 +13,8 @@ import { Picker } from './controls';
 import { type CommunityRecord } from '@/lib/community';
 import { type Range } from '@/lib/analytics';
 import { ReviewDateControls } from './review-date-controls';
+import { ReviewAI } from './review-ai';
+import { ReviewBody } from './review-body';
 import { DataIcon } from './data-icons';
 import { MiniHistory } from './mini-history';
 import { reviewMonthHistory } from '@/lib/review-history';
@@ -52,7 +54,7 @@ export function ReviewReports({
   const [localFilters, setFilters] = useState<ReviewReportFilters>({
     ...DEFAULT_REVIEW_FILTERS,
     topic: 'All topics',
-    stars: [1, 2, 3, 4],
+    stars: [1, 2, 3, 4, 5],
   });
   const [title, setTitle] = useState('Guest feedback review report');
   const selectedRange = reviewPeriodRange(dates, range);
@@ -74,7 +76,7 @@ export function ReviewReports({
     setFilters((v) => ({ ...v, ...values }));
   const ratingReports = useMemo(
     () =>
-      [1, 2, 3, 4].map((star) => ({
+      [1, 2, 3, 4, 5].map((star) => ({
         star,
         rows: makeReviewReport(
           records,
@@ -124,6 +126,7 @@ export function ReviewReports({
       className="surface review-report-builder"
       aria-label="Critical review reports"
     >
+      <ReviewAI records={records} onUpdated={()=>window.dispatchEvent(new Event("ysabel:community-updated"))}/>
       <div className="section-head">
         <div>
           <span className="report-kicker">
@@ -194,6 +197,10 @@ export function ReviewReports({
             'Hospitality',
             'Menu',
             'Reservations',
+            'Accessibility',
+            'Opening hours',
+            'Dietary needs',
+            'Other',
             'All topics',
           ]}
           onChange={(v) => patch({ topic: v as ReviewReportFilters['topic'] })}
@@ -246,10 +253,10 @@ export function ReviewReports({
         <h3>Newest matching reviews</h3>
         {selection.rows.slice(0, 5).map((review) => (
           <article key={reviewKey(review)} className="community-help">
-            <strong>{review.name || 'Anonymous reviewer'} · {review.rating}/5</strong>
+            <div className="review-report-author">{review.avatar&&<img src={review.avatar} alt="Reviewer profile" width={44} height={44} loading="lazy" referrerPolicy="no-referrer"/>}<strong>{review.name || 'Anonymous reviewer'} · {review.rating}/5</strong></div>
             <p className="source-asof">{reviewDateLabel(review, timezone)}</p>
-            <p>{review.text}</p>
-            {review.criticisms.map((issue) => <p key={issue.topic}><strong>{issue.topic}</strong> · {issue.excerpt}</p>)}
+            <ReviewBody review={review}/>
+            {review.criticisms.map((issue) => <div key={issue.topic}><p><strong>{issue.topic}</strong> · {'explanation' in issue ? String(issue.explanation) : issue.excerpt}{'confidence' in issue && issue.confidence==='low'?' · Possible criticism — needs review':''}</p>{'explanation' in issue&&<blockquote>{issue.excerpt}</blockquote>}</div>)}
           </article>
         ))}
         {!loading && !selection.rows.length && <p>No reviews match these filters. Try another month, topic or feedback filter.</p>}
@@ -339,7 +346,7 @@ export function ReviewReports({
                   }}
                 />
               </div>
-              <p>{issue.excerpt}</p>
+              <p>{'explanation' in issue ? String(issue.explanation) : issue.excerpt}</p>
             </div>
           ))}
         </div>
@@ -383,7 +390,7 @@ export function ReviewReports({
                 </button>
               </div>
               <p className="source-asof">
-                The PDF includes all platform categories and embedded review
+                The PDF includes only the selected reviews and embedded reviewer
                 photos when available. All {snapshot.rows.length} matching
                 reviews are included, grouped by star rating.
               </p>
@@ -423,9 +430,7 @@ export function ReviewReports({
                                 {'★'.repeat(r.rating || 0)}
                               </span>
                             </div>
-                            <p className="review-text">
-                              {r.text || 'Rating without written feedback.'}
-                            </p>
+                            <ReviewBody review={r}/>
                             {link && (
                               <a
                                 href={link.url}

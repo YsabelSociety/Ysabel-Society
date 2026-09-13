@@ -1151,9 +1151,9 @@ export async function createReportPDF(
         ['Reviewer / date', 'Review and response', 'Criticism / original link'],
         group.map((r) => [
           `${r.name || r.username || 'Anonymous'}\n${reviewDateLabel(r, bundle.timezone)}${!assets.photos?.has(photoKey(r)) ? '\nProfile photo unavailable' : ''}`,
-          `${r.text || '(No written comment)'}${r.reply ? '\n\nBusiness response: ' + r.reply : ''}`,
+          `${r.reviewAnalysis ? 'English / AI reviewed:\n'+r.reviewAnalysis.englishText+'\n\nOriginal:\n' : ''}${r.text || '(No written comment)'}${r.reply ? '\n\nBusiness response: ' + r.reply : ''}${r.reviewPhotos?.length ? '\n\nCustomer photos:\n'+r.reviewPhotos.map(p=>p.url).join('\n') : ''}`,
           reviewTopics(r)
-            .criticisms.map((c) => c.topic + ': ' + c.excerpt)
+            .criticisms.map((c) => c.topic + ': ' + ('explanation' in c ? c.explanation+'\nEvidence: ' : '') + c.excerpt)
             .join('\n') +
             '\n' +
             (reviewLink(r)?.url || 'Direct review link not supplied'),

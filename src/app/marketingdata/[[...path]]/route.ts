@@ -1,4 +1,5 @@
 import { marketingDataHtml } from '../../../generated/marketingdata-shell';
+import { enrichReviews } from '../../../lib/review-enrichment';
 
 // Netlify serves the current dashboard interface after the existing backend
 // validates the session. Its existing
@@ -40,6 +41,12 @@ async function proxy(request: Request) {
     for (const name of ["content-encoding", "content-length", "transfer-encoding", "connection", "keep-alive", "alt-svc"]) responseHeaders.delete(name);
     responseHeaders.set("Cache-Control", "private, no-store");
     responseHeaders.set("X-Robots-Tag", "noindex, nofollow");
+    if (request.method === 'GET' && incoming.pathname === '/marketingdata/api/community' && incoming.searchParams.get('kind') === 'review' && result.ok && result.headers.get('content-type')?.includes('application/json')) {
+      const data = await result.json();
+      if (Array.isArray(data.records)) data.records = await enrichReviews(data.records);
+      responseHeaders.delete('etag');
+      return Response.json(data,{status:result.status,headers:responseHeaders});
+    }
     const location = responseHeaders.get("location");
     if (location) {
       const redirect = new URL(location, upstream);

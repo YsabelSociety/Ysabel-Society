@@ -19,6 +19,8 @@ export type CommunityRecord = {
   conversationUrl?: string;
   profileCheckedAt?: string;
   reviewUrl?: string;
+  reviewPhotos?: {url:string;caption:string}[];
+  reviewAnalysis?: {language:string;englishText:string;categories:string[];criticisms:{topic:string;excerpt:string;explanation:string;severity:string;confidence:string}[];analyzedAt:string;model:string;version:string};
   followers?: number | null;
   followersObservedAt?: string;
   direction?: 'in' | 'out';

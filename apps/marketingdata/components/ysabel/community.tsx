@@ -1,4 +1,5 @@
 'use client';
+import { ReviewBody } from './review-body';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   MessageCircle,
@@ -2049,9 +2050,7 @@ export function GoogleReviews({
                   {'☆'.repeat(5 - (r.rating || 0))}
                 </span>
               </div>
-              <p className="review-text">
-                {r.text || 'Rating without written feedback.'}
-              </p>
+              <ReviewBody review={r}/>
               <div className="review-tags">
                 {r.categories.map((c) => (
                   <button

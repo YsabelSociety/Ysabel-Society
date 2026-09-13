@@ -8597,3 +8597,130 @@ h1 {
   content-visibility: visible;
   contain: none;
 }
+
+/* One fast, source-backed opening view across social, search and website data. */
+.all-views-hero {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(280px, .92fr) minmax(520px, 1.55fr);
+  gap: 26px;
+  margin: 0 0 26px;
+  padding: clamp(25px, 3vw, 42px);
+  overflow: hidden;
+  border: 1px solid #ffffffd9;
+  border-radius: 34px;
+  background:
+    radial-gradient(circle at 8% 12%, #ffffff 0, transparent 31%),
+    radial-gradient(circle at 88% 8%, #eac42626 0, transparent 31%),
+    radial-gradient(circle at 78% 88%, #4cff8719 0, transparent 36%),
+    linear-gradient(132deg, #f8faf8 0%, #e2e8e4 44%, #d4dcd7 100%);
+  box-shadow: 0 22px 70px #1d342814, inset 0 1px #fff;
+}
+.all-views-hero::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  width: 420px;
+  height: 420px;
+  right: -170px;
+  top: -220px;
+  border: 1px solid #1d34281f;
+  border-radius: 50%;
+  box-shadow: 0 0 0 48px #ffffff1f, 0 0 0 96px #1d342808;
+}
+.all-views-summary { min-width: 0; }
+.all-views-summary h1 {
+  margin: 8px 0 3px;
+  color: #1d3428;
+  font-size: clamp(25px, 3vw, 43px);
+  font-weight: 520;
+  letter-spacing: -.045em;
+}
+.all-views-summary > p {
+  max-width: 520px;
+  margin: 7px 0 15px;
+  color: #52645a;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.all-views-total {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2d2c2c;
+  font: 600 clamp(45px, 6vw, 78px)/1 Geist, sans-serif;
+  letter-spacing: -.065em;
+  cursor: pointer;
+}
+.all-views-total svg { color: #1d3428; transition: transform 180ms ease; }
+.all-views-total:hover svg { transform: translate(3px, -3px); }
+.all-views-summary > .spark {
+  width: min(100%, 440px);
+  height: 64px;
+  color: #1d3428;
+  opacity: .62;
+}
+.all-views-supporting {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+.all-views-supporting > span {
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #ffffffb8;
+  border-radius: 14px;
+  background: #ffffff54;
+}
+.all-views-supporting small,
+.all-views-supporting strong { display: block; }
+.all-views-supporting small { overflow: hidden; color: #65736b; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.all-views-supporting strong { margin-top: 4px; color: #26382e; font-size: 16px; }
+.all-views-platforms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  align-content: center;
+}
+.all-views-platforms > button {
+  position: relative;
+  min-width: 0;
+  min-height: 116px;
+  padding: 16px 17px 18px;
+  overflow: hidden;
+  border: 1px solid #ffffffd1;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #ffffffbc, #edf1ef8f);
+  box-shadow: inset 0 1px #fff, 0 8px 26px #1d34280a;
+  color: #26382e;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease;
+}
+.all-views-platforms > button:first-child { grid-row: span 2; }
+.all-views-platforms > button:hover { transform: translateY(-2px); box-shadow: inset 0 1px #fff, 0 12px 30px #1d342814; }
+.all-views-platforms > button > strong { display: block; margin-top: 16px; font-size: clamp(22px, 2.2vw, 32px); letter-spacing: -.04em; }
+.all-views-platforms > button > small { display: block; margin-top: 3px; color: #68776e; font-size: 11px; }
+.all-views-platforms > button > i { position: absolute; inset: auto 0 0; height: 3px; opacity: .7; }
+.all-views-brand { display: flex; align-items: center; gap: 9px; }
+.all-views-brand strong { overflow: hidden; font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.all-views-brand .data-icon-badge { width: 30px; height: 30px; }
+@media (max-width: 1050px) {
+  .all-views-hero { grid-template-columns: 1fr; }
+  .all-views-platforms { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .all-views-platforms > button:first-child { grid-row: auto; }
+}
+@media (max-width: 700px) {
+  .all-views-hero { gap: 19px; padding: 22px 18px; border-radius: 25px; }
+  .all-views-platforms { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .all-views-platforms > button { min-height: 104px; padding: 14px; }
+  .all-views-platforms > button:last-child { grid-column: 1 / -1; }
+  .all-views-supporting { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .all-views-total { font-size: clamp(42px, 16vw, 64px); }
+}

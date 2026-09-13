@@ -551,13 +551,8 @@ export default function Workspace({
   const initialProgress =
     initialStages.filter(Boolean).length / initialStages.length;
   const syncBusy = syncState.running || source.refreshing;
-  const refreshingScene = syncState.foreground;
-  const syncProgress = syncState.job?.tasks.length
-    ? syncState.job.completed / syncState.job.tasks.length
-    : 0;
   const intro = useWorkspaceIntro(!!initialReady);
-  const introProgress = refreshingScene ? syncProgress : initialProgress;
-  const showLoadingScene = intro.visible || refreshingScene;
+  const showLoadingScene = intro.visible;
   const retryInitialLoad = () => {
     void data.load();
     window.dispatchEvent(new Event('ysabel:sources-updated'));
@@ -568,14 +563,11 @@ export default function Workspace({
       {showLoadingScene && (
         <WorkspaceIntro
           leaving={
-            (intro.leaving && !refreshingScene) || syncState.foregroundLeaving
+            intro.leaving
           }
-          progress={introProgress}
-          complete={
-            !!initialReady &&
-            (!refreshingScene || syncState.foregroundLeaving)
-          }
-          refreshing={refreshingScene && !syncState.foregroundLeaving}
+          progress={initialProgress}
+          complete={!!initialReady}
+          refreshing={false}
           error={initialError}
           onRetry={retryInitialLoad}
         />

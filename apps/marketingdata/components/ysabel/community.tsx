@@ -22,6 +22,7 @@ import { Tabs, TabsList, TabsContent } from '@/components/ui/tabs';
 import { DataIcon, DataTab as TabsTrigger } from './data-icons';
 import { MiniHistory } from './mini-history';
 import { reviewMonthHistory } from '@/lib/review-history';
+import { GoogleOwnerReviewImport } from './google-owner-review-import';
 import {
   Dialog,
   DialogContent,
@@ -2107,6 +2108,7 @@ export function GoogleReviews({
         </div>
       )}
       {data.truncated && <p>The newest 10,000 stored reviews are shown.</p>}
+      <GoogleOwnerReviewImport records={all} onSaved={data.refresh} />
       <AccessStatus statuses={data.statuses} kind="review" source="gbp" />
       <ImportAccess
         open={setup}

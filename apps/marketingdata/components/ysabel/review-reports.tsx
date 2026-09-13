@@ -237,6 +237,34 @@ export function ReviewReports({
         matching reviews” to include topic mentions without a detected
         complaint.
       </p>
+      {(
+        <div
+          className="review-report-issues"
+          aria-label="All criticism categories"
+        >
+          <div className="review-category-heading"><h3>Criticism categories</h3><p>Every category is available. Counts follow the selected ratings, dates and search. One review can contain several concerns.</p><button className="secondary" onClick={()=>patch({topic:'All topics'})}>Show all categories</button></div>
+          {REVIEW_CATEGORIES.map((category) => {
+            const issue=categorySelection.issues.find(i=>i.topic===category.topic);
+            const topic=category.topic==='Service'?'Service & staff':category.topic;
+            return <button className="review-category-card" key={category.topic} aria-pressed={filters.topic===topic} onClick={()=>patch({topic,evidence:'Criticism detected'})}>
+              <span>
+                <DataIcon name={category.topic} />
+                {category.label}
+                <b>{loading?'—':issue?.count||0}</b>
+              </span>
+              <small>{category.detail}</small>
+              <div>
+                <i
+                  style={{
+                    width: ((issue?.count||0) / Math.max(1,categorySelection.rows.length)) * 100 + '%',
+                  }}
+                />
+              </div>
+              <p>{issue?.excerpt || (loading?'Loading reviews…':'No criticism detected in the selected reviews.')}</p>
+            </button>;
+          })}
+        </div>
+      )}
       <div aria-label="Newest matching critical reviews" aria-live="polite">
         <h3>Newest matching reviews</h3>
         {selection.rows.slice(0, 5).map((review) => (
@@ -315,34 +343,6 @@ export function ReviewReports({
           />
         </div>
       </div>
-      {(
-        <div
-          className="review-report-issues"
-          aria-label="All criticism categories"
-        >
-          <div className="review-category-heading"><h3>Criticism categories</h3><p>Every category is available. Counts follow the selected ratings, dates and search. One review can contain several concerns.</p><button className="secondary" onClick={()=>patch({topic:'All topics'})}>Show all categories</button></div>
-          {REVIEW_CATEGORIES.map((category) => {
-            const issue=categorySelection.issues.find(i=>i.topic===category.topic);
-            const topic=category.topic==='Service'?'Service & staff':category.topic;
-            return <button className="review-category-card" key={category.topic} aria-pressed={filters.topic===topic} onClick={()=>patch({topic,evidence:'Criticism detected'})}>
-              <span>
-                <DataIcon name={category.topic} />
-                {category.label}
-                <b>{loading?'—':issue?.count||0}</b>
-              </span>
-              <small>{category.detail}</small>
-              <div>
-                <i
-                  style={{
-                    width: ((issue?.count||0) / Math.max(1,categorySelection.rows.length)) * 100 + '%',
-                  }}
-                />
-              </div>
-              <p>{issue?.excerpt || (loading?'Loading reviews…':'No criticism detected in the selected reviews.')}</p>
-            </button>;
-          })}
-        </div>
-      )}
       {!loading && !selection.rows.length && (
         <p className="community-empty">
           No reviews match this combination. Include a star rating, broaden the

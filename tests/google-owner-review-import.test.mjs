@@ -37,3 +37,13 @@ test('repeated snapshots skip unchanged records instead of rewriting every revie
  const result=prepareGoogleOwnerReviews(snapshot([review]),[prior]);
  assert.equal(result.unchanged,1);assert.equal(result.updated,0);assert.equal(result.added,0);assert.equal(result.batches.length,0);
 });
+test('four-star mixed feedback identifies specific complaints and retains praise separately',()=>{
+ const topics=text=>classifyReview({text,rating:4}).criticisms.map(c=>c.topic);
+ assert.ok(topics('Excellent dinner but our booking was lost.').includes('Reservations'));
+ assert.ok(topics('Lovely place but we felt unwelcome.').includes('Hospitality'));
+ assert.ok(topics('Excellent service but no vegetarian options.').includes('Menu'));
+ assert.ok(topics('Lovely meal but the bathroom was dirty.').includes('Cleanliness'));
+ assert.ok(!topics('The cocktails were watery but the food was excellent.').includes('Food'));
+ assert.deepEqual(topics('Great food. The staff were not rude. Booking was easy.'),[]);
+ assert.deepEqual(topics('Excellent meal, warm welcome and a varied menu. Food: 4/5 · Service: 5/5'),[]);
+});

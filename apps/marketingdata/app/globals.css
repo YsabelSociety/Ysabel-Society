@@ -7854,7 +7854,7 @@ h1 {
 }
 .review-report-ratings {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
   margin: 1.4rem 0;
 }
@@ -7876,6 +7876,9 @@ h1 {
 }
 .review-report-ratings button:nth-child(3) {
   background: linear-gradient(125deg, #f7f9fa, #d3dfd6);
+}
+.review-report-ratings button:nth-child(4) {
+  background: linear-gradient(125deg, #f7f9fa, #d3dfea);
 }
 .review-report-ratings button[aria-pressed='true'] {
   border-color: #647c6a;
@@ -8052,6 +8055,7 @@ h1 {
 }
 @media (max-width: 750px) {
   .review-report-ratings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.5rem;
   }
   .review-report-ratings button {

@@ -7,6 +7,9 @@ const normalize = (s: string) =>
     .replace(/[’‘]/g, "'")
     .toLowerCase();
 const TOPICS: [string, RegExp][] = [
+  ['Hospitality', /\b(welcome\w*|hospitality|greeting\w*|reception|hosts?|hostess\w*|unwelcoming|mikprit\w*|accoglienza)\b/i],
+  ['Menu', /\b(menu\w*|selection|variety|choices?|options?|allergen\w*|dietary|vegan|vegetarian|gluten|karte|auswahl|choix)\b/i],
+  ['Reservations', /\b(reserv\w*|bookings?|booked|confirmation|confirmed|prenot\w*)\b/i],
   [
     'Food',
     /\b(food|dish(?:es)?|meals?|plates?|portions?|steaks?|ribeyes?|fillets?|tenderloin|burgers?|sandwich\w*|pasta|risotto|ravioli|gnocchi|lasagn\w*|pizzas?|sushi|sashimi|nigiri|rolls?|meat|beef|chicken|lamb|duck|fish|seafood|salmon|tuna|prawns?|shrimp|calamari|octopus|salads?|soups?|bread|fries|chips|potatoes|vegetables|sauces?|desserts?|tiramisu|cheesecake|cakes?|ice cream|breakfast|lunch|dinner|menu|kitchen|chef|cooking|cuisine|ushqim\w*|gatim\w*|mish\w*|peshk\w*|embelsir\w*|cibo|piatt\w*|carne|pesce|cucina)\b/i,
@@ -39,6 +42,9 @@ const TOPICS: [string, RegExp][] = [
 const NEGATIVE =
   /\b(bad|poor|terrible|awful|disappoint\w*|cold|raw|burnt|overcook\w*|undercook\w*|salty|bland|tasteless|stale|greasy|watery|diluted|mediocre|leftover|falling apart|not worth|no taste|limited|unavailable|rude|slow|dirty|overpriced|expensive|noisy|loud|wrong|forgot\w*|unfriendly|unhelpful|worst|unpleasant|miserable|inedible|rubbery|soggy|chewy|tough|dry|tiny|lukewarm|spoiled|sour|burned|keq\w*|ftoh\w*|shtrenjt\w*|pist\w*|vones\w*|dobet|pessim\w*|cattiv\w*|fredd\w*|crudo|bruciat\w*|sporco|sporca|scortese|lento|lenta|not (?:fresh|good|tasty|friendly|attentive|clean|welcoming|cooked|warm)|no flavou?r)\b/i;
 const IMPLICIT: [string, RegExp][] = [
+  ['Hospitality', /\b(?:unwelcoming|not (?:made to feel |very )?welcome|nobody (?:greeted|welcomed)|no one (?:greeted|welcomed)|turned (?:us|me) away|dismissive welcome|felt (?:ignored|unwelcome))\b/i],
+  ['Menu', /\b(?:(?:limited|little|no|poor|lack of|not much) (?:variety|choice|selection|options)|(?:menu|items?|dishes?) (?:was |were )?(?:unavailable|sold out|not available)|(?:no|not enough) (?:vegan|vegetarian|gluten.free) options|(?:allergens?|ingredients?) (?:were |was )?(?:not listed|missing|unclear))\b/i],
+  ['Reservations', /\b(?:(?:reservation|booking) (?:was |had been )?(?:lost|forgotten|cancelled|ignored|not hono[u]?red)|(?:couldn't|could not|unable to) (?:book|reserve)|(?:despite|with) (?:a |our |my )?(?:confirmed )?(?:reservation|booking).{0,45}(?:no table|wait|turned away)|double.booked)\b/i],
   [
     'Food',
     /\b(?:tastes? like (?:cardboard|rubber|nothing)|(?:could(?:n't| not)|unable to) (?:cut|chew|eat|finish) (?:it|this|the)|(?:too much|excessive) (?:salt|oil)|(?:frozen|raw) (?:inside|in the middle)|(?:hair|insect|fly) in (?:my|the|our) (?:plate|meal|dish|soup)|sent (?:it|the (?:dish|meal|plate)) back|(?:portion\w*|serving\w*) (?:were|was|are|is|felt)?\s*(?:tiny|small|stingy)|(?:made|left) (?:me|us) (?:sick|ill))\b/i,
@@ -91,8 +97,11 @@ export function classifyReview(review: CommunityRecord) {
     categories.add(topic);
     if (Number(score[2]) <= 3) add(topic, score[0]);
   }
-  for (const sentence of text.split(
-    /(?<=[.!?,;\n])\s+|\b(?:but|however|although|whereas|yet|por|ma)\b/i,
+  // Keep structured scores out of prose sentiment: a negative word beside a
+  // five-star category must not turn that category into a complaint.
+  const prose = text.replace(/\b(?:Food|Service|Atmosphere):\s*[1-5]\s*\/\s*5/gi, '');
+  for (const sentence of prose.split(
+    /(?<=[.!?;\n])\s+|\b(?:but|however|although|whereas|yet|por|ma|aber|mais)\b/i,
   )) {
     const raw = normalize(sentence);
     // Suppress explicitly negated complaints, while retaining "not fresh" etc.

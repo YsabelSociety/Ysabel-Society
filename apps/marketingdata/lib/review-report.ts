@@ -18,6 +18,9 @@ export type ReviewReportFilters = {
     | 'Waiting time'
     | 'Price & value'
     | 'Cleanliness'
+    | 'Hospitality'
+    | 'Menu'
+    | 'Reservations'
     | 'All topics';
   evidence: 'Criticism detected' | 'All matching reviews';
   period: 'All imported reviews' | 'Selected dates';
@@ -36,7 +39,7 @@ export type ReviewReport = {
   issues: { topic: string; count: number; excerpt: string }[];
 };
 export const DEFAULT_REVIEW_FILTERS: ReviewReportFilters = {
-  stars: [1, 2, 3],
+  stars: [1, 2, 3, 4],
   topic: 'Food & drinks',
   evidence: 'Criticism detected',
   period: 'All imported reviews',

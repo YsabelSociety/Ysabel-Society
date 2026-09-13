@@ -1,4 +1,4 @@
-# Google Business review recovery and daily reconciliation
+# Google Business review recovery and three-day reconciliation
 
 Ysabel Society's Cloud project `ysabel-society-analytics` (684690867260) still had zero Account Management API quota on 13 September 2026. Do not label it an active API feed. Support cases: 4-2052000041307 and 0-4245000041665. No paid connector or billing has been added.
 

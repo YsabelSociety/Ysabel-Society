@@ -52,7 +52,7 @@ export function ReviewReports({
   const [localFilters, setFilters] = useState<ReviewReportFilters>({
     ...DEFAULT_REVIEW_FILTERS,
     topic: 'All topics',
-    stars: [1, 2, 3],
+    stars: [1, 2, 3, 4],
   });
   const [title, setTitle] = useState('Guest feedback review report');
   const selectedRange = reviewPeriodRange(dates, range);
@@ -74,7 +74,7 @@ export function ReviewReports({
     setFilters((v) => ({ ...v, ...values }));
   const ratingReports = useMemo(
     () =>
-      [1, 2, 3].map((star) => ({
+      [1, 2, 3, 4].map((star) => ({
         star,
         rows: makeReviewReport(
           records,
@@ -131,7 +131,7 @@ export function ReviewReports({
           </span>
           <h2>Critical review reports</h2>
           <p>
-            Separate criticism about food, drinks, service and atmosphere, then
+            Find criticism about food, drinks, service, hospitality, menu, cleanliness, reservations and atmosphere, then
             export the complete selection.
           </p>
         </div>
@@ -191,6 +191,9 @@ export function ReviewReports({
             'Waiting time',
             'Price & value',
             'Cleanliness',
+            'Hospitality',
+            'Menu',
+            'Reservations',
             'All topics',
           ]}
           onChange={(v) => patch({ topic: v as ReviewReportFilters['topic'] })}

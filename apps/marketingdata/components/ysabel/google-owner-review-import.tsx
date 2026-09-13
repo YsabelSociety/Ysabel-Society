@@ -36,7 +36,7 @@ export function GoogleOwnerReviewImport({ records, onSaved }: { records: Communi
         <label htmlFor="google-review-snapshot">Review snapshot</label>
         <textarea id="google-review-snapshot" value={raw} disabled={busy} onChange={e=>{setRaw(e.target.value);setPreview(null);setStatus('');}}
           rows={7} style={{width:'100%',resize:'vertical'}} placeholder="Paste the captured Google review JSON"/>
-        {preview && <p>{preview.captured} captured · {preview.added} new · {preview.updated} updates · {preview.retained} previously saved reviews retained{preview.skipped ? ` · ${preview.skipped} API reviews preserved` : ''}</p>}
+        {preview && <p>{preview.captured} captured · {preview.added} new · {preview.updated} updates · {preview.unchanged} unchanged · {preview.retained} previously saved reviews retained{preview.skipped ? ` · ${preview.skipped} API reviews preserved` : ''}</p>}
         {error && <p role="alert">{error}</p>}
         {status && <p role="status">{status}</p>}
         <button className="primary" disabled={busy || !raw.trim()} onClick={()=>void run()}>{busy?'Importing…':preview?'Import reviews':'Preview review import'}</button>

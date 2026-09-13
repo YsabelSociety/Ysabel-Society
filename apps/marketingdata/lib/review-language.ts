@@ -83,6 +83,14 @@ export function classifyReview(review: CommunityRecord) {
     if (!criticisms.some((c) => c.topic === topic))
       criticisms.push({ topic, excerpt: excerpt.trim().slice(0, 700) });
   };
+  // Google supplies category-specific scores in owner-view review details.
+  // These identify the subject of lower feedback even in untranslated reviews;
+  // the overall star rating alone still never assigns a criticism category.
+  for (const score of text.matchAll(/\b(Food|Service|Atmosphere):\s*([1-5])\s*\/\s*5\b/gi)) {
+    const topic = score[1][0].toUpperCase() + score[1].slice(1).toLowerCase();
+    categories.add(topic);
+    if (Number(score[2]) <= 3) add(topic, score[0]);
+  }
   for (const sentence of text.split(
     /(?<=[.!?,;\n])\s+|\b(?:but|however|although|whereas|yet|por|ma)\b/i,
   )) {

@@ -28,7 +28,7 @@ export function prepareGoogleOwnerReviews(raw: string, existing: CommunityRecord
   const saved = existing.filter(r => r.source === 'gbp' && r.kind === 'review');
   const byProfile = new Map(saved.map(r => [r.profileUrl?.match(/contrib\/(\d+)/)?.[1], r]));
   const seen = new Set<string>();
-  let added = 0, updated = 0, skipped = 0;
+  let added = 0, updated = 0, skipped = 0, unchanged = 0;
   const rows: string[][] = [];
   for (const r of capture.reviews as CapturedReview[]) {
     if (!/^\d{15,25}$/.test(r.profileId) || seen.has(r.profileId)) throw new Error('Missing or duplicate Google reviewer identifier.');
@@ -38,10 +38,17 @@ export function prepareGoogleOwnerReviews(raw: string, existing: CommunityRecord
     const old = byProfile.get(r.profileId);
     // Never create a file duplicate of a review already owned by the API feed.
     if (old && old.accountId !== 'file') { skipped++; continue; }
-    old ? updated++ : added++;
     const details = (r.details || '').replace(/(\d\/5)(?=[A-Za-z])/g, '$1 · ');
     const comment = r.text.trim() || old?.text || '';
     const text = details && !comment.includes(details) ? [comment, details].filter(Boolean).join('\n\n') : comment;
+    if (old && old.rating === r.rating && old.text === text &&
+      (old.name || '') === (r.name || old.name || '') &&
+      (old.avatar || '') === (r.avatar || old.avatar || '') &&
+      (old.profileUrl || '') === r.profileUrl &&
+      (old.reviewUrl || '') === (r.reviewUrl || old.reviewUrl || '')) {
+      unchanged++; continue;
+    }
+    old ? updated++ : added++;
     rows.push([old?.id || 'gbp-profile-' + r.profileId,
       old?.time || approximateTime(r.timeLabel, capture.capturedAt),
       old ? old.timePrecision || '' : 'relative', old?.timeLabel || r.timeLabel,
@@ -50,6 +57,6 @@ export function prepareGoogleOwnerReviews(raw: string, existing: CommunityRecord
   }
   const batches = [];
   for (let i = 0; i < rows.length; i += 40) batches.push([columns, ...rows.slice(i, i + 40)].map(row => row.map(quote).join(',')).join('\n'));
-  return { batches, added, updated, skipped, captured: seen.size,
+  return { batches, added, updated, skipped, unchanged, captured: seen.size,
     retained: saved.filter(r => !seen.has(r.profileUrl?.match(/contrib\/(\d+)/)?.[1] || '')).length };
 }

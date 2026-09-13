@@ -1,4 +1,7 @@
-// The website serves the complete dashboard through this route. Its existing
+import { marketingDataHtml } from '../../../generated/marketingdata-shell';
+
+// Netlify serves the current dashboard interface after the existing backend
+// validates the session. Its existing
 // Worker owns encrypted connections, storage and authentication. A server route
 // is used because Netlify's ordinary proxy redirects time out after 26 seconds.
 export const dynamic = "force-dynamic";
@@ -41,6 +44,14 @@ async function proxy(request: Request) {
     if (location) {
       const redirect = new URL(location, upstream);
       if (redirect.origin === upstreamOrigin && (redirect.pathname === "/marketingdata" || redirect.pathname.startsWith("/marketingdata/"))) responseHeaders.set("location", redirect.pathname + redirect.search + redirect.hash);
+    }
+    const localPage = /^\/marketingdata\/?$|^\/marketingdata\/(admin|connections)\/?$/.test(incoming.pathname);
+    if (localPage && ["GET", "HEAD"].includes(request.method) && !request.headers.has("rsc") &&
+        result.status === 200 && result.headers.get("content-type")?.includes("text/html")) {
+      await result.body?.cancel();
+      responseHeaders.delete("etag");
+      responseHeaders.set("X-Ysabel-Interface", "netlify-15650cf");
+      return new Response(request.method === "HEAD" ? null : marketingDataHtml, { status: 200, headers: responseHeaders });
     }
     return new Response(result.body, { status: result.status, headers: responseHeaders });
   } catch {

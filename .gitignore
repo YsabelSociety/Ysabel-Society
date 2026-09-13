@@ -4,6 +4,9 @@
 /node_modules
 /apps/contentpreview/node_modules/
 /public/contentpreview-app/
+/apps/marketingdata/node_modules/
+/public/marketingdata-ui/
+/src/generated/marketingdata-shell.ts
 /.pnp
 .pnp.*
 .yarn/*

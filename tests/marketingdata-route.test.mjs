@@ -1,6 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { GET } from '../src/app/marketingdata/[[...path]]/route.ts';
+import { registerHooks } from 'node:module';
+
+// Match Next's extensionless local TypeScript imports when running with Node.
+registerHooks({ resolve(specifier, context, nextResolve) {
+  try { return nextResolve(specifier, context); }
+  catch (error) {
+    if (error.code === 'ERR_MODULE_NOT_FOUND' && specifier.startsWith('.'))
+      return nextResolve(specifier + '.ts', context);
+    throw error;
+  }
+} });
+const { GET } = await import('../src/app/marketingdata/[[...path]]/route.ts');
 
 test('Instagram authorization keeps the exact state cookie through the callback proxy', async t => {
   t.mock.method(globalThis, 'fetch', async (target, init) => {
@@ -53,6 +64,48 @@ test('an interrupted refresh is reported as a failure', async t => {
   const response = await GET(new Request('https://ysabelsociety.com/marketingdata/api/connectors'));
   assert.equal(response.status, 504);
   assert.match((await response.json()).error, /may still be finishing/);
+});
+
+test('an authenticated workspace uses the local Netlify interface and preserves security headers', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('<html>old upstream workspace</html>', { headers: {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Content-Security-Policy': "default-src 'self'",
+    'Set-Cookie': 'ys_marketing_session=renewed; HttpOnly; Secure; SameSite=Lax; Path=/marketingdata',
+    ETag: 'upstream-document',
+  } }));
+  const response = await GET(new Request('https://ysabelsociety.com/marketingdata#Performance'));
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /\/marketingdata-ui\/assets\//);
+  assert.doesNotMatch(html, /old upstream workspace|__YSABEL_BOOT_EMBLEM__/);
+  assert.equal(response.headers.get('X-Ysabel-Interface'), 'netlify-15650cf');
+  assert.equal(response.headers.get('etag'), null);
+  assert.equal(response.headers.get('content-security-policy'), "default-src 'self'");
+  assert.match(response.headers.get('set-cookie'), /renewed; HttpOnly; Secure/);
+});
+
+test('invalid sessions never receive the local interface', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('Sign in required', { status: 401 }));
+  const response = await GET(new Request('https://ysabelsociety.com/marketingdata/admin'));
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get('X-Ysabel-Interface'), null);
+  assert.equal(await response.text(), 'Sign in required');
+});
+
+test('login HTML, OAuth callbacks, and report responses are not replaced', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response('<html>keep this response</html>', { headers: { 'Content-Type': 'text/html' } }));
+  for (const path of ['/login', '/api/oauth/google/callback', '/api/reports']) {
+    const response = await GET(new Request('https://ysabelsociety.com/marketingdata' + path));
+    assert.equal(await response.text(), '<html>keep this response</html>');
+    assert.equal(response.headers.get('X-Ysabel-Interface'), null);
+  }
+});
+
+test('HEAD validates access without sending the interface body', async t => {
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { headers: { 'Content-Type': 'text/html' } }));
+  const response = await GET(new Request('https://ysabelsociety.com/marketingdata', { method: 'HEAD' }));
+  assert.equal(response.headers.get('X-Ysabel-Interface'), 'netlify-15650cf');
+  assert.equal(await response.text(), '');
 });
 
 test('the dashboard PIN grant reaches its server without forwarding other admin cookies', async t => {

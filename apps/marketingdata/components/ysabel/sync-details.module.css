@@ -1,0 +1,31 @@
+.details {
+  margin: 10px 0 24px;
+  padding: 14px 18px;
+  border: 1px solid #ffffffaa;
+  background: #ffffff50;
+  border-radius: 18px;
+  font-size: 0.875rem;
+}
+.details summary {
+  cursor: pointer;
+  font-weight: 500;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+.item {
+  background: #ffffff80;
+  border-radius: 14px;
+  padding: 14px;
+}
+.item strong {
+  display: block;
+  margin-bottom: 8px;
+}
+.item p {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}

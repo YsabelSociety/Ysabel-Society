@@ -1,0 +1,145 @@
+.intro {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  transition: opacity 420ms ease;
+}
+.leaving {
+  opacity: 0;
+  pointer-events: none;
+}
+.accessible {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.fallback {
+  --unit: min(6svh, 12vw, 42px);
+  position: absolute;
+  inset: 0;
+  perspective: 1000px;
+  opacity: 1;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+.gpu {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+.intro[data-rendered='true'] .fallback {
+  opacity: 0;
+}
+.intro[data-rendered='true'] .gpu {
+  opacity: 1;
+  pointer-events: auto;
+}
+.fallbackGroup {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  animation: identity-breathe 5.8s ease-in-out infinite;
+}
+.fallbackEmblem,
+.fallbackWordmark,
+.fallbackCaption {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+.fallbackEmblem {
+  top: calc(50% - var(--unit) * 0.72);
+  width: calc(var(--unit) * 2.45);
+  height: calc(var(--unit) * 2.45);
+  animation: loading-spin 700ms linear infinite;
+  transform-origin: center;
+}
+.fallback .fallbackWordmark {
+  top: calc(50% + var(--unit) * 1.28);
+  width: calc(var(--unit) * 2.95);
+  height: auto;
+  mix-blend-mode: normal;
+}
+.fallbackCaption {
+  top: calc(50% + var(--unit) * 2.22);
+  width: min(90vw, 480px);
+  text-align: center;
+  font-size: max(14px, calc(var(--unit) * 0.18));
+  letter-spacing: 0.07em;
+  line-height: 1.5;
+  color: #2d2c2c;
+  background: linear-gradient(105deg, #2d2c2c 12%, #626e66 38%, #2d2c2c 65%);
+  background-size: 220% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: caption-flow 7.8s ease-in-out infinite;
+}
+@keyframes loading-spin {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes caption-flow {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) translateY(0) scale(1);
+    background-position: 100% 50%;
+    opacity: 0.88;
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(-4px) scale(1.006);
+    background-position: 0% 50%;
+    opacity: 1;
+  }
+}
+@keyframes identity-breathe {
+  0%,
+  100% {
+    transform: translateY(0) rotateY(-3deg);
+    opacity: 0.86;
+  }
+  50% {
+    transform: translateY(-3px) rotateY(3deg);
+    opacity: 1;
+  }
+}
+.failure {
+  position: absolute;
+  bottom: max(24px, 5svh);
+  width: min(480px, calc(100% - 40px));
+  max-height: 27svh;
+  overflow: auto;
+  padding: 14px 20px;
+  border-radius: 20px;
+  background: #fffffff2;
+  box-shadow: 0 8px 40px #1d34280a;
+  text-align: center;
+}
+.failure p {
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.failure button {
+  margin: 14px auto 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fallbackGroup,
+  .fallbackCaption,
+  .fallbackEmblem {
+    animation: none;
+  }
+  .intro {
+    transition-duration: 150ms;
+  }
+}

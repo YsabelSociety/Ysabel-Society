@@ -17,6 +17,8 @@ Use the owner's signed-in Chrome Google Business interface to capture reviews an
 
 ## Data integrity
 
+Capture customer photos separately from the first reviewer-avatar image in each card. Add `photos: [{url, caption}]` to its snapshot entry using the actual Google-hosted image sources. The snapshot importer saves these to private enrichment storage after the corresponding reviews. Do not skip the snapshot solely because text is unchanged when newly captured photos need saving. After import, leave the Google report open until configured OpenAI analysis finishes or clearly reports an error; it resumes pending work on the next visit. Never report an AI translation as completed until it is saved.
+
 The importer preserves existing record IDs, timestamps, owner replies and missing avatar/link fields. Relative Google dates for newly captured reviews stay explicitly approximate. Existing API-owned records are skipped to avoid creating file duplicates. A Google review no longer visible stays in captured history. The source remains `file` because this is an owner-view snapshot; automatic API access remains separate.
 
 On 13 September the owner interface displayed 335 reviews while returning 334 distinct review cards. Reconciliation found eight new reviewer profiles (seven recent and one older), updated 326 records and retained two previously saved records that Google did not return. The verified app total became 336 with all old records retained. All eight additions have profile photos and review links. Always recompute counts; do not hard-code this historical result.

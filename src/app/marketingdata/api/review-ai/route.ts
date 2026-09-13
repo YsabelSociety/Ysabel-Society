@@ -15,7 +15,7 @@ async function handle(req:Request) {
     if(!Array.isArray(data.records)) return json({error:'Reviews are unavailable.'},503);
     const records=data.records.filter((r:{source:string;kind:string})=>r.source==='gbp'&&r.kind==='review');
     const s=aiStore(), config=await s.get('config',{type:'json'});
-    const key=process.env.OPENAI_API_KEY||config?.key;
+    const key=config?.key||process.env.OPENAI_API_KEY;
     const analyses=await s.get('analyses',{type:'json'});
     const pending=records.filter((r:Parameters<typeof analysisKey>[0])=>!analyses?.[analysisKey(r)]);
     if(req.method==='GET') return json({configured:!!key,model:AI_MODEL,total:records.length,completed:records.length-pending.length,pending:pending.length});

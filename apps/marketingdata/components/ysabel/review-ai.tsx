@@ -26,7 +26,7 @@ export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdate
     setBusy(true);try{
       const response=await fetch('/marketingdata/api/review-ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'configure',key}),signal:AbortSignal.timeout(40000)});
       const data=await response.json();if(!response.ok)throw new Error(data.error||'Connection failed.');
-      setKey('');setConfigured(true);setOpen(false);setMessage('OpenAI connected. Reviewing all saved reviews…');
+      setKey('');blocked.current=false;setConfigured(true);setOpen(false);setMessage('OpenAI connected. Reviewing all saved reviews…');void analyze();
     }catch(e){setMessage((e as Error).message);}finally{setBusy(false);}
   }
   const reviewed=records.filter(r=>r.reviewAnalysis).length;

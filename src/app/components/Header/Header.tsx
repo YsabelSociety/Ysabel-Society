@@ -14,7 +14,7 @@ const bookLinks = [
   {
     href: "https://www.sevenrooms.com/explore/asian/reservations/create/search/?venues=asian%2Citalian",
     title: "Book for Asian",
-    schedule: "Mon - Sun: 4:00 p.m. - 1:00 a.m.",
+    schedule: "Tue - Sun: 4:00 p.m. - 1:00 a.m.",
     external: true,
   },
   {
@@ -63,7 +63,7 @@ const Header = ({ menuType = null }: HeaderProps) => {
   const bookMenuRef = useRef<HTMLDivElement | null>(null);
   const overlayReservationRef = useRef<HTMLDivElement | null>(null);
 
-  const asianSchedule = "Mon - Sun: 4:00 p.m. - 1:00 a.m.";
+  const asianSchedule = "Tue - Sun: 4:00 p.m. - 1:00 a.m.";
   const italianSchedule = "Mon - Sun: 11:00 a.m. - 12:00 a.m.";
   const gardenSchedule = ["Mon - Fri: 7:00 a.m. - 1:00 a.m.", "Sat - Sun: 10:00 a.m. - 1:00 a.m."];
   

@@ -214,7 +214,7 @@ const Footer = () => {
                 Asian
               </span>
               <span className="text-[0.75rem] text-[#e8e3d8] normal-case font-light font-roboto leading-relaxed">
-                Mon - Sun: 4:00 p.m. - 1:00 a.m.
+                Tue - Sun: 4:00 p.m. - 1:00 a.m.
               </span>
             </div>
             <div className="flex flex-col gap-1">

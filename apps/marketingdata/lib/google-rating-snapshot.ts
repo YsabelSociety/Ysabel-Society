@@ -1,6 +1,7 @@
-// Only directly verified Google Business Profile headline values belong here.
-export type GoogleRatingObservation = {rating:number;reviewCount:number;date:string};
+// Direct Google observations and explicitly attributed dated secondary references.
+export type GoogleRatingObservation = {rating:number;reviewCount:number;date:string;source?:string;sourceUrl?:string};
 export const googleRatingHistory: GoogleRatingObservation[] = [
+  {rating:4.1,reviewCount:255,date:'2026-08-17',source:'Restaurant Guru listing updated 17 Aug 2026',sourceUrl:'https://restaurantguru.com/Ysabel-Society-Prishtina'},
   {rating:4.2,reviewCount:335,date:'2026-09-13'},
   {rating:4.2,reviewCount:341,date:'2026-09-14'},
 ];
@@ -10,7 +11,7 @@ export function previousMonthRating(today:string,history:GoogleRatingObservation
   const start=new Date(today.slice(0,7)+'-01T12:00:00Z');
   start.setUTCMonth(start.getUTCMonth()-1);
   const month=start.toISOString().slice(0,7);
-  // Latest actual observation within the previous calendar month, never an inferred average.
+  // Latest dated reference in the previous calendar month; UI preserves source provenance.
   const observation=history.filter(r=>r.date.slice(0,7)===month).sort((a,b)=>b.date.localeCompare(a.date))[0] ?? null;
   return {month,observation};
 }

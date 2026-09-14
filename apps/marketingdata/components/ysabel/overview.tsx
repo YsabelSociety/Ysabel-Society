@@ -31,6 +31,7 @@ import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
 import { GoogleRating } from './google-rating';
+import { PlatformCardChart } from './platform-card-chart';
 export default function Overview({
   rows,
   range,
@@ -408,6 +409,7 @@ function AllPlatformViews({
       : 0;
     return {
       ...source,
+      hasDaily,
       available: hasDaily || fallback > 0,
       value: hasDaily ? total(currentRows, source.metric) : fallback,
       previous: reported(previousRows, source.metric)
@@ -457,6 +459,11 @@ function AllPlatformViews({
             <span className="all-views-brand"><DataIcon name={source.channel} badge /><strong>{source.channel}</strong></span>
             <strong>{source.available ? compact(source.value) : '—'}</strong>
             <small>{source.available ? source.label : 'Not supplied for this period'}</small>
+            <PlatformCardChart color={COLORS[index]} bars={source.channel === 'TikTok' || source.channel === 'Google Business'} lifetime={source.channel === 'TikTok' && !source.hasDaily} points={dates.map(date => {
+              const dated = rows.filter(row => row.channel === source.channel && row.date === date);
+              const published = tiktokPosts.filter(post => post.date.slice(0,10) === date);
+              return {date,value:source.hasDaily ? (reported(dated,source.metric) ? total(dated,source.metric) : null) : source.channel === 'TikTok' && published.length ? published.reduce((n,p)=>n+p.views,0) : null};
+            })}/>
             <i style={{ background: COLORS[index] }} />
           </button>
         ))}

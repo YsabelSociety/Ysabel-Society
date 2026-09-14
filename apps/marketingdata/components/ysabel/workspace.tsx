@@ -86,6 +86,7 @@ import {
 import { Picker } from './controls';
 import Overview from './overview';
 import { SourceStatusContext } from './source-badge';
+import { sourceFeedLabel } from '@/lib/source-status';
 import { useWorkspace } from './use-workspace';
 import { useSourceAnalytics } from './use-analytics';
 import { PostDetail, ContentIntelligence } from './content';
@@ -823,9 +824,7 @@ export default function Workspace({
                       {source.loading
                         ? 'Updating…'
                         : source.mode === 'live'
-                          ? source.coverage.length
-                            ? 'Imported source data'
-                            : 'No imported data yet'
+                          ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined)
                           : 'Preview data'}
                     </button>
                   </div>

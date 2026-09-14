@@ -12,6 +12,16 @@ export type WebsiteRealtime = {
   observedAt: string;
 };
 
+export function sourceFeedLabel(statuses: SourceStatus[], channel?: string) {
+  const selected = channel ? statuses.filter(s => s.channel === channel) : statuses;
+  const live = selected.some(s => s.method === 'api' && s.autoSync && s.status === 'Connected' && s.lastSync);
+  const imported = selected.some(s => s.method === 'file');
+  if (live) return imported ? 'LIVE DATA · IMPORTED' : 'LIVE DATA · Automatic sync';
+  if (imported) return 'IMPORTED';
+  if (selected.some(s => s.method === 'api')) return 'Sync needs attention';
+  return 'No connected data yet';
+}
+
 export function websiteStatus(status?: SourceStatus, hasDailyData = false) {
   if (!status)
     return {

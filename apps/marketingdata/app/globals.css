@@ -8560,7 +8560,7 @@ h1 {
 .workspace-shell .spark[data-in-view='false'] .spark-line {
   animation-play-state: paused !important;
 }
-.google-rating-highlight{display:grid;grid-template-columns:1fr 1.5fr auto;align-items:center;gap:24px;padding:26px 30px;margin-bottom:24px;border:1px solid #d6dfd5;border-radius:26px;background:linear-gradient(120deg,#fafbf7,#e5ece4 58%,#efead0);color:#1d3428;}
+.google-rating-highlight{display:grid;grid-column:1 / -1;min-width:0;grid-template-columns:1fr 1.5fr auto;align-items:center;gap:24px;padding:26px 30px;margin:0;border:1px solid #ffffffcf;border-radius:22px;background:radial-gradient(ellipse at 100% 0,#f9e6d780,transparent 65%),linear-gradient(120deg,#f5f0fa,#ded8ed 52%,#ede1dd);color:#39334c;box-shadow:inset 0 1px #ffffffd9,0 8px 24px #42325208;}
 .google-rating-highlight .eyebrow{display:flex;align-items:center;gap:9px;}
 .google-rating-highlight h2{font-size:44px;margin:10px 0 0;letter-spacing:-1px;}
 .google-rating-highlight h2 small{font-size:19px;color:#697468;}

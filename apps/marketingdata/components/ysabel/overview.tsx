@@ -70,13 +70,13 @@ export default function Overview({
   const highlights = monthlyPosts.filter(p => p.status === 'Published' && p.date.startsWith(month) && ['Instagram','Facebook','TikTok'].includes(p.platform)).sort((a,b) => (b.views||0)-(a.views||0));
   return (
     <>
-      <GoogleRating onOpen={() => setPage('Google Business')} />
       <AllPlatformViews
         rows={rows}
         previous={previous}
         tiktokPosts={tiktokPosts}
         range={range}
         onOpen={() => setPage('Performance')}
+        onReviews={() => setPage('Google Business')}
       />
       <ProfileViews rows={rows} previous={previous} />
       <div className="metrics-strip">
@@ -390,12 +390,14 @@ function AllPlatformViews({
   tiktokPosts,
   range,
   onOpen,
+  onReviews,
 }: {
   rows: Daily[];
   previous: Daily[];
   tiktokPosts: Post[];
   range: Range;
   onOpen: () => void;
+  onReviews: () => void;
 }) {
   const sources = VIEW_SOURCES.map(source => {
     const currentRows = rows.filter(row => row.channel === source.channel);
@@ -459,6 +461,7 @@ function AllPlatformViews({
           </button>
         ))}
       </div>
+      <GoogleRating onOpen={onReviews} />
     </section>
   );
 }

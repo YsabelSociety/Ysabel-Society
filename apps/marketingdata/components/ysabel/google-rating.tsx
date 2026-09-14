@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react';
 import { Star, ArrowUpRight } from 'lucide-react';
 import type { CommunityRecord } from '@/lib/community';
-import { calendarDate } from '@/lib/sync-window';
 
 export function GoogleRating({onOpen}:{onOpen:()=>void}) {
   const [reviews,setReviews]=useState<CommunityRecord[]>([]);

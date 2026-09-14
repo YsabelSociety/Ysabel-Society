@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { appPath } from '@/lib/app-path';
 import type { RefreshJob } from '@/lib/refresh-types';
+import type { RefreshScope } from '@/lib/refresh-scope';
 
 export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
   const [running, setRunning] = useState(false);
@@ -12,7 +13,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
   const [job, setJob] = useState<RefreshJob | null>(null);
   const [schedule, setSchedule] = useState<string | null>(null);
   const refreshRef = useRef<
-    (force: boolean, showForeground?: boolean) => Promise<void>
+    (force: boolean, showForeground?: boolean, scope?: RefreshScope) => Promise<void>
   >(async () => {});
   useEffect(() => {
     if (!ready) return;
@@ -91,7 +92,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
         throw new Error(result.error || 'Refresh could not complete.');
       return result;
     }
-    async function refresh(force = false, showForeground = false) {
+    async function refresh(force = false, showForeground = false, scope: RefreshScope = 'all') {
       if (
         active ||
         controller.signal.aborted ||
@@ -118,7 +119,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
           )
           .then(metadata => { if (metadata && !controller.signal.aborted) setSchedule(metadata.schedule); })
           .catch(() => null);
-        let next = await call({ op: 'start', force });
+        let next = await call({ op: 'start', force, scope });
         publish(next);
         updated(next);
         let failures = 0;
@@ -184,5 +185,6 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
     job,
     schedule,
     sync: () => refreshRef.current(true, true),
+    syncCategory: (scope: RefreshScope) => refreshRef.current(true, false, scope),
   };
 }

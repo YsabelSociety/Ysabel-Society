@@ -87,6 +87,7 @@ import { Picker } from './controls';
 import Overview from './overview';
 import { SourceStatusContext } from './source-badge';
 import { sourceFeedLabel } from '@/lib/source-status';
+import { categoryScope } from '@/lib/refresh-scope';
 import { useWorkspace } from './use-workspace';
 import { useSourceAnalytics } from './use-analytics';
 import { PostDetail, ContentIntelligence } from './content';
@@ -816,7 +817,7 @@ export default function Workspace({
                         </button>
                       )}
                     </div>
-                    <button
+                    <div className="category-refresh-controls"><button className="secondary" disabled={!data.ready || syncBusy} onClick={() => void syncState.syncCategory(categoryScope(page))} aria-label={'Refresh ' + page} aria-busy={syncBusy}><RefreshCw size={14} /><span>{syncBusy ? 'Syncing…' : 'Refresh ' + page}</span></button><button
                       className="freshness"
                       onClick={() => navigate('Connections')}
                     >
@@ -826,7 +827,7 @@ export default function Workspace({
                         : source.mode === 'live'
                           ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined)
                           : 'Preview data'}
-                    </button>
+                    </button></div>
                   </div>
                 )}
                 {page !== 'Admin Panel' && date === 'Custom Range' && (

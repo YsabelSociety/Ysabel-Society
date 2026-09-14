@@ -1,7 +1,6 @@
 // Direct Google observations and explicitly attributed dated secondary references.
 export type GoogleRatingObservation = {rating:number;reviewCount:number;date:string;source?:string;sourceUrl?:string};
 export const googleRatingHistory: GoogleRatingObservation[] = [
-  {rating:4.1,reviewCount:255,date:'2026-08-17',source:'Restaurant Guru listing updated 17 Aug 2026',sourceUrl:'https://restaurantguru.com/Ysabel-Society-Prishtina'},
   {rating:4.2,reviewCount:335,date:'2026-09-13'},
   {rating:4.2,reviewCount:341,date:'2026-09-14'},
 ];

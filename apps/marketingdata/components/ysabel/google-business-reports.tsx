@@ -32,8 +32,9 @@ import {
   GBP_SUMMARY,
   GBP_ORIGINAL,
   gbpMonthlyPoints,
+  gbpDailyValue,
 } from '@/lib/google-business';
-import { compact, number } from '@/lib/analytics';
+import { compact, number, type Daily } from '@/lib/analytics';
 import { type ReportTable, finite } from '@/lib/reporting';
 import { MiniHistory } from './mini-history';
 import { useMinimalMotion } from './use-motion';
@@ -153,7 +154,7 @@ function MetricCard({
 function label(key: string) {
   return GBP_METRICS.find((m) => m.key === key)?.label || key;
 }
-export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
+export function GoogleBusinessReports({ tables, daily = [] }: { tables: ReportTable[]; daily?: Daily[] }) {
   const [selected, setSelected] = useState(''),
     animate = useMinimalMotion();
   const summaries = tables
@@ -163,9 +164,22 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
         b.period.end.localeCompare(a.period.end) ||
         a.period.start.localeCompare(b.period.start),
     );
-  const reportId = (t: ReportTable) => t.period.start + '/' + t.period.end;
+  const liveRows = daily.filter(d => d.channel === 'Google Business' && d.sourceMetrics?.origin !== 'file' && Object.keys(d.sourceMetrics || {}).some(k => k.startsWith('BUSINESS_') || k === 'CALL_CLICKS' || k === 'WEBSITE_CLICKS')).sort((a,b) => a.date.localeCompare(b.date));
+  const liveReport: ReportTable | undefined = liveRows.length ? {
+    key: 'google-live-performance', source: 'gbp', title: 'Live Google Business performance',
+    columns: GBP_METRICS.map(m => m.key),
+    rows: [Object.fromEntries(GBP_METRICS.map(m => {
+      const values = liveRows.map(d => gbpDailyValue(d, m.key)).filter((v): v is number => v !== null);
+      return [m.key, values.length ? values.reduce((a,b) => a+b, 0) : null];
+    }))],
+    period: {start: liveRows[0].date, end: liveRows.at(-1)!.date},
+    scope: 'Daily values returned by Google for the selected dashboard dates. Missing observations remain unavailable; Google may revise recent days as processing completes.',
+  } : undefined;
+  const choices = liveReport ? [liveReport, ...summaries] : summaries;
+  const reportId = (t: ReportTable) => (t.key === 'google-live-performance' ? 'live:' : '') + t.period.start + '/' + t.period.end;
   const active =
-    summaries.find((t) => reportId(t) === selected) || summaries[0];
+    choices.find((t) => reportId(t) === selected) || choices[0];
+  const isLive = active === liveReport && !!liveReport;
   const details = tables.filter(
     (t) =>
       t.source === 'gbp' &&
@@ -183,8 +197,7 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
           <span className="metric-eyebrow">Google Business reports</span>
           <h2>Reports from your Business Profile</h2>
           <p className="muted">
-            Each export keeps its own reporting period. Select an imported
-            period below.
+            Live daily statistics follow your dashboard dates. Earlier exports remain available separately.
           </p>
         </div>
       </div>
@@ -192,15 +205,15 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
         <>
           <div className={styles.toolbar}>
             <label>
-              Imported report period
+              Report period
               <select
                 aria-label="Google Business report period"
                 value={reportId(active)}
                 onChange={(e) => setSelected(e.target.value)}
               >
-                {summaries.map((t) => (
+                {choices.map((t) => (
                   <option key={reportId(t)} value={reportId(t)}>
-                    {t.period.start} – {t.period.end}
+                    {t === liveReport ? 'Live API · ' : 'Export · '}{t.period.start} – {t.period.end}
                   </option>
                 ))}
               </select>
@@ -211,16 +224,15 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
             />
           </div>
           <p className={styles.coverage}>
-            {active.period.start} – {active.period.end} · Google export{' '}
+            {active.period.start} – {active.period.end} · {isLive ? 'Google API daily observations' : 'Google export'}{' '}
             {active.observedAt
               ? 'imported ' + new Date(active.observedAt).toLocaleString()
               : ''}
-            . This report uses the dates above, independently of the daily
-            dashboard filter.
+            {isLive ? '. Coverage includes the available days within your selected dates.' : '. This export retains its original reporting period.'}
           </p>
           <div className={styles.cards}>
             {GBP_METRICS.map((metric) => {
-              const points = gbpMonthlyPoints(
+              const points = isLive ? liveRows.map(d => ({date: d.date, value: gbpDailyValue(d, metric.key)})) : gbpMonthlyPoints(
                 summaries.filter((t) => t.period.end <= active.period.end),
                 metric.key,
               );
@@ -242,7 +254,7 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
                   }
                   historyLabel={
                     hasHistory
-                      ? 'Monthly history · ' +
+                      ? (isLive ? 'Daily history · ' : 'Monthly history · ') +
                         points[0].date +
                         ' – ' +
                         points.at(-1)!.date

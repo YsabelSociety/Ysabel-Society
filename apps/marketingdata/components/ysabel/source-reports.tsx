@@ -6,6 +6,7 @@ import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { Picker } from './controls';
 import { WebsiteReports } from './website-reports';
 import { GoogleBusinessReports } from './google-business-reports';
+import { type Daily } from '@/lib/analytics';
 const labels: Record<string, string> = {
   activeUsers: 'Active users',
   sessions: 'Sessions',
@@ -33,10 +34,12 @@ function label(key: string) {
 export function SourceReports({
   tables,
   group,
+  daily = [],
   title = 'Imported source reports',
 }: {
   tables: ReportTable[];
   group?: string;
+  daily?: Daily[];
   title?: string;
 }) {
   const [choice, setChoice] = useState(''),
@@ -55,7 +58,7 @@ export function SourceReports({
     available.find((t) => t.source + ':' + t.key === choice) || available[0];
   if (group === 'website')
     return <WebsiteReports tables={available} title={title} />;
-  if (group === 'google') return <GoogleBusinessReports tables={available} />;
+  if (group === 'google') return <GoogleBusinessReports tables={available} daily={daily} />;
   if (!selected)
     return (
       <section className="surface padded">

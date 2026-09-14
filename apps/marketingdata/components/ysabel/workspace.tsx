@@ -955,6 +955,7 @@ export default function Workspace({
                           <SourceReports
                             tables={source.tables}
                             group="google"
+                            daily={rows}
                             title="Google Business reports"
                           />
                         )}

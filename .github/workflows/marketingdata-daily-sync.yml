@@ -1,8 +1,9 @@
-name: Ysabel daily reports and half-hour inbox sync
+name: Ysabel reports, inbox and Google Business sync
 on:
   schedule:
     - cron: '17 2 * * *'
     - cron: '7,37 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -22,5 +23,5 @@ jobs:
       - name: Import connected reports or messages
         env:
           MARKETING_SYNC_SECRET: ${{ secrets.MARKETING_SYNC_SECRET }}
-          MARKETING_SYNC_SCOPE: ${{ github.event.schedule == '7,37 * * * *' && 'inbox' || 'all' }}
+          MARKETING_SYNC_SCOPE: ${{ github.event.schedule == '*/5 * * * *' && 'gbp' || github.event.schedule == '7,37 * * * *' && 'inbox' || 'all' }}
         run: node scripts/refresh-marketingdata.mjs

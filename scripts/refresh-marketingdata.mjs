@@ -23,7 +23,7 @@ async function request(body) {
     }
   }
 }
-let job=await request({op:'start',scope:process.env.MARKETING_SYNC_SCOPE==='inbox'?'inbox':'all'});
+let job=await request({op:'start',scope:['inbox','gbp'].includes(process.env.MARKETING_SYNC_SCOPE)?process.env.MARKETING_SYNC_SCOPE:'all'});
 const deadline=Date.now()+25*60000;
 while (job.status==='running' && Date.now()<deadline) {
   if (job.retryAfter) await delay(3000);

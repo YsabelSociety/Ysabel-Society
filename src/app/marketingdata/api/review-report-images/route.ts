@@ -4,7 +4,9 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 const json = (body: unknown, status=200) => Response.json(body,{status,headers:{'Cache-Control':'private, no-store'}});
 export async function POST(req: Request) {
-  if(req.headers.get('origin') !== new URL(req.url).origin) return json({error:'Invalid origin'},403);
+  const allowedOrigins=new Set(['https://ysabelsociety.com','https://www.ysabelsociety.com']);
+  const local=new URL(req.url); if(process.env.NODE_ENV!=='production'&&['localhost','127.0.0.1'].includes(local.hostname)) allowedOrigins.add(local.origin);
+  if(!allowedOrigins.has(req.headers.get('origin')||'')) return json({error:'Invalid origin'},403);
   const cookie=(req.headers.get('cookie')||'').split(';').map(s=>s.trim()).filter(s=>s.startsWith('ys_marketing_session=')).join('; ');
   if(!cookie) return json({error:'Sign in first'},401);
   try {
@@ -37,4 +39,5 @@ export async function POST(req: Request) {
     return json({images:images.filter(Boolean)});
   } catch {return json({error:'Review images could not be loaded'},503);}
 }
+
 

@@ -51,6 +51,7 @@ import { AudienceMap } from './audience-map';
 import { PostPerformance } from './post-performance';
 import { Spark } from './charts';
 import { DataIcon } from './data-icons';
+import { SourceBadge } from './source-badge';
 import { ResponsiveContainer, observeNearViewport } from './stable-chart-container';
 
 export class ChartBoundary extends Component<
@@ -160,6 +161,7 @@ export function MetricCard({
       <div className="section-head">
         <div>
           <span className="metric-eyebrow">{channels.join(' · ')}</span>
+          {channels.length === 1 && <SourceBadge channel={channels[0]} rows={content ? undefined : rows.filter(r => r.channel === channels[0] && r.available?.includes(metric))} />}
           <h2>
             <DataIcon name={metric} />
             {label}

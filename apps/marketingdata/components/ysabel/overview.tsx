@@ -205,6 +205,7 @@ export default function Overview({
                 {c}
                 <ArrowUpRight size={14} />
               </div>
+              <SourceBadge channel={c} rows={cr} />
               <strong>
                 {available
                   ? c === 'TikTok' && tiktokContent

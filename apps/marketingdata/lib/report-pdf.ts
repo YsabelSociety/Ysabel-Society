@@ -49,6 +49,7 @@ type Assets = {
   bold: Uint8Array;
   logo: Uint8Array;
   photos?: Map<string, Uint8Array>;
+  attachments?: Map<string, Uint8Array>;
 };
 const photoKey = (r: CommunityRecord) =>
   r.source + ':' + r.accountId + ':' + r.id;
@@ -1124,6 +1125,7 @@ export async function createReportPDF(
   const criticism = reviews.flatMap((r) =>
     reviewTopics(r).criticisms.map((c) => c.topic),
   );
+  need(420);
   table('Category|Reviews with criticism|What it covers'.split('|'),REVIEW_CATEGORIES.map(c=>[c.label, reviews.filter(r=>reviewTopics(r).criticisms.some(issue=>issue.topic===c.topic)).length,c.detail]));
   bars(
     'Criticism themes',
@@ -1136,32 +1138,62 @@ export async function createReportPDF(
     '#b87b73',
   );
   const reviewList = async (list: CommunityRecord[], title: string) => {
-    sub(title);
     for (const star of [1, 2, 3, 4, 5]) {
       const group = list.filter((r) => r.rating === star);
       if (!group.length) continue;
-      sub(star + '-star reviews');
-      const links = new Map<number, string>(),
-        photos = new Map<number, Uint8Array>();
-      group.forEach((r, i) => {
-        const link = reviewLink(r);
-        if (link) links.set(i, link.url);
-        const photo = assets.photos?.get(photoKey(r));
-        if (photo) photos.set(i, photo);
-      });
-      table(
-        ['Reviewer / date', 'Review and response', 'Criticism / original link'],
-        group.map((r) => [
-          `${r.name || r.username || 'Anonymous'}\n${reviewDateLabel(r, bundle.timezone)}${!assets.photos?.has(photoKey(r)) ? '\nProfile photo unavailable' : ''}`,
-          `${r.reviewAnalysis ? 'English / AI reviewed:\n'+r.reviewAnalysis.englishText+'\n\nOriginal:\n' : ''}${r.text || '(No written comment)'}${r.reply ? '\n\nBusiness response: ' + r.reply : ''}${r.reviewPhotos?.length ? '\n\nCustomer photos:\n'+r.reviewPhotos.map(p=>p.url).join('\n') : ''}`,
-          reviewTopics(r)
-            .criticisms.map((c) => c.topic + ': ' + ('explanation' in c ? c.explanation+'\nEvidence: ' : '') + c.excerpt)
-            .join('\n') +
-            '\n' +
-            (reviewLink(r)?.url || 'Direct review link not supplied'),
-        ]),
-        { widths: { 0: 165, 2: 220 }, links, photos },
-      );
+      for (const [index,r] of group.entries()) {
+        section='Guest review · '+(r.name||r.username||'Anonymous');
+        next();
+        const tint=star<=2?'#ba8b86':star===3?'#bdab7c':'#719589';
+        gradient(M,y,C,78,tint);
+        const portrait=assets.photos?.get(photoKey(r));
+        if(portrait) {
+          doc.saveGraphicsState(); doc.circle(M+37,y+36,23,null);doc.clip();doc.discardPath();
+          doc.addImage(portrait,'JPEG',M+14,y+13,46,46,undefined,'FAST');doc.restoreGraphicsState();
+        } else {doc.setFillColor('#e3e9e5');doc.circle(M+37,y+36,23,'F');text((r.name||'Guest').slice(0,1).toUpperCase(),M+30,y+43,19,'#48645a',true);}
+        doc.setFont('Noto','bold');doc.setFontSize(15);
+        const name=doc.splitTextToSize(textValue(r.name||r.username||'Anonymous guest'),C-220);
+        text(name.slice(0,2).join('\n'),M+76,y+26,15,'#243d33',true);
+        text(reviewDateLabel(r,bundle.timezone),M+76,y+64,9,'#62746b');
+        text(`${star} / 5`,W-M-77,y+32,21,'#365448',true);
+        text(`REVIEW ${index+1}`,W-M-78,y+56,8,'#62746b');
+        y+=103;
+        sub('Guest review');
+        paragraph(r.reviewAnalysis?.englishText||r.text||'No written comment.',11,'#33453d');
+        if(r.reviewAnalysis && r.reviewAnalysis.englishText!==r.text){sub('Original language');paragraph(r.text,10);}
+        const issues=reviewTopics(r).criticisms;
+        if(issues.length){
+          sub('Criticism & supporting details');
+          for(const issue of issues){
+            sub(issue.topic);
+            if('explanation' in issue) paragraph(issue.explanation,10);
+            paragraph('“'+issue.excerpt+'”',10,'#775d55');
+          }
+        } else paragraph('No criticism identified in the available analysis.',9);
+        if(r.reply){sub('Response from Ysabel Society');paragraph(r.reply,10);}
+        const link=reviewLink(r);
+        need(45);text('GOOGLE REFERENCE',M,y,8,'#6b8075',true);y+=17;
+        if(link){text(link.label,M,y,10,'#367a65');doc.link(M,y-12,210,18,{url:link.url});y+=20;}
+        else paragraph('Direct review reference not supplied.',9);
+        if(r.reviewPhotos?.length){
+          need(235);
+          sub('Customer photographs',`${r.reviewPhotos.length} attached photos. Select a photograph to open its original.`);
+          const width=(C-24)/3;
+          for(let start=0;start<r.reviewPhotos.length;start+=3){
+            need(177);const top=y;
+            r.reviewPhotos.slice(start,start+3).forEach((photo,j)=>{
+              const x=M+j*(width+12), bytes=assets.attachments?.get(photoKey(r)+':'+(start+j));
+              gradient(x,top,width,145,tint);
+              if(bytes){const size=doc.getImageProperties(bytes);const scale=Math.min((width-16)/size.width,125/size.height);doc.addImage(bytes,'JPEG',x+(width-size.width*scale)/2,top+8+(125-size.height*scale)/2,size.width*scale,size.height*scale,undefined,'FAST');}
+              else text('Image unavailable',x+16,top+70,10,'#738179');
+              const url=safeProfileURL(photo.url);if(url)doc.link(x,top,width,164,{url});
+              text(`Photo ${start+j+1} · Open original`,x+8,top+159,8,'#367a65');
+            });
+            y+=177;
+          }
+        }
+        await yieldWork();check();
+      }
       await yieldWork();
       check();
     }
@@ -1312,59 +1344,35 @@ export async function downloadReportPDF(
     read('/ysabel-society-logo.png'),
     read('/maps/world-countries.json'),
   ]);
-  const photos = new Map<string, Uint8Array>(),
-    selected = reportSelection(bundle),
-    reviews = [...selected.reviews, ...selected.uncertainReviews];
-  for (let i = 0; i < reviews.length; i += 5) {
-    if (signal?.aborted)
-      throw new DOMException('Report cancelled', 'AbortError');
-    await Promise.all(
-      reviews.slice(i, i + 5).map(async (r) => {
-        if (!r.avatar) return;
-        try {
-          const response = await fetch(
-            appPath(
-              '/api/review-photo?' +
-                new URLSearchParams({ accountId: r.accountId, id: r.id }),
-            ),
-            {
-              signal: signal
-                ? AbortSignal.any([signal, AbortSignal.timeout(9000)])
-                : AbortSignal.timeout(9000),
-            },
-          );
-          if (!response.ok) return;
-          const blob = await response.blob();
-          const bitmap = await createImageBitmap(blob),
-            canvas = document.createElement('canvas');
-          canvas.width = 80;
-          canvas.height = 80;
-          const ctx = canvas.getContext('2d')!;
-          ctx.fillStyle = '#ffffff';
-          ctx.fillRect(0, 0, 80, 80);
-          const scale = Math.min(80 / bitmap.width, 80 / bitmap.height);
-          ctx.drawImage(
-            bitmap,
-            (80 - bitmap.width * scale) / 2,
-            (80 - bitmap.height * scale) / 2,
-            bitmap.width * scale,
-            bitmap.height * scale,
-          );
-          bitmap.close();
-          const jpeg = await new Promise<Blob | null>((resolve) =>
-            canvas.toBlob(resolve, 'image/jpeg', 0.82),
-          );
-          if (jpeg)
-            photos.set(photoKey(r), new Uint8Array(await jpeg.arrayBuffer()));
-        } catch {}
-      }),
-    );
-    progress(
-      'Preparing review photos · ' +
-        Math.min(i + 5, reviews.length) +
-        ' / ' +
-        reviews.length,
-    );
+  const photos=new Map<string,Uint8Array>(), attachments=new Map<string,Uint8Array>();
+  const selected=reportSelection(bundle),reviews=[...selected.reviews,...selected.uncertainReviews];
+  const items=reviews.flatMap(r=>[
+    ...(r.avatar?[{accountId:r.accountId,id:r.id,photoIndex:undefined as number|undefined,key:photoKey(r)}]:[]),
+    ...(r.reviewPhotos||[]).map((_,i)=>({accountId:r.accountId,id:r.id,photoIndex:i,key:photoKey(r)+':'+i}))
+  ]);
+  for(let i=0;i<items.length;i+=8){
+    if(signal?.aborted)throw new DOMException('Report cancelled','AbortError');
+    const batch=items.slice(i,i+8);
+    try {
+      const response=await fetch(appPath('/api/review-report-images'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:batch.map(({key,...item})=>item)}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(35000)]):AbortSignal.timeout(35000)});
+      if(response.status===401)throw new Error('Please sign in again to export review images.');
+      if(response.ok){
+        const {images}=await response.json();
+        for(const image of images||[]){
+          const item=batch.find(r=>r.accountId===image.accountId&&r.id===image.id&&r.photoIndex===image.photoIndex);if(!item)continue;
+          const blob=await(await fetch(image.data)).blob();const bitmap=await createImageBitmap(blob);
+          const canvas=document.createElement('canvas'),limit=item.photoIndex===undefined?160:1000;
+          const scale=Math.min(1,limit/Math.max(bitmap.width,bitmap.height));
+          canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+          const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+          const jpeg=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
+          if(jpeg)(item.photoIndex===undefined?photos:attachments).set(item.key,new Uint8Array(await jpeg.arrayBuffer()));
+          canvas.width=canvas.height=1;
+        }
+      }
+    } catch(error){if(signal?.aborted)throw error;}
+    progress(`Preparing review images · ${Math.min(i+8,items.length)} / ${items.length}`);
+    await yieldWork();
   }
   const doc = await createReportPDF(
     bundle,
@@ -1373,6 +1381,7 @@ export async function downloadReportPDF(
       bold,
       logo,
       photos,
+      attachments,
       countries: JSON.parse(new TextDecoder().decode(mapBytes)),
     },
     progress,
@@ -1380,7 +1389,7 @@ export async function downloadReportPDF(
   );
   if (signal?.aborted) throw new DOMException('Report cancelled', 'AbortError');
   doc.save(
-    'Ysabel-Society-All-Platforms-' +
+    (bundle.scope === 'reviews' ? 'Ysabel-Society-Guest-Reviews-' : 'Ysabel-Society-All-Platforms-') +
       bundle.range.start +
       '-' +
       bundle.range.end +

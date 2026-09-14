@@ -1,6 +1,6 @@
-# Google Business review recovery and three-day reconciliation
+# Google Business live sync and review recovery
 
-Ysabel Society's Cloud project `ysabel-society-analytics` (684690867260) still had zero Account Management API quota on 13 September 2026. Do not label it an active API feed. Support cases: 4-2052000041307 and 0-4245000041665. No paid connector or billing has been added.
+As of 14 September 2026, the official API connection is active for Ysabel Society: daily performance and all 341 current reviews were successfully retrieved. Prefer the API refresh over browser-assisted recovery. The shared request budget is 120 per fixed minute (at most 240 across a rolling minute), below the approved 300/minute quota. Google Business checks are scheduled every five minutes; scheduler and Google processing delays can apply. No paid connector or billing has been added.
 
 ## Working fallback
 

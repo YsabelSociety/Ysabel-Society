@@ -8750,3 +8750,12 @@ h1 {
   .all-views-supporting { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .all-views-total { font-size: clamp(42px, 16vw, 64px); }
 }
+/* A restrained star float; filled portions represent the actual Google rating. */
+.google-rating-stars{display:flex;gap:7px;margin:10px 0 12px;max-width:100%;}
+.google-rating-star{position:relative;width:23px;height:23px;flex:0 0 23px;animation:google-star-float 4.8s ease-in-out infinite;}
+.google-rating-star svg{display:block;width:23px;height:23px;stroke-width:1.4;}
+.google-rating-star .star-outline{color:#94849b;fill:#ffffff55;}
+.google-rating-star .star-fill{position:absolute;inset:0 auto 0 0;overflow:hidden;color:#a17b32;}
+.google-rating-star .star-fill svg{fill:#d4b56a;}
+@keyframes google-star-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@media(prefers-reduced-motion:reduce){.google-rating-star{animation:none;}}

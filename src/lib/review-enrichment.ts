@@ -17,6 +17,24 @@ export function validReviewPhotos(input: unknown): Photo[] {
   return result;
 }
 export async function enrichReviews(records: Review[]) {
+  // Google can rename a reviewer between an owner export and the API import.
+  // Reconcile only one-to-one matches of the exact Google-hosted photo identity.
+  // Keep the stored history intact and carry its profile/review links forward.
+  const photoIdentity = (r: Review) => {
+    try { const u = new URL(String(r.avatar || '')); return u.hostname.endsWith('.googleusercontent.com') && /^\/a-?\//.test(u.pathname) ? u.origin + u.pathname.split('=')[0] : ''; }
+    catch { return ''; }
+  };
+  const hidden = new Set<Review>();
+  records = records.map(r => {
+    if (r.source !== 'gbp' || r.kind !== 'review' || r.origin !== 'api' || r.profileUrl) return r;
+    const photo = photoIdentity(r);
+    if (!photo) return r;
+    const api = records.filter(v => v.source === 'gbp' && v.origin === 'api' && photoIdentity(v) === photo);
+    const legacy = records.filter(v => v.source === 'gbp' && v.origin !== 'api' && photoIdentity(v) === photo);
+    if (api.length !== 1 || legacy.length !== 1) return r;
+    hidden.add(legacy[0]);
+    return {...legacy[0], ...r, profileUrl:legacy[0].profileUrl, reviewUrl:legacy[0].reviewUrl};
+  }).filter(r => !hidden.has(r));
   try {
     const data = await Promise.race([
       store().get('photos', {type:'json'}),

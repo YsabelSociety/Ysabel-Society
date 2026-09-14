@@ -28,3 +28,15 @@ The preview separately reports unchanged records; skip submitting when both new 
 ## Eventual direct API activation
 
 After Google grants nonzero quota, discover and select only the actual Ysabel Society API location, test paginated Reviews API retrieval, reconcile file and API identities before enabling dual imports, and verify the server schedule. New/updated review notifications can then trigger retrieval via Google's supported notification service. No such event feed is claimed active now.
+
+## Live API activation — 14 September 2026
+
+Google authorization was renewed for the existing owner account. The real Ysabel Society location `2654256529003455405` was discovered and selected, replacing the file-only link while retaining history. Performance API successfully returned 70 daily observations across ten metrics for September 8–14. Google returned no September search keywords yet; this is not a zero count.
+
+The live backend now enforces one shared database-backed budget of 120 Google Business requests per fixed minute across discovery, performance, reviews and retries (at most 240 over a rolling minute). Provider 429 responses activate a shared cooldown respecting Retry-After. Automatic and manual refreshes share existing import locks.
+
+GitHub scheduling now requests Google Business reports and reviews every five minutes even with the dashboard closed. GitHub may delay scheduled runs; this is near-real-time polling, not instant webhook delivery. The dashboard also checks every five minutes while visible. Google determines metric publication latency.
+
+The separate `mybusiness.googleapis.com` Reviews API was enabled with the user’s approval. A full official API sync succeeded: 341 reviews across all returned pages, no continuation remaining. The live request-budget counter used nine calls for that minute. Review reconciliation retains matching stored identities, photos and links; ambiguous matches remain distinct rather than guessing.
+
+Reconciliation retained 197 customer-uploaded photos across 81 reviews. One reviewer renamed their profile from Neolit to A R M M U S; the exact unique Google photo identity links the API record to the historical profile without deleting stored history.

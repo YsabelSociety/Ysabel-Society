@@ -902,7 +902,7 @@ export async function createReportPDF(
       t.period.end === bundle.range.end,
   )?.rows[0];
   cards(
-    GBP_METRICS.slice(0, 8).map((m) => ({
+    GBP_METRICS.filter(m => !m.key.endsWith('Mobile') && !m.key.endsWith('Desktop')).map((m) => ({
       name: m.label,
       value:
         typeof exactGoogle?.[m.key] === 'number'
@@ -1396,3 +1396,4 @@ export async function downloadReportPDF(
       '.pdf',
   );
 }
+

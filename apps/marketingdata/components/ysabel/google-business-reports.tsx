@@ -44,6 +44,8 @@ import styles from './google-business.module.css';
 type Point = { date: string; value: number | null };
 type Definition = (typeof GBP_METRICS)[number];
 const metricIcons: Record<Definition['key'], LucideIcon> = {
+  views: Search,
+  actions: Navigation,
   search: Search,
   maps: MapPinned,
   directions: Navigation,

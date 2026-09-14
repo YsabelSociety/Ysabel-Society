@@ -9,6 +9,8 @@ import {
 
 // Shared by the native Google CSV importer, daily charts and period reports.
 export const GBP_METRICS = [
+  {key:'views',label:'Business Profile views',color:'#537e9a',description:'Google Search and Maps profile views across all devices.'},
+  {key:'actions',label:'Business Profile interactions',color:'#64856b',description:'Direction requests, website and call clicks, menu interactions, bookings and food orders.'},
   {
     key: 'search',
     label: 'Google Search views',
@@ -130,6 +132,12 @@ export function gbpFileRange(name: string): Range | null {
   return { start: normalize(match[1]), end: normalize(match[2]) };
 }
 export function gbpDailyValue(row: Daily, key: GBPKey): number | null {
+  if(key==='actions') {
+    const keys=['calls','clicks','directions','menu','bookings','foodOrders'];
+    if(row.available && !keys.every(k=>row.available!.includes(k))) return null;
+    const values=keys.map(k=>finite((row as unknown as Record<string,unknown>)[k]));
+    return values.every(v=>v!==null)?values.reduce<number>((sum,v)=>sum+(v??0),0):null;
+  }
   const definition = GBP_METRICS.find((m) => m.key === key)!;
   if (
     'api' in definition &&

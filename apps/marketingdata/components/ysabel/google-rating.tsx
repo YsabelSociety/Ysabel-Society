@@ -1,9 +1,10 @@
 'use client';
-import { useId } from 'react';
+import { useId, useEffect, useState } from 'react';
 import { Star, ArrowUpRight } from 'lucide-react';
 import { SourceBadge } from './source-badge';
 import { calendarDate } from '@/lib/sync-window';
-import { googleRatingSnapshot as snapshot, googleRatingHistory, googleRatingSourceUrl, previousMonthRating } from '@/lib/google-rating-snapshot';
+import { googleRatingSnapshot as savedSnapshot, googleRatingHistory, googleRatingSourceUrl, previousMonthRating, type GoogleRatingObservation } from '@/lib/google-rating-snapshot';
+type RatingFeed = GoogleRatingObservation & {observedAt:string;history:GoogleRatingObservation[]};
 
 function RatingStars({rating}:{rating:number}) {
  const id=useId().replace(/:/g,'');
@@ -17,16 +18,37 @@ function RatingStars({rating}:{rating:number}) {
  </svg>)}</div>;
 }
 export function GoogleRating({onOpen}:{onOpen:()=>void}) {
- const {month,observation:previous}=previousMonthRating(calendarDate('Europe/Tirane'),googleRatingHistory);
+ const [feed,setFeed]=useState<RatingFeed|null>(null);
+ useEffect(()=>{
+  const controller=new AbortController(); let pending=false;
+  async function update() {
+   if(pending || document.visibilityState==='hidden') return;
+   pending=true;
+   try {
+    const response=await fetch('/marketingdata/api/google-rating',{cache:'no-store',signal:controller.signal});
+    if(!response.ok) return;
+    const {rating}=await response.json();
+    if(rating && Number.isFinite(rating.rating) && rating.rating>=1 && rating.rating<=5 && Number.isInteger(rating.reviewCount) && Array.isArray(rating.history)) setFeed(rating);
+   } catch {} finally {pending=false;}
+  }
+  void update();
+  const timer=window.setInterval(update,60000);
+  window.addEventListener('ysabel:sources-updated',update);
+  document.addEventListener('visibilitychange',update);
+  return ()=>{controller.abort();clearInterval(timer);window.removeEventListener('ysabel:sources-updated',update);document.removeEventListener('visibilitychange',update);};
+ },[]);
+ const snapshot=feed || savedSnapshot;
+ const history=feed ? [...googleRatingHistory.filter(r=>!feed.history.some(h=>h.date===r.date)),...feed.history] : googleRatingHistory;
+ const {month,observation:previous}=previousMonthRating(calendarDate('Europe/Tirane'),history);
  const monthLabel=new Date(month+'-01T12:00:00Z').toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'});
  const checkedDate=new Date(snapshot.date+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
  const delta=previous?snapshot.rating-previous.rating:null;
  return <section className="google-rating-highlight" aria-label="Google review rating">
 
-  <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>{snapshot.rating.toFixed(1)} <small>/ 5</small></h2><RatingStars rating={snapshot.rating}/><p>{snapshot.reviewCount} Google reviews</p><SourceBadge channel="Google Business" imported /></div>
+  <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>{snapshot.rating.toFixed(1)} <small>/ 5</small></h2><RatingStars rating={snapshot.rating}/><p>{snapshot.reviewCount} Google reviews</p><SourceBadge channel="Google Business" imported={!feed} /></div>
   <div className="google-rating-comparison"><span className="rating-comparison-label">PREVIOUS MONTH COMPARISON{previous?.source?' · DATED REFERENCE':''}</span>
    <div className="rating-periods"><div><small>{monthLabel}</small><strong>{previous?.rating.toFixed(1)??'—'}</strong><span>{previous?`${previous.reviewCount} reviews`:'No dated reference'}</span></div><span className="rating-period-arrow" aria-hidden="true">→</span><div><small>Latest Google rating</small><strong>{snapshot.rating.toFixed(1)}</strong><span>{snapshot.reviewCount} reviews</span></div><b className="rating-change">{delta===null?'—':delta===0?'Unchanged':`${delta>0?'+':''}${delta.toFixed(1)} points`}</b></div>
-   <small>{previous?.source?<><a href={previous.sourceUrl} target="_blank" rel="noreferrer">{monthLabel} reference: {previous.source}</a>. This reports Google's rating; it is not a verified month-end snapshot. </>:previous?`Previous reference: ${previous.date}. `:'A dated historical Google rating is needed for this comparison. '}Current rating checked directly on Google {checkedDate}. <a href={googleRatingSourceUrl} target="_blank" rel="noreferrer">View on Google</a></small>
+   <small>{previous?.source?<><a href={previous.sourceUrl} target="_blank" rel="noreferrer">{monthLabel} reference: {previous.source}</a>. This reports Google's rating; it is not a verified month-end snapshot. </>:previous?`Previous reference: ${previous.date}. `:'A dated historical Google rating is needed for this comparison. '}{feed ? `Synced from Google Business ${new Date(feed.observedAt).toLocaleString()}. ` : `Current rating checked directly on Google ${checkedDate}. `}<a href={googleRatingSourceUrl} target="_blank" rel="noreferrer">View on Google</a></small>
   </div><button className="secondary" onClick={onOpen}>Explore reviews <ArrowUpRight size={17}/></button>
  </section>;
 }

@@ -74,8 +74,9 @@
   width: 72px;
   height: 40px;
   color: var(--gbp-color);
-  opacity: 0.55;
-  z-index: -1;
+  opacity: 0.3;
+  pointer-events: none;
+  z-index: 0;
 }
 .grid {
   display: grid;
@@ -150,3 +151,4 @@
     width: 100%;
   }
 }
+

@@ -16,10 +16,10 @@ export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdate
         const response=await fetch('/marketingdata/api/review-ai',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'analyze'}),signal:AbortSignal.timeout(60000)});
         const d=await response.json();if(!response.ok)throw new Error(d.error||'Review analysis failed.');
         remaining=d.remaining;setMessage(`AI reviewed ${d.total-remaining} of ${d.total} reviews · English translations saved`);
-        if(++rounds%4===0||!remaining)onUpdated();
+        if(!remaining)onUpdated(); ++rounds;
         if(remaining&&d.completed===0){setMessage('Another session is analyzing reviews. Saved results will appear on refresh.');break;}
       }
-    }catch(e){blocked.current=true;setMessage((e as Error).message);onUpdated();}finally{running.current=false;if(mounted.current)setBusy(false);}
+    }catch(e){blocked.current=true;setMessage((e as Error).message);if((e as Error).message.includes('key is invalid'))setConfigured(false);onUpdated();}finally{running.current=false;if(mounted.current)setBusy(false);}
   }
   useEffect(()=>{if(configured&&!blocked.current&&records.some(r=>r.source==='gbp'&&r.kind==='review'&&!r.reviewAnalysis))void analyze();},[configured,records]);
   async function save(){
@@ -31,7 +31,7 @@ export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdate
   }
   const reviewed=records.filter(r=>r.reviewAnalysis).length;
   return <div className="review-ai-panel">
-    <div><strong><Sparkles size={17}/> Review intelligence</strong><p>{configured?`${reviewed} of ${records.length} reviews analyzed. New or edited reviews are analyzed when this report is opened; saved results are reused.`:'Connect OpenAI to translate and carefully analyze every review, including five-star feedback.'}</p></div>
+    <div><strong><Sparkles size={17}/> AI criticism detector</strong><p>{configured?`${reviewed} of ${records.length} reviews analyzed. New or edited reviews are analyzed when this report is opened; saved results are reused.`:'AI is not active. Current results use rule-based detection. Connect a valid OpenAI API key to identify implicit criticism and translate every review, including five-star feedback.'}</p></div>
     <div><button className="secondary" onClick={()=>setOpen(true)}><Settings size={16}/> {configured?'AI settings':'Connect OpenAI'}</button>{configured&&<button className="secondary" disabled={busy} onClick={()=>void analyze()}>{busy?'Analyzing…':'Analyze pending reviews'}</button>}</div>
     {message&&<p role="status">{message}</p>}
     <Dialog open={open} onOpenChange={v=>{setOpen(v);if(!v)setKey('');}}><DialogContent><DialogHeader><DialogTitle>OpenAI review intelligence</DialogTitle><DialogDescription>Translate the original text and identify supported criticism across all star ratings. API usage is billed to your OpenAI account. Only review text and ratings are sent, without reviewer names or photos.</DialogDescription></DialogHeader>
@@ -39,3 +39,4 @@ export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdate
     </DialogContent></Dialog>
   </div>;
 }
+

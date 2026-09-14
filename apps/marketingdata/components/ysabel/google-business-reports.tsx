@@ -111,7 +111,7 @@ function MetricChart({
             connectNulls={false}
             dot={{ r: 2 }}
             activeDot={{ r: 5 }}
-            isAnimationActive={animate}
+            isAnimationActive={false}
             animationDuration={850}
           />
         </AreaChart>
@@ -300,7 +300,7 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
                       <Bar
                         dataKey="value"
                         radius={[0, 6, 6, 0]}
-                        isAnimationActive={animate}
+                        isAnimationActive={false}
                         animationDuration={850}
                       >
                         {items.map((item) => (
@@ -417,7 +417,7 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
                       dataKey="impressions"
                       fill="#6a997c"
                       radius={[5, 5, 0, 0]}
-                      isAnimationActive={animate}
+                      isAnimationActive={false}
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -454,3 +454,4 @@ export function GoogleBusinessReports({ tables }: { tables: ReportTable[] }) {
     </section>
   );
 }
+

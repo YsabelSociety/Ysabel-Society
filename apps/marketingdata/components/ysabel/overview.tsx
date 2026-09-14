@@ -30,6 +30,7 @@ import { calendarDate } from '@/lib/sync-window';
 import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
+import { GoogleRating } from './google-rating';
 export default function Overview({
   rows,
   range,
@@ -69,6 +70,7 @@ export default function Overview({
   const highlights = monthlyPosts.filter(p => p.status === 'Published' && p.date.startsWith(month) && ['Instagram','Facebook','TikTok'].includes(p.platform)).sort((a,b) => (b.views||0)-(a.views||0));
   return (
     <>
+      <GoogleRating onOpen={() => setPage('Google Business')} />
       <AllPlatformViews
         rows={rows}
         previous={previous}

@@ -106,7 +106,7 @@ function useCommunity(kind: string) {
         if (!r.ok) throw new Error(d.error);
         if (!controller.signal.aborted) {
           communitySnapshots.set(kind, d);
-          setData(d);
+          setData(prior => JSON.stringify(prior) === JSON.stringify(d) ? prior : d);
           loadedKind.current = kind;
           setError('');
         }

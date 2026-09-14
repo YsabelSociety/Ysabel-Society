@@ -2,6 +2,8 @@ export type SourceStatus = {
   channel: string;
   status: string;
   lastSync: string | null;
+  method?: 'api' | 'file' | null;
+  autoSync?: boolean;
 };
 export type WebsiteRealtime = {
   activeUsers: number | null;

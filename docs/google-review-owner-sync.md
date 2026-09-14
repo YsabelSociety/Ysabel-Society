@@ -1,6 +1,6 @@
 # Google Business live sync and review recovery
 
-As of 14 September 2026, the official API connection is active for Ysabel Society: daily performance and all 341 current reviews were successfully retrieved. Prefer the API refresh over browser-assisted recovery. The shared request budget is 120 per fixed minute (at most 240 across a rolling minute), below the approved 300/minute quota. Google Business checks are scheduled every five minutes; scheduler and Google processing delays can apply. No paid connector or billing has been added.
+As of 14 September 2026, the official API connection is active for Ysabel Society: daily performance and all 341 current reviews were successfully retrieved. Prefer the API refresh over browser-assisted recovery. The shared request budget is 250 per rolling 60-second window, below the approved 300/minute quota. Google Business checks are scheduled every five minutes; scheduler and Google processing delays can apply. No paid connector or billing has been added.
 
 ## Working fallback
 
@@ -33,10 +33,11 @@ After Google grants nonzero quota, discover and select only the actual Ysabel So
 
 Google authorization was renewed for the existing owner account. The real Ysabel Society location `2654256529003455405` was discovered and selected, replacing the file-only link while retaining history. Performance API successfully returned 70 daily observations across ten metrics for September 8–14. Google returned no September search keywords yet; this is not a zero count.
 
-The live backend now enforces one shared database-backed budget of 120 Google Business requests per fixed minute across discovery, performance, reviews and retries (at most 240 over a rolling minute). Provider 429 responses activate a shared cooldown respecting Retry-After. Automatic and manual refreshes share existing import locks.
+The live backend now enforces one shared database-backed budget of 250 Google Business requests per rolling 60-second window across discovery, performance, reviews and retries. Provider 429 responses activate a shared cooldown respecting Retry-After. Automatic and manual refreshes share existing import locks.
 
 GitHub scheduling now requests Google Business reports and reviews every five minutes even with the dashboard closed. GitHub may delay scheduled runs; this is near-real-time polling, not instant webhook delivery. The dashboard also checks every five minutes while visible. Google determines metric publication latency.
 
 The separate `mybusiness.googleapis.com` Reviews API was enabled with the user’s approval. A full official API sync succeeded: 341 reviews across all returned pages, no continuation remaining. The live request-budget counter used nine calls for that minute. Review reconciliation retains matching stored identities, photos and links; ambiguous matches remain distinct rather than guessing.
 
 Reconciliation retained 197 customer-uploaded photos across 81 reviews. One reviewer renamed their profile from Neolit to A R M M U S; the exact unique Google photo identity links the API record to the historical profile without deleting stored history.
+

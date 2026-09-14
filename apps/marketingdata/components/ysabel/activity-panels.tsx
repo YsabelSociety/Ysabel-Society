@@ -30,6 +30,7 @@ import { Spark } from './charts';
 import { useMinimalMotion } from './use-motion';
 import { activitySeries } from '@/lib/activity-series';
 import { DataIcon } from './data-icons';
+import { SourceBadge } from './source-badge';
 
 export function ProfileViews({
   rows,
@@ -71,6 +72,7 @@ export function ProfileViews({
                 {channel}
               </span>
               <strong>{has ? number(value) : 'Unavailable'}</strong>
+              {has && <SourceBadge channel={channel} rows={current.filter(r => r.available?.includes('profileViews'))} />}
               <small>
                 {!has
                   ? channel === 'TikTok'

@@ -8807,3 +8807,14 @@ h1 {
  .all-views-platforms>button:first-child .platform-card-chart>svg,
  .all-views-platforms>button:last-child .platform-card-chart>svg{height:38px;}
 }
+
+/* Source provenance stays compact inside platform cards and selectors. */
+.source-feed-badge { display:inline-flex!important; align-items:center; gap:5px; width:max-content; max-width:100%; padding:3px 7px; border-radius:999px; font-size:9px!important; line-height:1.35; font-weight:650; letter-spacing:.065em; color:#52616b; background:rgba(255,255,255,.68); border:1px solid rgba(92,112,115,.16); white-space:nowrap; }
+.source-feed-badge i { position:static!important; display:block; width:4px!important; height:4px!important; border-radius:50%; background:currentColor!important; flex:none; }
+.source-feed-badge[data-feed='live'] { color:#27674e; background:rgba(223,242,233,.8); }
+.source-feed-badge[data-feed='file'] { color:#796445; background:rgba(248,241,225,.8); }
+.platform-tabs [data-slot='tabs-trigger'] { flex-wrap:wrap; }
+.platform-tabs .source-feed-badge { margin-left:3px; }
+.all-views-platforms .source-feed-badge { margin-top:5px; position:relative; z-index:1; }
+.google-rating-highlight > .source-feed-badge { align-self:start; }
+@media(max-width:640px) { .source-feed-badge {font-size:8px!important;padding:2px 5px;} .platform-tabs .source-feed-badge { flex-basis:auto; margin-left:0; } }

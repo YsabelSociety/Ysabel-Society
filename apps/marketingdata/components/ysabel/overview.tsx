@@ -32,6 +32,7 @@ import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
 import { GoogleRating } from './google-rating';
 import { PlatformCardChart } from './platform-card-chart';
+import { SourceBadge } from './source-badge';
 export default function Overview({
   rows,
   range,
@@ -457,6 +458,7 @@ function AllPlatformViews({
         {sources.map((source, index) => (
           <button type="button" key={source.channel} data-platform={source.channel} onClick={onOpen}>
             <span className="all-views-brand"><DataIcon name={source.channel} badge /><strong>{source.channel}</strong></span>
+            <SourceBadge channel={source.channel} rows={rows.filter(r => r.channel === source.channel)} />
             <strong>{source.available ? compact(source.value) : '—'}</strong>
             <small>{source.available ? source.label : 'Not supplied for this period'}</small>
             <PlatformCardChart color={COLORS[index]} bars={source.channel === 'TikTok' || source.channel === 'Google Business'} lifetime={source.channel === 'TikTok' && !source.hasDaily} points={dates.map(date => {

@@ -54,6 +54,7 @@ import { AnalyticsChart, Bars, Spark } from './charts';
 import { type WorkspaceData } from './use-workspace';
 import { MediaCards, Empty } from './content';
 import { SourceReports } from './source-reports';
+import { SourceBadge } from './source-badge';
 import type { ReportTable } from '@/lib/reporting';
 import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
@@ -447,6 +448,7 @@ export function PerformancePage({
             {['All', ...CHANNELS].map((c) => (
               <TabsTrigger key={c} value={c} data-platform={c}>
                 {c === 'All' ? 'All platforms' : c}
+                <SourceBadge channel={c} />
               </TabsTrigger>
             ))}
           </TabsList>
@@ -586,6 +588,7 @@ export function AudiencePage({
             {['All', ...SOCIAL_PLATFORMS].map((c) => (
               <TabsTrigger value={c} key={c} data-platform={c}>
                 {c === 'All' ? 'All social platforms' : c}
+                <SourceBadge channel={c} />
               </TabsTrigger>
             ))}
           </TabsList>

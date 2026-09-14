@@ -85,6 +85,7 @@ import {
 } from '@/lib/analytics';
 import { Picker } from './controls';
 import Overview from './overview';
+import { SourceStatusContext } from './source-badge';
 import { useWorkspace } from './use-workspace';
 import { useSourceAnalytics } from './use-analytics';
 import { PostDetail, ContentIntelligence } from './content';
@@ -576,7 +577,7 @@ export default function Workspace({
         inert={showLoadingScene}
         aria-hidden={showLoadingScene || undefined}
       >
-        <TooltipProvider>
+        <SourceStatusContext.Provider value={source.sourceStatus}><TooltipProvider>
           <SidebarProvider
             className="workspace-shell"
             data-section={page}
@@ -1151,7 +1152,7 @@ export default function Workspace({
               </div>
             )}
           </SidebarProvider>
-        </TooltipProvider>
+        </TooltipProvider></SourceStatusContext.Provider>
       </div>
     </>
   );

@@ -1,6 +1,7 @@
 'use client';
 import { useId } from 'react';
 import { Star, ArrowUpRight } from 'lucide-react';
+import { SourceBadge } from './source-badge';
 import { calendarDate } from '@/lib/sync-window';
 import { googleRatingSnapshot as snapshot, googleRatingHistory, googleRatingSourceUrl, previousMonthRating } from '@/lib/google-rating-snapshot';
 
@@ -21,11 +22,13 @@ export function GoogleRating({onOpen}:{onOpen:()=>void}) {
  const checkedDate=new Date(snapshot.date+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
  const delta=previous?snapshot.rating-previous.rating:null;
  return <section className="google-rating-highlight" aria-label="Google review rating">
-  <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>{snapshot.rating.toFixed(1)} <small>/ 5</small></h2><RatingStars rating={snapshot.rating}/><p>{snapshot.reviewCount} Google reviews</p></div>
+
+  <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>{snapshot.rating.toFixed(1)} <small>/ 5</small></h2><RatingStars rating={snapshot.rating}/><p>{snapshot.reviewCount} Google reviews</p><SourceBadge channel="Google Business" imported /></div>
   <div className="google-rating-comparison"><span className="rating-comparison-label">PREVIOUS MONTH COMPARISON{previous?.source?' · DATED REFERENCE':''}</span>
    <div className="rating-periods"><div><small>{monthLabel}</small><strong>{previous?.rating.toFixed(1)??'—'}</strong><span>{previous?`${previous.reviewCount} reviews`:'No dated reference'}</span></div><span className="rating-period-arrow" aria-hidden="true">→</span><div><small>Latest Google rating</small><strong>{snapshot.rating.toFixed(1)}</strong><span>{snapshot.reviewCount} reviews</span></div><b className="rating-change">{delta===null?'—':delta===0?'Unchanged':`${delta>0?'+':''}${delta.toFixed(1)} points`}</b></div>
    <small>{previous?.source?<><a href={previous.sourceUrl} target="_blank" rel="noreferrer">{monthLabel} reference: {previous.source}</a>. This reports Google's rating; it is not a verified month-end snapshot. </>:previous?`Previous reference: ${previous.date}. `:'A dated historical Google rating is needed for this comparison. '}Current rating checked directly on Google {checkedDate}. <a href={googleRatingSourceUrl} target="_blank" rel="noreferrer">View on Google</a></small>
   </div><button className="secondary" onClick={onOpen}>Explore reviews <ArrowUpRight size={17}/></button>
  </section>;
 }
+
 

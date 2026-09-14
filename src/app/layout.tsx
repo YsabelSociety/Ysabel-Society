@@ -19,6 +19,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ysabel Society",
   description: "Ysabel Society",
+  other: {
+    "facebook-domain-verification": "qsvuyub12lry0bc6d15nlyceghml1t",
+  },
 };
 
 export default function RootLayout({

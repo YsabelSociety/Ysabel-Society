@@ -34,8 +34,9 @@ export function GoogleRating({onOpen}:{onOpen:()=>void}) {
   void update();
   const timer=window.setInterval(update,60000);
   window.addEventListener('ysabel:sources-updated',update);
+  window.addEventListener('ysabel:community-updated',update);
   document.addEventListener('visibilitychange',update);
-  return ()=>{controller.abort();clearInterval(timer);window.removeEventListener('ysabel:sources-updated',update);document.removeEventListener('visibilitychange',update);};
+  return ()=>{controller.abort();clearInterval(timer);window.removeEventListener('ysabel:sources-updated',update);window.removeEventListener('ysabel:community-updated',update);document.removeEventListener('visibilitychange',update);};
  },[]);
  const snapshot=feed || savedSnapshot;
  const history=feed ? [...googleRatingHistory.filter(r=>!feed.history.some(h=>h.date===r.date)),...feed.history] : googleRatingHistory;

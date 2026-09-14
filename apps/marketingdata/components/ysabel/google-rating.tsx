@@ -3,7 +3,7 @@ import { useId, useEffect, useState } from 'react';
 import { Star, ArrowUpRight } from 'lucide-react';
 import { SourceBadge } from './source-badge';
 import { calendarDate } from '@/lib/sync-window';
-import { googleRatingSnapshot as savedSnapshot, googleRatingHistory, googleRatingSourceUrl, previousMonthRating, type GoogleRatingObservation } from '@/lib/google-rating-snapshot';
+import { googleRatingSnapshot as savedSnapshot, googleRatingHistory, googleRatingMonthlyReferences, googleRatingSourceUrl, previousMonthRating, type GoogleRatingObservation } from '@/lib/google-rating-snapshot';
 type RatingFeed = GoogleRatingObservation & {observedAt:string;history:GoogleRatingObservation[]};
 
 function RatingStars({rating}:{rating:number}) {
@@ -43,13 +43,14 @@ export function GoogleRating({onOpen}:{onOpen:()=>void}) {
  const {month,observation:previous}=previousMonthRating(calendarDate('Europe/Tirane'),history);
  const monthLabel=new Date(month+'-01T12:00:00Z').toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'});
  const checkedDate=new Date(snapshot.date+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
- const delta=previous?Math.round((snapshot.rating-previous.rating)*10)/10:null;
+ const reference=previous?.rating ?? googleRatingMonthlyReferences[month];
+ const delta=reference!==undefined?Math.round((snapshot.rating-reference)*10)/10:null;
  return <section className="google-rating-highlight" aria-label="Google review rating">
 
   <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>{snapshot.rating.toFixed(1)} <small>/ 5</small></h2><RatingStars rating={snapshot.rating}/><p>{snapshot.reviewCount} Google reviews</p><SourceBadge channel="Google Business" imported={!feed} /></div>
   <div className="google-rating-comparison"><span className="rating-comparison-label">PREVIOUS MONTH · GOOGLE RATING</span>
-   <div className="rating-periods"><div><small>{monthLabel}</small><strong>{previous?.rating.toFixed(1)??'—'}</strong><span>{previous?`${previous.reviewCount} reviews`:'Not recorded'}</span></div><span className="rating-period-arrow" aria-hidden="true">→</span><div><small>Latest Google rating</small><strong>{snapshot.rating.toFixed(1)}</strong><span>{snapshot.reviewCount} reviews</span></div><b className="rating-change">{delta===null?'—':delta===0?'Unchanged':`${delta>0?'+':''}${delta.toFixed(1)} points`}</b></div>
-   <small>{previous ? `Google observation recorded ${previous.date}. ` : `No verified Google rating was recorded for ${monthLabel}. `}{feed ? `Synced from Google Business ${new Date(feed.observedAt).toLocaleString()}. ` : `Google rating recorded ${checkedDate}. `}<a href={googleRatingSourceUrl} target="_blank" rel="noreferrer">View on Google</a></small>
+   <div className="rating-periods"><div><small>{monthLabel}</small><strong>{reference?.toFixed(1)??'—'}</strong><span>{previous?`${previous.reviewCount} reviews`:reference!==undefined?'Owner-provided reference':'Not recorded'}</span></div><span className="rating-period-arrow" aria-hidden="true">→</span><div><small>Latest Google rating</small><strong>{snapshot.rating.toFixed(1)}</strong><span>{snapshot.reviewCount} reviews</span></div><b className="rating-change">{delta===null?'—':delta===0?'Unchanged':`${delta>0?'+':''}${delta.toFixed(1)} points`}</b></div>
+   <small>{previous ? `Google observation recorded ${previous.date}. ` : reference!==undefined ? `${monthLabel} rating reference provided by Ysabel Society. ` : `No verified Google rating was recorded for ${monthLabel}. `}{feed ? `Synced from Google Business ${new Date(feed.observedAt).toLocaleString()}. ` : `Google rating recorded ${checkedDate}. `}<a href={googleRatingSourceUrl} target="_blank" rel="noreferrer">View on Google</a></small>
   </div><button className="secondary" onClick={onOpen}>Explore reviews <ArrowUpRight size={17}/></button>
  </section>;
 }

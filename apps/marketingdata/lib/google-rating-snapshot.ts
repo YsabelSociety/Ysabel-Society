@@ -1,4 +1,5 @@
-// Direct Google observations and explicitly attributed dated secondary references.
+// Direct Google observations. Owner-provided monthly references stay separate.
+export const googleRatingMonthlyReferences: Record<string, number> = {'2026-08':4.1};
 export type GoogleRatingObservation = {rating:number;reviewCount:number;date:string;source?:string;sourceUrl?:string};
 export const googleRatingHistory: GoogleRatingObservation[] = [
   {rating:4.2,reviewCount:335,date:'2026-09-13'},

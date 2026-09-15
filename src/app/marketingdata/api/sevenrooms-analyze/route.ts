@@ -11,7 +11,7 @@ export async function POST(req:Request){try{
  const headers={cookie,origin,'Content-Type':'application/json'};
  const call=async(body:unknown)=>{const r=await fetch(url,{method:'POST',headers,body:JSON.stringify(body),cache:'no-store',signal:AbortSignal.timeout(45000)});const data=await r.json();if(!r.ok)throw new Error(data.error||'Import staging failed.');return data;};
  const raw=await fetch(url+'?op=raw&id='+encodeURIComponent(id),{headers:{cookie},cache:'no-store',signal:AbortSignal.timeout(25000)});if(!raw.ok)throw new Error('Unlock administrator access before importing.');
- const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(Buffer.from(await raw.arrayBuffer()) as Parameters<typeof workbook.xlsx.load>[0]);
+ const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(Buffer.from(await raw.arrayBuffer()) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
  const sheet=workbook.worksheets[0];if(!sheet)throw new Error('No worksheet found.');
  const scalar=(v:ExcelJS.CellValue):unknown=>v instanceof Date?v.toISOString():v&&typeof v==='object'?('result' in v?v.result:'text' in v?v.text:'richText' in v?v.richText.map(x=>x.text).join(''):''):v??'';
  const headersRaw=(sheet.getRow(1).values as ExcelJS.CellValue[]).slice(1).map(x=>String(scalar(x)).trim());
@@ -26,5 +26,6 @@ export async function POST(req:Request){try{
  let next=0;const batches=Math.ceil(rows.length/200);await Promise.all(Array.from({length:8},async()=>{while(next<batches){const batch=next++;await call({op:'stage',id,batch,rows:rows.slice(batch*200,(batch+1)*200)});}}));
  await call({op:'analyzed',id,rows:rows.length,batches,summary});return Response.json({id,rows:rows.length,batches,summary},{headers:{'Cache-Control':'private, no-store'}});
 }catch(e){return Response.json({error:e instanceof Error?e.message:'The file could not be analyzed.'},{status:400,headers:{'Cache-Control':'private, no-store'}});}}
+
 
 

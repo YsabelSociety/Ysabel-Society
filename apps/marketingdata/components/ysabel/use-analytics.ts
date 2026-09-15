@@ -16,6 +16,7 @@ export function useSourceAnalytics(
   comparison: string,
   onLive?: () => void,
 ) {
+  const reportCache = useRef(new Map<string, { at: number; data: any }>());
   const comparisonCache = useRef<{ key: string; at: number; rows: Daily[] } | null>(null);
   const [result, setResult] = useState<{
     key: string;
@@ -48,11 +49,18 @@ export function useSourceAnalytics(
         const read = async (r: Range, dailyOnly = false) => {
           const q = new URLSearchParams({ unit, start: r.start, end: r.end });
           if (dailyOnly) q.set('dailyOnly', '1');
+          const cacheKey = revision + '|' + q.toString();
+          const cachedReport = reportCache.current.get(cacheKey);
+          if (cachedReport && Date.now() - cachedReport.at < 30000) return cachedReport.data;
           const response = await fetch('/marketingdata/api/analytics?' + q, {
             signal: AbortSignal.any([abort.signal, AbortSignal.timeout(30000)]),
           });
           const data: any = await response.json();
           if (!response.ok) throw new Error(data.error);
+          if (!abort.signal.aborted) {
+            reportCache.current.set(cacheKey, { at: Date.now(), data });
+            while (reportCache.current.size > 6) reportCache.current.delete(reportCache.current.keys().next().value!);
+          }
           return data;
         };
         // Comparison failures must never discard a valid current-period report.

@@ -1,9 +1,8 @@
 'use client';
-import SevenRooms from './sevenrooms';
 import { BrandLogo } from './brand-logo';
 import { useSessionRetention } from './use-session-retention';
 import { ChartBoundary } from './social-performance';
-import { memo, useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
+import { lazy, Suspense, memo, useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { VisitedPanel } from './visited-panel';
 import {
   LayoutDashboard,
@@ -107,6 +106,7 @@ import { useAutoRefresh } from './use-auto-refresh';
 import { calendarDate } from '@/lib/sync-window';
 import { SourceReports } from './source-reports';
 import { CommunityPage, GoogleReviews } from './community';
+const SevenRooms = lazy(() => import('./sevenrooms'));
 const groups = [
   {
     label: 'WORKSPACE',
@@ -873,7 +873,7 @@ export default function Workspace({
                   </div>
                 )}
                 <div className="view-content">
-                  {page === 'Seven Rooms' && <SevenRooms />}
+                  <VisitedPanel active={page === 'Seven Rooms'}><Suspense fallback={<p role="status">Opening guest intelligence…</p>}><SevenRooms /></Suspense></VisitedPanel>
                   {page === 'Admin Panel' && (
                     <AdminGate title="Admin panel">
                       <AdminPanel

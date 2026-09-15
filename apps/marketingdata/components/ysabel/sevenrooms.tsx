@@ -14,7 +14,24 @@ function MeaningIcon({name}:{name:string}){const n=name.toLowerCase();const Icon
 const ven=(v:string)=>({all:'All Ysabel',asian:'Asian',italian:'Italian',garden:'Garden'}[v]||pretty(v));
 const smart=[['marketable','Guests we can email'],['active30','Visited in 30 days'],['active90','Visited in 90 days'],['inactive90','Away for 90+ days'],['inactive180','Away for 180+ days'],['one','Visited once'],['returning','Returning Guests'],['loyal','Five or more visits'],['inner','Ten or more visits'],['birthdaymonth','Birthday This Month'],['birthday30','Birthday Next 30 Days'],['prospects','No recorded visits'],['upcoming','Upcoming Reservations'],['firstupcoming','First-Time Upcoming'],['noshow','Previous No-Shows'],['cancelled','Previous Cancellations'],['asian','Asian Guests'],['italian','Italian Guests'],['garden','Garden Guests']];
 const options:Record<string,string[]>={marketing:['eligible','not-eligible','email','no-email'],visits:['0','1','2-4','5-9','2+','5+','10+'],recency:['0-30','31-60','61-90','90+','180+','365+','unknown'],birthday:['known','this-month','next-month','0','7','30','60'],upcoming:['yes','no'],history:['completed','cancelled','no-show'],venue:['asian','italian','garden']};
-function useData(q:string,revision=0){const [data,set]=useState<Row|null>(null),[error,err]=useState(''),[loading,busy]=useState(true);useEffect(()=>{let active=true;busy(true);err('');api(q).then(d=>{if(active)set(d);}).catch(e=>{if(active)err(e.message);}).finally(()=>{if(active)busy(false);});return()=>{active=false;};},[q,revision]);return {data,error,loading};}
+function useData(q:string,revision=0,enabled=true){
+ const cache=useRef(new Map<string,{data:Row;at:number}>());
+ const pending=useRef(new Map<string,Promise<Row>>());
+ const [state,set]=useState<{key:string;data:Row|null;error:string;loading:boolean}>({key:'',data:null,error:'',loading:false});
+ const key=revision+'|'+q;
+ useEffect(()=>{
+  if(!enabled)return;
+  let active=true;const saved=cache.current.get(key);
+  set({key,data:saved?.data||null,error:'',loading:!saved});
+  if(saved&&Date.now()-saved.at<30000)return;
+  let request=pending.current.get(key);
+  if(!request){request=api(q).then(data=>{cache.current.set(key,{data,at:Date.now()});while(cache.current.size>8)cache.current.delete(cache.current.keys().next().value!);return data;}).finally(()=>pending.current.delete(key));pending.current.set(key,request);}
+  request.then(data=>{if(active)set({key,data,error:'',loading:false});}).catch(e=>{if(active)set({key,data:saved?.data||null,error:e.message,loading:false});});
+  return()=>{active=false;};
+ },[key,enabled]);
+ const saved=cache.current.get(key);
+ return state.key===key?state:{data:saved?.data||null,error:'',loading:enabled&&!saved};
+}
 function Drawer({title,close,children}:{title:string;close:()=>void;children:ReactNode}){const ref=useRef<HTMLDivElement>(null);useEffect(()=>{const old=document.activeElement as HTMLElement;ref.current?.focus();const key=(e:KeyboardEvent)=>{if(e.key==='Escape')close();if(e.key==='Tab'){const els=ref.current?.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href]');if(!els?.length)return;const a=els[0],b=els[els.length-1];if(e.shiftKey&&document.activeElement===a){e.preventDefault();b.focus();}else if(!e.shiftKey&&document.activeElement===b){e.preventDefault();a.focus();}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);old?.focus();};},[]);return <div className="sr-scrim" onClick={close}><div className="sr-drawer" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onClick={e=>e.stopPropagation()}><header><h2>{title}</h2><button onClick={close} aria-label="Close"><X size={19}/></button></header>{children}</div></div>;}
 function ShareBar({value,total,label}:{value:number;total:number;label:string}){const percent=total?Math.min(100,100*value/total):0;return <div className="sr-share" title={`${num(value)} of ${num(total)} ${label}`}><span>{percent.toFixed(1)}% <small>{label}</small></span><i><em style={{width:percent+'%'}}/></i></div>;}
 function Bars({rows,onPick}:{rows:Row[];onPick?:(r:Row)=>void}){const max=Math.max(1,...rows.map(r=>r.value));return <div className="sr-bars">{rows.map((r,i)=><button key={r.label} onClick={()=>onPick?.(r)} disabled={!onPick} title={`${relationshipLabels[r.label]||r.label}: ${num(r.value)}`}><span>{relationshipLabels[r.label]||r.label}<b>{num(r.value)}</b></span><i><em style={{width:100*r.value/max+'%',animationDelay:i*35+'ms'}}/></i></button>)}</div>;}
@@ -45,14 +62,14 @@ export default function SevenRooms(){
  useEffect(()=>{Page(1);Selected([]);},[venue,debounced,rules,segment,status,period]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();e.stopImmediatePropagation();input.current?.focus();}};document.addEventListener('keydown',key,true);return()=>document.removeEventListener('keydown',key,true);},[]);
  const q=new URLSearchParams({venue,search:debounced,rules:JSON.stringify(rules),logic,segment,page:String(page),size:String(size),sort});
- const overview=useData('op=overview&venue='+venue,rev),aud=useData('op=audience&'+q,rev),segments=useData('op=segments',rev);
+ const overview=useData('op=overview&venue='+venue,rev),aud=useData('op=audience&'+q,rev,['Audience','Guest Profiles','Email Marketing'].includes(tab)||drawer==='filters'),segments=useData('op=segments',rev,tab==='Segments'||drawer==='filters');
  const day=overview.data?.today||new Date().toISOString().slice(0,10);let from=day,to=day;const dt=new Date(day+'T12:00:00Z');if(period.startsWith('Last ')){dt.setUTCDate(dt.getUTCDate()-parseInt(period.split(' ')[1])+1);from=dt.toISOString().slice(0,10);}else if(period==='This year')from=day.slice(0,4)+'-01-01';else if(period==='Last year'){from=String(+day.slice(0,4)-1)+'-01-01';to=String(+day.slice(0,4)-1)+'-12-31';}else if(period==='Custom'){from=start||day;to=end||day;}
- const rq=new URLSearchParams({op:'reservations',venue,start:from,end:to,status,service:period==='Today'?'yes':'no',page:String(page)}),res=useData(rq.toString(),rev),d=overview.data,a=aud.data,r=res.data;
+ const rq=new URLSearchParams({op:'reservations',venue,start:from,end:to,status,service:period==='Today'?'yes':'no',page:String(page)}),res=useData(rq.toString(),rev,tab==='Reservations'),d=overview.data,a=aud.data,r=res.data;
  const openAudience=(s:string,rs:Rule[]=[])=>{G(s==='all-emails'?'':s);F(s==='all-emails'?[{field:'marketing',value:'email'}]:rs);L('and');T('Audience');Q('');Page(1);};
  const selectSegment=(s:string)=>['asian','italian','garden'].includes(s)?openAudience('',[{field:'venue',value:s}]):openAudience(s);
  const changeTab=(s:string)=>{T(s);Page(1);};
  const exportQ=new URLSearchParams(q);if(selected.length)exportQ.set('selected',selected.join(','));
- const selectedAudience=useData('op=audience&counts=yes&'+exportQ,rev);
+ const selectedAudience=useData('op=audience&counts=yes&'+exportQ,rev,drawer==='export');
  const counts=d?.totals||{};const freshness=d?.imports.find((x:Row)=>x.state==='complete');
  return <div className="sr"><div className="sr-top"><div className="sr-search"><Search size={16}/><input ref={input} aria-label="Search guests" placeholder="Search guests" value={search} onChange={e=>{Q(e.target.value);T('Audience');}}/><kbd>⌘ K</kbd></div><div className="sr-top-actions"><select aria-label="Venue" value={venue} onChange={e=>V(e.target.value)}>{['all','asian','italian','garden'].map(v=><option key={v} value={v}>{ven(v)}</option>)}</select><button onClick={()=>H('import')}><Upload size={15}/>Import Data</button></div></div><div className="sr-source">SevenRooms · {freshness?'Last imported '+new Date(freshness.created_at).toLocaleString():'No completed import'}{freshness&&Date.now()-new Date(freshness.created_at).getTime()>7*86400000?' · Data may be outdated':''}</div><nav className="sr-nav">{['Overview','Audience','Reservations','Booking Patterns','Guest Feedback','Event Guest Lists','Segments','Email Marketing','Guest Profiles'].map(t=><button className={tab===t?'active':''} key={t} onClick={()=>changeTab(t)}><MeaningIcon name={t}/>{t}</button>)}</nav>
  {(error||overview.error||aud.error||res.error)&&<p className="sr-error" role="alert">{error||overview.error||aud.error||res.error}<button onClick={()=>R(v=>v+1)}>Retry</button></p>}

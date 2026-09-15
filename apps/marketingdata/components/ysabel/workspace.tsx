@@ -1,4 +1,5 @@
 'use client';
+import SevenRooms from './sevenrooms';
 import { BrandLogo } from './brand-logo';
 import { useSessionRetention } from './use-session-retention';
 import { ChartBoundary } from './social-performance';
@@ -122,6 +123,7 @@ const groups = [
     label: 'COMMUNITY',
     items: [
       ['Inbox', MessageCircle],
+      ['Seven Rooms', Users],
     ],
   },
   {
@@ -162,6 +164,7 @@ const dateOptions = [
   'Custom Range',
 ];
 const headings: Record<string, [string, string]> = {
+  'Seven Rooms': ['Guest Intelligence', 'Understand who visits, how they return, and who to speak to next.'],
   'Admin Panel': [
     'Admin panel',
     'Manage conversations, connections and preferences for Ysabel Society.',
@@ -753,7 +756,7 @@ export default function Workspace({
                       {heading[1]}
                     </p>
                   </div>
-                  {page !== 'Admin Panel' && (
+                  {page !== 'Admin Panel' && page !== 'Seven Rooms' && (
                     <button
                       className="secondary"
                       onClick={() => setExportOpen(true)}
@@ -762,7 +765,7 @@ export default function Workspace({
                     </button>
                   )}
                 </div>
-                {page !== 'Admin Panel' && (
+                {page !== 'Admin Panel' && page !== 'Seven Rooms' && (
                   <div className="filter-row">
                     <div className="inline-controls">
                       <CalendarDays size={15} />
@@ -827,7 +830,7 @@ export default function Workspace({
                     </button></div>
                   </div>
                 )}
-                {page !== 'Admin Panel' && date === 'Custom Range' && (
+                {page !== 'Admin Panel' && page !== 'Seven Rooms' && date === 'Custom Range' && (
                   <div className="custom-dates">
                     <label>
                       From
@@ -870,6 +873,7 @@ export default function Workspace({
                   </div>
                 )}
                 <div className="view-content">
+                  {page === 'Seven Rooms' && <SevenRooms />}
                   {page === 'Admin Panel' && (
                     <AdminGate title="Admin panel">
                       <AdminPanel
@@ -1157,3 +1161,4 @@ export default function Workspace({
 function InfoSymbol() {
   return <span className="pill">NOTE</span>;
 }
+

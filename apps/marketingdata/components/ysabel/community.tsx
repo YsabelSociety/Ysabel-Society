@@ -91,14 +91,20 @@ function useCommunity(kind: string) {
   const [error, setError] = useState(''),
     [loading, setLoading] = useState(!communitySnapshots.has(kind)),
     [revision, setRevision] = useState(0);
-  const refresh = () => setRevision((v) => v + 1);
+  const inFlight = useRef(false), refreshQueued = useRef(false);
+  const refresh = () => {
+    if (inFlight.current) { refreshQueued.current = true; return; }
+    setRevision((v) => v + 1);
+  };
   useEffect(() => {
     const controller = new AbortController();
+    inFlight.current = true;
     const saved = communitySnapshots.get(kind);
     if (saved) { setData(saved); loadedKind.current = kind; }
     setLoading(loadedKind.current !== kind);
     setError('');
     void fetch('/marketingdata/api/community?kind=' + kind, {
+      cache: 'no-store',
       signal: AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
     })
       .then(async (r) => {
@@ -115,9 +121,16 @@ function useCommunity(kind: string) {
         if (!controller.signal.aborted) setError(e.message);
       })
       .finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          inFlight.current = false;
+          setLoading(false);
+          if (refreshQueued.current) {
+            refreshQueued.current = false;
+            setRevision(v => v + 1);
+          }
+        }
       });
-    return () => controller.abort();
+    return () => { controller.abort(); inFlight.current = false; };
   }, [kind, revision]);
   useEffect(() => {
     const update = () => refresh();
@@ -257,7 +270,7 @@ function AccessStatus({
   source: string;
 }) {
   const platforms =
-    source === 'all' ? ['facebook', 'instagram', 'tiktok'] : [source];
+    source === 'all' ? (kind === 'message' ? ['facebook', 'instagram'] : ['facebook', 'instagram', 'tiktok']) : [source];
   const relevant = platforms.map(
     (platform) =>
       statuses.find((s) => s.kind === kind && s.source === platform) || {
@@ -1176,7 +1189,7 @@ export function CommunityPage({
     return () => clearInterval(timer);
   }, [busy]);
   const model = useMemo(
-    () => inboxModel(data.records.filter(r => r.kind === 'profile' || (['instagram', 'facebook'].includes(r.source) && Date.parse(r.time) >= Date.now() - 48 * 3600000 && Date.parse(r.time) <= Date.now())), {start: '0000-01-01', end: '9999-12-31'}, timezone, source),
+    () => inboxModel(data.records.filter(r => r.kind === 'profile' || ['instagram', 'facebook'].includes(r.source)), {start: '0000-01-01', end: '9999-12-31'}, timezone, source),
     [data.records, range, timezone, source],
   );
   const records = data.records.filter(
@@ -1232,9 +1245,6 @@ export function CommunityPage({
     await Promise.allSettled(
       targets.map(async (s) => {
         try {
-          if (mode === 'inbox' && (s === 'facebook' || s === 'instagram')) {
-            try { await communityAction({op:'profiles', source:s}); data.refresh(); } catch { /* Message import remains independent. */ }
-          }
           let returned = 0;
           for (let batch = 0; batch < 10; batch++) {
             const result = await communityAction({
@@ -1379,6 +1389,12 @@ export function CommunityPage({
           </button>
         )}
       </div>
+      {mode === 'inbox' && <div className="community-coverage" role="status" aria-live="polite">
+        {data.loading ? <p>Loading Instagram and Facebook messages from the last 48 hours…</p> : <p>
+          {(['instagram', 'facebook'] as const).filter(platform => source === 'all' || source === platform).map(platform => `${COMMUNITY_NAMES[platform]}: ${data.records.filter(record => record.kind === 'message' && record.source === platform).length} messages`).join(' · ')}
+          {' · Last 48 hours · Incoming and outgoing messages'}
+        </p>}
+      </div>}
       <AccessStatus statuses={data.statuses} kind={kind} source={source} />
       {!!syncResults.length && (
         <div
@@ -1435,7 +1451,7 @@ export function CommunityPage({
               },
             ]}
           />
-          <section className="surface community-panel" aria-label="Unanswered client priorities">
+          {!data.loading && <section className="surface community-panel" aria-label="Unanswered client priorities">
             <div className="section-head"><div><h2>People waiting to connect</h2><p>Unanswered influencer and client enquiries · Instagram & Facebook</p></div><span className="pill">1-minute checks · 30-minute background sync</span></div>
             <p className="source-asof">Suggestions consider unanswered enquiries, creator collaborations, travel visits, business events and verified profile notes. Each signal shows its evidence; follower count is optional. Unavailable social activity or personal style is not guessed.</p>
             <div className="community-filters">
@@ -1446,6 +1462,7 @@ export function CommunityPage({
             </article>)}
             {!model.priority.length && <p>No verified influencer or client enquiries awaiting a reply in the captured messages. Profiles with unknown follower counts remain in the inbox.</p>}
           </section>
+          }
           <Activity records={model.received} timezone={timezone} />
           <div className="inbox-coverage-note">
             <strong>

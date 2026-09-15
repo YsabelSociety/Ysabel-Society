@@ -122,7 +122,6 @@ const groups = [
     label: 'COMMUNITY',
     items: [
       ['Inbox', MessageCircle],
-      ['Mentions', AtSign],
     ],
   },
   {
@@ -534,9 +533,7 @@ export default function Workspace({
       ? 'review'
       : page === 'Inbox'
         ? 'message'
-        : page === 'Mentions'
-          ? 'mention'
-          : '';
+        : '';
   const communityReady =
     !communityKind ||
     (communityLoad.kind === communityKind && communityLoad.ready);
@@ -963,9 +960,9 @@ export default function Workspace({
                       </GoogleReviews>
                     </>
                   )}
-                  {(page === 'Inbox' || page === 'Mentions') && (
+                  {page === 'Inbox' && (
                     <CommunityPage
-                      mode={page === 'Inbox' ? 'inbox' : 'mentions'}
+                      mode="inbox"
                       range={range}
                       timezone={data.settings.timezone}
                       onLoadState={setCommunityLoad}

@@ -201,18 +201,11 @@ function AdminDashboard({
         <section className="surface admin-section">
           <h2>Community monitoring</h2>
           <p>
-            Follow unanswered conversations, priority enquiries and captured
-            mentions.
+            Follow unanswered conversations, priority enquiries from Instagram and Facebook.
           </p>
           <div className="admin-section-foot">
             <button className="secondary" onClick={() => onNavigate('Inbox')}>
               Open inbox <ArrowUpRight size={15} />
-            </button>
-            <button
-              className="secondary"
-              onClick={() => onNavigate('Mentions')}
-            >
-              Mentions <ArrowUpRight size={15} />
             </button>
             <button
               className="secondary"

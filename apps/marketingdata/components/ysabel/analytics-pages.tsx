@@ -1,5 +1,6 @@
 'use client';
 import { useMinimalMotion } from './use-motion';
+import { StoryPerformance } from './story-performance';
 import { useState, useMemo } from 'react';
 import {
   websiteStatus,
@@ -445,16 +446,16 @@ export function PerformancePage({
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
           <TabsList className="page-tabs platform-tabs">
-            {['All', ...CHANNELS].map((c) => (
+            {['All', ...CHANNELS, 'Stories'].map((c) => (
               <TabsTrigger key={c} value={c} data-platform={c}>
                 {c === 'All' ? 'All platforms' : c}
-                <SourceBadge channel={c} />
+                {c !== 'Stories' && <SourceBadge channel={c} />}
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
       </div>
-      {channel === 'Website' ? (
+      {channel === 'Stories' ? <StoryPerformance /> : channel === 'Website' ? (
         <>
           <WebsitePage
             rows={r}

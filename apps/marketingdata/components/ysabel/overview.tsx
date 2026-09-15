@@ -33,6 +33,7 @@ import { DataIcon } from './data-icons';
 import { GoogleRating } from './google-rating';
 import { PlatformCardChart } from './platform-card-chart';
 import { SourceBadge } from './source-badge';
+import { newestPublishedFirst } from '@/lib/content-order';
 export default function Overview({
   rows,
   range,
@@ -69,7 +70,7 @@ export default function Overview({
       'views',
     ) && tiktokPosts.length > 0;
   const month = calendarDate('Europe/Tirane').slice(0,7);
-  const highlights = monthlyPosts.filter(p => p.status === 'Published' && p.date.startsWith(month) && ['Instagram','Facebook','TikTok'].includes(p.platform)).sort((a,b) => (b.views||0)-(a.views||0));
+  const highlights = monthlyPosts.filter(p => p.status === 'Published' && p.date.startsWith(month) && ['Instagram','Facebook','TikTok'].includes(p.platform)).sort(newestPublishedFirst);
   return (
     <>
       <AllPlatformViews
@@ -146,7 +147,7 @@ export default function Overview({
       </div>
       <ChannelTimeline rows={rows} posts={posts} range={range} />
       <section className="content-highlights" aria-label="Content Intelligence highlights">
-        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Posts earning attention</h2><p>All imported Instagram, Facebook and TikTok posts this month · lifetime views</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
+        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together · newest published first · this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
         <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
           <div className="highlight-media"><Media post={post}/><span className="highlight-format">{post.format}</span></div><div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
           <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>

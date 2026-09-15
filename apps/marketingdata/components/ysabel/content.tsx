@@ -72,6 +72,7 @@ import {
 } from '@/lib/analytics';
 import { type WorkspaceData } from './use-workspace';
 import { ImportedPostDetail } from './imported-post-detail';
+import { newestPublishedFirst } from '@/lib/content-order';
 export function Media({
   post,
   controls = false,
@@ -251,7 +252,7 @@ export function ContentIntelligence({
     [format, setFormat] = useState('All formats'),
     [campaign, setCampaign] = useState('All campaigns'),
     [distribution, setDistribution] = useState('All distribution'),
-    [sort, setSort] = useState('views'),
+    [sort, setSort] = useState('date'),
     [direction, setDirection] = useState(-1),
     [detailsOpen, setDetailsOpen] = useState(false),
     [level, setLevel] = useState('All performance'),
@@ -278,6 +279,7 @@ export function ContentIntelligence({
           .includes(search.toLowerCase()),
     )
     .sort((a, b) => {
+      if (sort === 'date') return newestPublishedFirst(a, b) * -direction;
       const x = field(a, sort),
         y = field(b, sort);
       return (
@@ -319,7 +321,7 @@ export function ContentIntelligence({
           <div className="section-head standalone">
             <div>
               <h2>{tab==='Stories'?'Published stories':'All published content'}</h2>
-              <p>{filtered.length} posts across {new Set(filtered.map(p => p.platform)).size} platforms · selected publication dates</p>
+              <p>{filtered.length} posts across {new Set(filtered.map(p => p.platform)).size} platforms · newest published first · selected publication dates</p>
             </div>
             <span className="pill">IMPORTED CONTENT</span>
           </div>
@@ -395,7 +397,7 @@ export function ContentIntelligence({
           </section>
           {filtered.length ? (
             <MediaCards
-              posts={filtered}
+              posts={[...filtered].sort(newestPublishedFirst)}
               deferPreviews
               onSelect={onSelect}
             />

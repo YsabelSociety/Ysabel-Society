@@ -8822,3 +8822,14 @@ h1 {
 
 /* Reveal navigation and loaded reports without a page entrance delay. */
 .workspace-shell .view-enter, .workspace-shell .view-content { animation: none; }
+
+.story-summary { margin: 16px 0 24px; }
+.story-summary-cards { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; }
+.story-summary-card { padding: 18px; min-width: 0; }
+.story-summary-card > div { display:flex; align-items:center; gap:8px; font-size:13px; }
+.story-summary-card strong { display:block; font-size:30px; line-height:1.25; margin:12px 0 6px; font-variant-numeric:tabular-nums; }
+.story-summary-card p { margin:0 0 6px; font-size:12px; }
+.story-summary-card small { font-size:11px; opacity:.72; }
+.story-summary-card[data-primary='true'] { background:linear-gradient(135deg,#fff,#e9f2ec); }
+@media(max-width:760px) { .story-summary-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .story-summary-card { padding:14px; } }
+@media(max-width:360px) { .story-summary-cards { grid-template-columns:1fr; } }

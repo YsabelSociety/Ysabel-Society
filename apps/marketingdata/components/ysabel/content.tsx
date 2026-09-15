@@ -297,6 +297,16 @@ export function ContentIntelligence({
       };
     },
   );
+  const storyMetrics = [
+    ['linkClicks', 'Story link taps', 'Clicks on links in your stories'],
+    ['views', 'Story views', 'Total views across these stories'],
+    ['reach', 'Story reach', 'Reach per story, added together'],
+    ['replies', 'Story replies', 'Replies received on these stories'],
+  ].map(([key, label, description]) => {
+    const supplied = filtered.filter(p => postAvailable(p, key));
+    return { key, label, description, supplied: supplied.length,
+      value: supplied.reduce((sum, p) => sum + Number((p as unknown as Record<string, unknown>)[key] || 0), 0) };
+  });
   return (
     <div className="view-enter content-intelligence">
       {data.posts.some((p) => p.origin) && (
@@ -395,6 +405,17 @@ export function ContentIntelligence({
               ))}
             </div>
           </section>
+          {tab === 'Stories' && <section className="story-summary" aria-label="Story results">
+            <div className="story-summary-cards">
+              {storyMetrics.map(metric => <article className="surface story-summary-card" key={metric.key} data-primary={metric.key === 'linkClicks'}>
+                <div><DataIcon name={metric.key === 'linkClicks' ? 'Website' : metric.label} /><span>{metric.label}</span></div>
+                <strong>{metric.supplied ? number(metric.value) : '—'}</strong>
+                <p>{metric.description}</p>
+                <small>{metric.supplied ? `${metric.supplied} of ${filtered.length} stories report this metric` : 'Not supplied for these stories'}</small>
+              </article>)}
+            </div>
+            <p className="footnote">Link taps show how often story links were clicked—not unique people or confirmed website visits. They represent website clicks only when the story link points to your website. Reach is added per story, so the same person can be counted again. Select a story below for its individual results.</p>
+          </section>}
           {filtered.length ? (
             <MediaCards
               posts={[...filtered].sort(newestPublishedFirst)}

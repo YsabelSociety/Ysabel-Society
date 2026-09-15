@@ -417,6 +417,7 @@ export function PerformancePage({
   tables?: ReportTable[];
 }) {
   const [channel, setChannel] = useState(initialChannel),
+    [section, setSection] = useState('Overview'),
     [note, setNote] = useState(''),
     [noteDate, setNoteDate] = useState(range.end);
   const r = useMemo(
@@ -446,16 +447,21 @@ export function PerformancePage({
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
           <TabsList className="page-tabs platform-tabs">
-            {['All', ...CHANNELS, 'Stories'].map((c) => (
+            {['All', ...CHANNELS].map((c) => (
               <TabsTrigger key={c} value={c} data-platform={c}>
                 {c === 'All' ? 'All platforms' : c}
-                {c !== 'Stories' && <SourceBadge channel={c} />}
+                <SourceBadge channel={c} />
               </TabsTrigger>
             ))}
           </TabsList>
         </Tabs>
       </div>
-      {channel === 'Stories' ? <StoryPerformance /> : channel === 'Website' ? (
+      {(channel === 'Instagram' || channel === 'Facebook') && <Tabs value={section} onValueChange={v=>setSection(String(v))}>
+        <TabsList className="page-tabs" aria-label={channel + ' performance sections'}>
+          {['Overview','Stories'].map(s=><TabsTrigger key={s} value={s}>{s}</TabsTrigger>)}
+        </TabsList>
+      </Tabs>}
+      {(channel === 'Instagram' || channel === 'Facebook') && section === 'Stories' ? <StoryPerformance key={channel} platform={channel} /> : channel === 'Website' ? (
         <>
           <WebsitePage
             rows={r}

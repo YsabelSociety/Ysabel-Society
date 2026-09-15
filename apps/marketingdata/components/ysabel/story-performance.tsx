@@ -17,9 +17,8 @@ const metrics = [
   ['averageWatchTimeMs','Average watch time per story · ms'], ['watchTimeMs','Total watch time · ms'],
 ];
 
-export function StoryPerformance() {
+export function StoryPerformance({platform}:{platform:'Instagram'|'Facebook'}) {
   const [period, setPeriod] = useState('This Month');
-  const [platform, setPlatform] = useState('Instagram + Facebook');
   const [selected, setSelected] = useState<Post | null>(null);
   const today = calendarDate('Europe/Tirane');
   const date = new Date(today + 'T12:00:00Z');
@@ -29,16 +28,15 @@ export function StoryPerformance() {
   const end = period === 'Yesterday' ? start : today;
   const source = useSourceAnalytics('Ysabel Society', {start,end}, 'No Comparison');
   const stories = source.posts.filter(p => p.origin && p.status === 'Published' && p.format === 'Story' &&
-    ['Instagram','Facebook'].includes(p.platform) && (platform === 'Instagram + Facebook' || p.platform === platform));
+    p.platform === platform);
   const supplied = (key:string) => stories.filter(p => postAvailable(p,key));
   const value = (p:Post,key:string) => Number((p as unknown as Record<string,unknown>)[key] || 0);
   const days = [...new Set(stories.map(p=>p.date.slice(0,10)))].sort();
   const linkDays = days.map(day=>({label:day,posts:supplied('linkClicks').filter(p=>p.date.slice(0,10)===day)})).filter(d=>d.posts.length);
-  return <section aria-label="Instagram and Facebook story performance">
-    <div className="section-head"><div><h2>Stories · Instagram & Facebook</h2><p>Link clicks and results from published stories</p></div></div>
+  return <section aria-label={platform + ' story performance'}>
+    <div className="section-head"><div><h2>{platform} Stories</h2><p>Link clicks and results from published stories</p></div></div>
     <div className="studio-toolbar">
       <div className="inline-controls">{['Today','Yesterday','This Week','This Month'].map(label=><button className={period===label?'primary':'secondary'} aria-pressed={period===label} key={label} onClick={()=>setPeriod(label)}>{label}</button>)}</div>
-      <select aria-label="Story platform" value={platform} onChange={e=>setPlatform(e.target.value)}>{['Instagram + Facebook','Instagram','Facebook'].map(p=><option key={p}>{p}</option>)}</select>
     </div>
     <p className="footnote">Stories published {start} – {end} · Europe/Tirane calendar · lifetime results observed at sync, not clicks that occurred only within these dates. Link clicks are taps, not unique visitors; the destination may be a website or another link.</p>
     {(source.loading||source.refreshing)&&<p role="status">Updating story results…</p>}
@@ -53,7 +51,7 @@ export function StoryPerformance() {
     })}</div>
     <p className="footnote">Reach and unique viewers are added per story and can count the same person again. Average watch time is an unweighted average of reported story averages. Missing metrics are not treated as zero.</p>
     <section className="surface padded"><h3>Link clicks by story publication date</h3>{linkDays.length?<Bars items={linkDays.map(d=>({label:d.label,value:d.posts.reduce((n,p)=>n+value(p,'linkClicks'),0)}))}/>:<p>No link-click metrics supplied for these stories.</p>}</section>
-    <p className="footnote">{['Instagram','Facebook'].filter(p=>platform==='Instagram + Facebook'||platform===p).map(p=>`${p}: ${stories.filter(s=>s.platform===p).length} captured stories`).join(' · ')}. No captured stories does not mean no stories were published.</p>
+    <p className="footnote">{platform}: {stories.length} captured stories. No captured stories does not mean no stories were published.</p>
     <MediaCards posts={stories} deferPreviews onSelect={setSelected}/>
     {selected&&<ImportedPostDetail post={selected} close={()=>setSelected(null)}/>}
   </section>;

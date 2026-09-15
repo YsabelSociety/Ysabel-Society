@@ -35,6 +35,9 @@ export function ImportedPostDetail({
     ['mediaViewers', 'Unique media viewers'],
     ['averageWatchTimeMs', 'Average watch time · ms'],
     ['watchTimeMs', 'Total watch time · ms'],
+    ['reelsSkipRate', 'Reel skip rate'],
+    ['crosspostedViews', 'Cross-posted views'],
+    ['facebookViews', 'Facebook views of this content'],
   ];
   return (
     <Sheet open onOpenChange={(v) => !v && close()}>
@@ -71,7 +74,7 @@ export function ImportedPostDetail({
             </a>
           )}
           <div className="detail-stats">
-            {fields.filter(([key])=>post.format==='Story'||!['replies','navigation','linkClicks','totalInteractions'].includes(key)).map(([key, label]) => (
+            {fields.filter(([key])=>(post.format==='Story'||!['replies','navigation','linkClicks'].includes(key)) && (post.format==='Reel'||!['reelsSkipRate','crosspostedViews','facebookViews'].includes(key))).map(([key, label]) => (
               <div key={key}>
                 <span>
                   <DataIcon name={label} />

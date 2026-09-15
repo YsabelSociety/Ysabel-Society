@@ -73,7 +73,17 @@ export function useSourceAnalytics(
                 if (!abort.signal.aborted) comparisonCache.current = { key, at: Date.now(), rows: data.rows };
                 return data;
               }).catch(() => ({ rows: [] }));
-        const current = await read(range);
+        const currentRequest = read(range);
+        // Render the small daily-metric response while media and report tables load.
+        const summaryRequest = read(range, true).then(summary => {
+          if (abort.signal.aborted) return;
+          setResult(saved => saved?.key === key ? saved : {
+            key, mode: summary.mode, rows: summary.rows || [], previous: [],
+            coverage: [], sourceStatus: [], posts: [], monthlyPosts: [], tables: [],
+            comparisonLimited: comparison !== 'No Comparison',
+          });
+        }).catch(() => {});
+        const current = await currentRequest;
         const previous = { rows: [] as Daily[] };
         if (!abort.signal.aborted) {
           if (current.mode === 'live') onLive?.();
@@ -107,6 +117,7 @@ export function useSourceAnalytics(
           setError('');
           window.dispatchEvent(new Event('ysabel:sources-rendered'));
           setLoading(false);
+          void summaryRequest;
           const prior = await previousRequest;
           if (!abort.signal.aborted) {
             const compared = current.mode === 'live'

@@ -8819,3 +8819,6 @@ h1 {
 .google-rating-highlight > .source-feed-badge { align-self:start; }
 @media(max-width:640px) { .source-feed-badge {font-size:8px!important;padding:2px 5px;} .platform-tabs .source-feed-badge { flex-basis:auto; margin-left:0; } }
 .category-refresh-controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}.category-refresh-controls .secondary{display:inline-flex;align-items:center;gap:7px;font-size:12px}.category-refresh-controls [aria-busy='true'] svg{animation:spin 1s linear infinite}@media(max-width:640px){.category-refresh-controls{width:100%;justify-content:space-between;gap:8px}.category-refresh-controls .freshness{margin-left:0}}
+
+/* Reveal navigation and loaded reports without a page entrance delay. */
+.workspace-shell .view-enter, .workspace-shell .view-content { animation: none; }

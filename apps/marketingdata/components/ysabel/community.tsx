@@ -1132,7 +1132,7 @@ export function CommunityPage({
   const kind = mode === 'inbox' ? 'message' : 'mention',
     data = useCommunity(kind),
     [source, setSource] = useState('all'),
-    [tab, setTab] = useState('waiting'),
+    [tab, setTab] = useState('history'),
     [search, setSearch] = useState(''),
     [minimum, setMinimum] = useState('Any followers'),
     [location, setLocation] = useState('All locations'),
@@ -1176,7 +1176,7 @@ export function CommunityPage({
     return () => clearInterval(timer);
   }, [busy]);
   const model = useMemo(
-    () => inboxModel(data.records, range, timezone, source),
+    () => inboxModel(data.records.filter(r => r.kind === 'profile' || (['instagram', 'facebook'].includes(r.source) && Date.parse(r.time) >= Date.now() - 48 * 3600000 && Date.parse(r.time) <= Date.now())), {start: '0000-01-01', end: '9999-12-31'}, timezone, source),
     [data.records, range, timezone, source],
   );
   const records = data.records.filter(
@@ -1218,7 +1218,7 @@ export function CommunityPage({
     setBusy(true);
     data.setError('');
     setSyncResults([]);
-    const targets = communitySyncSources(source).filter(
+    const targets = communitySyncSources(source).filter(s => mode !== 'inbox' || s === 'instagram' || s === 'facebook').filter(
       (s) =>
         !older ||
         data.statuses.some(
@@ -1330,7 +1330,7 @@ export function CommunityPage({
                   )!,
             )
           }
-          options={['All platforms', 'Facebook', 'Instagram', 'TikTok']}
+          options={mode === 'inbox' ? ['All platforms', 'Facebook', 'Instagram'] : ['All platforms', 'Facebook', 'Instagram', 'TikTok']}
         />
         <button className="secondary" onClick={() => setSetup(true)}>
           <Settings2 size={16} />
@@ -1358,7 +1358,7 @@ export function CommunityPage({
                     ' mentions'}
           </button>
         }
-        {data.statuses.some(
+        {mode !== 'inbox' && data.statuses.some(
           (s) =>
             (s.kind === kind ||
               (mode === 'mentions' && s.kind === 'message')) &&
@@ -1370,12 +1370,10 @@ export function CommunityPage({
             disabled={busy}
             onClick={() => void sync(true)}
           >
-            {mode === 'inbox'
-              ? 'Load older conversations'
-              : 'Load older mentions'}
+            {'Load older mentions'}
           </button>
         )}
-        {mode === 'inbox' && (
+        {false && (
           <button className="secondary" onClick={() => setArchive(true)}>
             <Upload size={16} /> Import Meta history
           </button>
@@ -1417,18 +1415,18 @@ export function CommunityPage({
               {
                 label: 'Messages received',
                 value: ready ? model.received.length : null,
-                detail: 'Captured incoming messages · selected dates',
+                detail: 'Incoming messages · last 48 hours',
               },
               {
                 label: 'Unanswered messages',
                 value: ready ? model.unanswered.length : null,
                 detail:
-                  'Incoming messages in these dates with no later captured reply',
+                  'Last 48 hours · no later captured reply',
               },
               {
                 label: 'Conversations awaiting reply',
                 value: ready ? model.waiting.length : null,
-                detail: 'Current backlog · all captured dates',
+                detail: 'Last 48 hours · awaiting reply',
               },
               {
                 label: 'Influencers awaiting reply',
@@ -1452,7 +1450,7 @@ export function CommunityPage({
           <div className="inbox-coverage-note">
             <strong>
               {source === 'all'
-                ? 'All captured conversations · one inbox'
+                ? 'Instagram + Facebook · last 48 hours'
                 : COMMUNITY_NAMES[source as CommunitySource] + ' inbox'}
             </strong>
             <p>
@@ -1460,11 +1458,7 @@ export function CommunityPage({
                 'TikTok profile and video statistics do not include messages. Business messaging approval and account authorization are separate. Imported message files appear here once supplied.'
               ) : (
                 <>
-                  All API-accessible folders are requested together. Instagram
-                  excludes Requests inactive for 30 days and restricts older
-                  message details. Use a Meta JSON download to add available
-                  older history. Folder names are shown only when supplied in
-                  your import.
+                  Messages from the latest 48 hours appear together, newest first. New messages are checked every minute while the app is open. Only conversations and profile details supplied by Meta can be shown.
                 </>
               )}
             </p>
@@ -1482,10 +1476,10 @@ export function CommunityPage({
             </div>
             <Tabs value={tab} onValueChange={(v) => setTab(String(v))}>
               <TabsList className="page-tabs community-tabs">
-                <TabsTrigger value="all">Selected dates</TabsTrigger>
-                <TabsTrigger value="history">All conversations</TabsTrigger>
+                
+                <TabsTrigger value="history">All messages · 48 hours</TabsTrigger>
                 <TabsTrigger value="waiting">
-                  Unanswered · all dates
+                  Unanswered · 48 hours
                 </TabsTrigger>
                 <TabsTrigger value="influencers">
                   Influencers &gt;5K

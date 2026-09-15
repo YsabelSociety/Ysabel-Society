@@ -6,12 +6,14 @@ export function useInboxSync(ready: boolean) {
     if (!ready) return;
     const controller = new AbortController();
     const active = new Set<string>();
+    const continuation = new Map<string, boolean>();
     async function refresh(source: string) {
       if (document.visibilityState !== 'visible' || active.has(source)) return;
       active.add(source);
       try {
-        await fetch('/marketingdata/api/community', {method:'POST', headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({op:'auto',source}), signal:AbortSignal.any([controller.signal,AbortSignal.timeout(50000)])});
+        const response = await fetch('/marketingdata/api/community', {method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({op:'auto',source,continue:continuation.get(source) === true}), signal:AbortSignal.any([controller.signal,AbortSignal.timeout(50000)])});
+        if (response.ok) { const result = await response.json() as {skipped?: boolean; more?: boolean}; if (!result.skipped) continuation.set(source, result.more === true); }
       } catch { /* The persisted per-platform status is shown in Inbox. */ }
       finally { active.delete(source); if (!controller.signal.aborted) window.dispatchEvent(new Event('ysabel:community-updated')); }
     }

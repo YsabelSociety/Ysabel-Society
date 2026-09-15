@@ -149,10 +149,14 @@ function useCommunity(kind: string) {
 function Portrait({ person }: { person: CommunityRecord }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [person.avatar]);
-  return person.avatar && !failed ? (
+  const publicPhoto = person.source === 'instagram' && person.username && /^[a-zA-Z0-9._]{1,30}$/.test(person.username)
+    ? '/marketingdata/api/profile-image?username=' + encodeURIComponent(person.username) : '';
+  return (person.avatar || publicPhoto) && !failed ? (
     <img
       className="community-avatar"
-      src={person.kind === 'profile' && person.origin === 'api' && ['facebook','instagram'].includes(person.source)
+      loading="lazy"
+      decoding="async"
+      src={!person.avatar ? publicPhoto : person.kind === 'profile' && person.origin === 'api' && ['facebook','instagram'].includes(person.source)
         ? '/marketingdata/api/community/avatar?' + new URLSearchParams({source:person.source,id:person.accountId+':'+person.id,revision:person.profileCheckedAt || person.time}).toString()
         : person.avatar}
       alt=""

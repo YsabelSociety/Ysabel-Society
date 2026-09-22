@@ -1,0 +1,16 @@
+{
+  "updated": "2026-09-22",
+  "purpose": "Reusable email signatures and original assets. Keep this folder unlinked from website navigation. Public URLs are required for email images; this is not private storage.",
+  "signatures": [
+    {
+      "name": "Mihane Mirena",
+      "folder": "mihane-mirena",
+      "copy_url": "https://ysabelsociety.com/email-signatures/mihane-mirena/"
+    },
+    {
+      "name": "Blerta Gashi",
+      "folder": "blerta-gashi",
+      "copy_url": "https://ysabelsociety.com/email-signatures/blerta-gashi/"
+    }
+  ]
+}

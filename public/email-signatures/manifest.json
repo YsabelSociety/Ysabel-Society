@@ -1,5 +1,5 @@
 {
-  "updated": "2026-09-22",
+  "updated": "2026-09-23",
   "purpose": "Reusable email signatures and original assets. Keep this folder unlinked from website navigation. Public URLs are required for email images; this is not private storage.",
   "signatures": [
     {
@@ -10,7 +10,9 @@
     {
       "name": "Blerta Gashi",
       "folder": "blerta-gashi",
-      "copy_url": "https://ysabelsociety.com/email-signatures/blerta-gashi/"
+      "copy_url": "https://ysabelsociety.com/email-signatures/blerta-gashi/",
+      "portrait": "assets/blerta-gashi-2026-09-23.png",
+      "previous_version": "blerta-gashi/history/2026-09-22/"
     }
   ]
 }

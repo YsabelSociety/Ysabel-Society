@@ -11,6 +11,6 @@
 <tr><td width="176" align="left" valign="top" style="width:176px;padding:0;font-family:Arial,Helvetica,sans-serif;font-size:8.5px;line-height:13px;">
 <a href="mailto:mihane.mirena@ysabelsociety.com" style="color:#485d4e;text-decoration:none;white-space:nowrap;">mihane.mirena@ysabelsociety.com</a></td>
 <td width="104" align="center" valign="top" style="width:104px;padding:0;font-family:Arial,Helvetica,sans-serif;font-size:8.5px;line-height:13px;">
-<a href="tel:+38349853407" style="color:#485d4e;text-decoration:none;white-space:nowrap;">+383 49 853 407</a></td>
+<a href="tel:+38349853407" style="color:#485d4e;text-decoration:none;white-space:nowrap;">+383 49 853 407</a><br><a href="https://ysabelsociety.com/" style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:13px;color:#485d4e;text-decoration:none;white-space:nowrap;">www.ysabelsociety.com</a></td>
 <td width="156" align="right" valign="top" style="width:156px;padding:0;font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:13px;color:#778078;">
-Ukshin Hoti Street<br>Prishtina, Kosovo, 10000<br><a href="https://ysabelsociety.com/" style="font-family:Arial,Helvetica,sans-serif;font-size:8px;line-height:13px;color:#485d4e;text-decoration:none;white-space:nowrap;">www.ysabelsociety.com</a></td></tr></table></td></tr></table>
+Ukshin Hoti Street<br>Prishtina, Kosovo, 10000</td></tr></table></td></tr></table>

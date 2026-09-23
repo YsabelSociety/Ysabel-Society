@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/prcmdl/:path*",
+        destination: "https://ysabel-pricing.netlify.app/prcmdl/:path*",
+      },
+      {
         source: "/contentpreview/api/:path*",
         destination: "https://ysabel-society-media-preview.arberhalili1.chatgpt.site/api/:path*",
       },

@@ -62,6 +62,7 @@ type CaptionPool = { available: string[]; used: string[] };
 type CaptionCatalog = Record<string, string>;
 type CommunityCaptionStore = Record<string, CaptionPool>;
 type WorkspaceData = {
+  defaultBoardId?: string | null;
   boards: Board[];
   media: (Asset & { publicPath?: string })[];
   positions: { boardId: string; position: number; mediaId: string | null }[];
@@ -71,6 +72,7 @@ type WorkspaceData = {
 };
 
 const FEED_SIZE = 12;
+const PREVIEW_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const emptyFeed = () => Array<string | null>(FEED_SIZE).fill(null);
 const COMMUNITY_CAPTION_STORAGE_KEY = 'ysabel_community_captions_v1';
 const SESSION_TOKEN_KEY = 'ysabel_session_token';
@@ -556,7 +558,7 @@ const monthNames = ['January','February','March','April','May','June','July','Au
 function getBoardCalendar(name?: string) {
   const now = new Date();
   const monthFromName = monthNames.findIndex((month) => (name || '').toLowerCase().includes(month.toLowerCase()));
-  const yearFromName = Number((name || '').match(/\b20\d{2}\b/)?.[0]);
+  const yearFromName = Number((name || '').match(/\b(?:19|20|21|22)\d{2}\b/)?.[0]);
   const month = monthFromName >= 0 ? monthFromName : now.getMonth();
   const year = Number.isFinite(yearFromName) && yearFromName > 0 ? yearFromName : now.getFullYear();
   const days = new Date(year, month + 1, 0).getDate();
@@ -1101,6 +1103,11 @@ export default function YsabelWorkspace() {
   const [exchangeFirst, setExchangeFirst] = useState<number | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState('board-september-2026');
+  const [defaultBoardId, setDefaultBoardId] = useState<string | null>(null);
+  const [monthsOpen, setMonthsOpen] = useState(false);
+  const [monthYear, setMonthYear] = useState(new Date().getFullYear());
+  const [monthBusy, setMonthBusy] = useState(false);
+  const [monthMessage, setMonthMessage] = useState('');
   const [feeds, setFeeds] = useState<Record<string, (string | null)[]>>({});
   const [assets, setAssets] = useState<Asset[]>([]);
   const [notes, setNotes] = useState<CalendarNote[]>([]);
@@ -1223,7 +1230,9 @@ export default function YsabelWorkspace() {
       const nextAssets = Array.isArray(data.media) ? data.media.map((asset) => ({ ...asset, slides: Array.isArray(asset.slides) ? asset.slides : [], url: mediaUrl(asset, authToken) })) : [];
       setBoards(nextBoards);
       setAssets(nextAssets);
-      setActiveBoardId((current) => nextBoards.some((board) => board.id === current) ? current : (nextBoards[0]?.id || current));
+      const savedDefault = nextBoards.find(board => !board.archived && board.id === data.defaultBoardId)?.id || nextBoards.find(board => !board.archived)?.id || null;
+      setDefaultBoardId(savedDefault);
+      if (savedDefault) setActiveBoardId(savedDefault);
       if (Array.isArray(data.positions)) {
         const next: Record<string, (string | null)[]> = {};
         for (const board of nextBoards) next[board.id] = emptyFeed();
@@ -1968,6 +1977,46 @@ export default function YsabelWorkspace() {
     setFeeds((current) => ({ ...current, [activeBoardId]: next })); persist({ action: 'save', boardId: activeBoardId, positions: next });
   };
 
+  const switchBoard = (id: string) => {
+    setActiveBoardId(id); setHistory([]); setFuture([]); setPostId(null);
+    setSelectedId(null); setExchangeFirst(null); setAutoIndex(0); setPublishError('');
+  };
+
+  const chooseMonth = async (month: number) => {
+    if (monthBusy) return;
+    setMonthMessage('');
+    const name = `${PREVIEW_MONTHS[month]} ${monthYear}`;
+    const existing = boards.find(board => !board.archived && board.name.toLowerCase() === name.toLowerCase());
+    if (existing) { switchBoard(existing.id); return; }
+    setMonthBusy(true);
+    try {
+      const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'ensure-month', year: monthYear, month }) });
+      if (!response.ok) throw await mediaRequestError(response, 'Open month');
+      const data = await response.json() as { board: Board; publication: Publication; positions: WorkspaceData['positions'] };
+      const nextPositions = emptyFeed();
+      data.positions.forEach(item => { if (item.position >= 0 && item.position < FEED_SIZE) nextPositions[item.position] = item.mediaId; });
+      setBoards(current => [data.board, ...current.filter(board => board.id !== data.board.id)]);
+      setFeeds(current => ({ ...current, [data.board.id]: nextPositions }));
+      setPublications(current => [data.publication, ...current.filter(item => item.boardId !== data.board.id)]);
+      setCaptionStore(current => ({ ...current, [data.board.id]: current[data.board.id] || { available: Object.keys(captionCatalog), used: [] } }));
+      switchBoard(data.board.id);
+    } catch (error) { setMonthMessage(error instanceof Error ? error.message : 'Unable to open this month. Please retry.'); }
+    finally { setMonthBusy(false); }
+  };
+
+  const saveDefaultMonth = async () => {
+    if (monthBusy || !activeBoard || activeBoard.archived) return;
+    setMonthBusy(true); setMonthMessage('');
+    try {
+      const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'set-default-board', boardId: activeBoard.id }) });
+      if (!response.ok) throw await mediaRequestError(response, 'Save default month');
+      const data = await response.json() as { defaultBoardId: string };
+      setDefaultBoardId(data.defaultBoardId);
+      setMonthMessage('Default saved. The app will open on this feed across your devices.');
+    } catch (error) { setMonthMessage(error instanceof Error ? error.message : 'Unable to save the default. Please retry.'); }
+    finally { setMonthBusy(false); }
+  };
+
   const createBoard = async (duplicate = false) => {
     const name = newBoardName.trim() || 'Untitled Direction';
     const sourcePool = duplicate ? (captionStore[activeBoardId] || DEFAULT_CAPTION_POOL) : { available: dedupeOrdered(Object.keys(captionCatalog)), used: [] };
@@ -2134,6 +2183,27 @@ export default function YsabelWorkspace() {
 
   return (
     <main className="app-shell">
+      <Dialog open={monthsOpen} onOpenChange={setMonthsOpen}>
+        <DialogContent className="month-picker-dialog">
+          <DialogHeader><DialogTitle>Your preview months</DialogTitle><DialogDescription>Choose any month. Set a default to keep it as the opening feed on every device.</DialogDescription></DialogHeader>
+          <div className="month-year-control">
+            <Button variant="ghost" size="icon" aria-label="Previous year" disabled={monthBusy || monthYear <= 1900} onClick={() => setMonthYear(year => year - 1)}><ChevronLeft /></Button>
+            <label>Year<Input type="number" min={1900} max={2200} value={monthYear} disabled={monthBusy} onChange={event => { const year = Number(event.target.value); setMonthYear(year); }} /></label>
+            <Button variant="ghost" size="icon" aria-label="Next year" disabled={monthBusy || monthYear >= 2200} onClick={() => setMonthYear(year => year + 1)}><ChevronRight /></Button>
+          </div>
+          <div className="month-choice-grid" aria-label="Choose preview month">
+            {PREVIEW_MONTHS.map((month, index) => {
+              const board = boards.find(item => item.name.toLowerCase() === `${month} ${monthYear}`.toLowerCase());
+              return <button type="button" key={month} disabled={monthBusy || !Number.isInteger(monthYear) || monthYear < 1900 || monthYear > 2200} aria-pressed={Boolean(board && board.id === activeBoardId)} onClick={() => void chooseMonth(index)}>
+                <strong>{month}</strong><small>{board?.archived ? 'Restore month' : board?.id === defaultBoardId ? 'Default preview' : board ? 'Open feed' : 'Create month'}</small>
+              </button>;
+            })}
+          </div>
+          <div className="month-default-row"><div><small>Selected feed</small><strong>{activeBoard?.name || 'Choose a month'}</strong></div><Button variant="outline" disabled={monthBusy || !activeBoard || activeBoard.archived || activeBoardId === defaultBoardId} onClick={() => void saveDefaultMonth()}>{monthBusy ? 'Saving…' : activeBoardId === defaultBoardId ? 'Default preview' : 'Make default'}</Button></div>
+          <p className="month-picker-status" role="status">{monthMessage || 'Switch freely between months. Only “Make default” changes your opening feed.'}</p>
+          <DialogFooter><Button onClick={() => setMonthsOpen(false)}>View feed</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
       <input ref={fileInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadFiles(event.target.files)} />
       <input ref={carouselInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadCarouselFiles(event.target.files, selectedId)} />
       <aside className="rail">
@@ -2155,7 +2225,9 @@ export default function YsabelWorkspace() {
             <DropdownMenuContent align="start" className="board-menu">
               <DropdownMenuGroup>
               <DropdownMenuLabel>Feed boards</DropdownMenuLabel>
-              {boards.filter((board) => !board.archived).map((board) => <DropdownMenuItem key={board.id} onClick={() => { setActiveBoardId(board.id); setHistory([]); setFuture([]); setPostId(null); }}>{board.name}{board.id === activeBoardId && <span className="menu-current">Current</span>}</DropdownMenuItem>)}
+              <DropdownMenuItem onClick={() => { setMonthYear(calendar.year); setMonthMessage(''); setMonthsOpen(true); }}><CalendarHeart />Choose month · Set default</DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {boards.filter((board) => !board.archived).map((board) => <DropdownMenuItem key={board.id} onClick={() => switchBoard(board.id)}>{board.name}{board.id === defaultBoardId && <span className="menu-current">Default</span>}{board.id === activeBoardId && <Check size={14} />}</DropdownMenuItem>)}
               </DropdownMenuGroup>
               {edit && <>
                 <DropdownMenuSeparator />

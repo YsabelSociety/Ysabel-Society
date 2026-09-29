@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Archive, ArrowLeftRight, CalendarHeart, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Archive, ArrowLeftRight, CalendarDays, CalendarHeart, Check, ChevronDown, ChevronLeft, ChevronRight,
   Compass, Copy, Download, Expand, Grid3X3, Heart, Home, Images, Maximize2, Menu,
   MessageCircle, Mail,
   LockKeyhole, LogOut, Monitor, MoreHorizontal, Move, NotebookPen, Pause, Play, Plus, Redo2,
@@ -36,13 +36,14 @@ import YsabelLoginBackground from '@/components/ysabel-login-background';
 import GalleryViewer from '@/components/gallery-viewer';
 import OccasionsCalendar from '@/components/occasions-calendar';
 import EmailMarketing from '@/components/email-marketing';
+import ErezaPlanning from '@/components/ereza-planning';
 import UploadStatus, { UploadBadge, UploadRetry } from '@/components/upload-status';
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
-type Section = 'feed' | 'media' | 'occasions' | 'notes' | 'captions' | 'email' | 'archive' | 'settings';
+type Section = 'feed' | 'media' | 'occasions' | 'notes' | 'captions' | 'email' | 'ereza' | 'archive' | 'settings';
 type RearrangeMode = 'swap' | 'insert';
 type DragSource = { type: 'grid' | 'library'; index?: number; id?: string };
 
@@ -1091,6 +1092,8 @@ export default function YsabelWorkspace() {
   const [view, setView] = useState<ViewMode>('mobile');
   const [section, setSection] = useState<Section>('feed');
   const [emailOpened, setEmailOpened] = useState(false);
+  const [erezaOpened, setErezaOpened] = useState(false);
+  useEffect(() => { if (section === 'ereza') setErezaOpened(true); }, [section]);
   useEffect(() => { if (section === 'email') setEmailOpened(true); }, [section]);
   const [edit, setEdit] = useState(false);
   const [presentation, setPresentation] = useState(false);
@@ -2178,6 +2181,7 @@ export default function YsabelWorkspace() {
     { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
     { label: 'Captions', value: 'captions', icon: MessageCircle },
     { label: 'Email Marketing', value: 'email', icon: Mail },
+    { label: 'Ereza Stories and Monthly Planning', value: 'ereza', icon: CalendarDays },
     { label: 'Archive', value: 'archive', icon: Archive },
   ];
 
@@ -2346,6 +2350,7 @@ export default function YsabelWorkspace() {
 
         {section === 'occasions' && <OccasionsCalendar />}
         {(emailOpened || section === 'email') && <div style={{ display: section === 'email' ? 'flex' : 'none', minHeight: 0, flex: 1 }}><EmailMarketing assets={assets} request={authFetch} /></div>}
+        {(erezaOpened || section === 'ereza') && <div style={{ display: section === 'ereza' ? 'grid' : 'none', minHeight: 0 }}><ErezaPlanning token={authToken} initialMonth={`${calendar.year}-${String(calendar.month + 1).padStart(2, '0')}`} /></div>}
 
         {section === 'notes' && <section className="notes-page">
           <header><span className="page-kicker">Monthly creative record</span><h1>{calendar.label} Notes</h1><p>Notes are private, attached to this feed direction and saved automatically.</p></header>

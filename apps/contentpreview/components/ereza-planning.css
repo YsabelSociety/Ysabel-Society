@@ -1,0 +1,74 @@
+.ereza-page { min-height: 0; min-width: 0; overflow: auto; padding: 32px 38px 24px; color: #242b26; background: #f6f5f0; font-size: 16px; }
+.ereza-heading { display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+.ereza-kicker { display: flex; align-items: center; gap: 9px; font-size: 12px; letter-spacing: .16em; color: #73796f; }
+.ereza-heading h1 { font-family: var(--font-editorial), Georgia, serif; font-size: clamp(28px, 3vw, 42px); line-height: 1.1; margin: 12px 0 10px; font-weight: 500; }
+.ereza-heading h1 span { color: #6b7466; }
+.ereza-heading p { color: #71766d; font-size: 15px; }
+.ereza-venue-bar { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 22px; border-bottom: 1px solid #d9ddd2; }
+.ereza-all { padding: 9px 16px; font-size: 14px; border-radius: 5px; border: 1px solid #cdd2c5; }
+.ereza-all[aria-pressed="true"] { background: #29392e; color: #fff; border-color: #29392e; }
+.ereza-venue-chip { display: flex; border-radius: 5px; overflow: hidden; }
+.ereza-venue-chip button { padding: 10px 13px; font-size: 14px; display: flex; align-items: center; gap: 12px; }
+.ereza-venue-chip button[aria-pressed="true"] { box-shadow: inset 0 -3px currentColor; }
+.ereza-venue-chip button + button { border-left: 1px solid currentColor; padding: 10px; }
+.ereza-venue-chip span { font-size: 12px; opacity: .7; }
+.ereza-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; padding-top: 22px; }
+.ereza-month-control { display: flex; align-items: center; gap: 8px; }
+.ereza-month-control input { font-size: 19px; font-weight: 500; border: 0; background: transparent; padding: 6px; max-width: 240px; }
+.ereza-views { display: flex; gap: 4px; padding: 3px; background: #e9ece3; border-radius: 5px; }
+.ereza-views button { display: flex; align-items: center; gap: 7px; padding: 7px 13px; font-size: 14px; border-radius: 3px; }
+.ereza-views button[aria-pressed="true"] { background: #fff; }
+.ereza-status { min-height: 38px; padding: 10px 0; font-size: 13px; color: #62715a; }
+.ereza-empty { padding: 14px 18px; margin-bottom: 16px; border: 1px solid #d9ddd2; font-size: 15px; color: #606c5a; }
+.ereza-calendar-scroll { overflow-x: auto; border: 1px solid #d7dbcf; border-radius: 6px; }
+.ereza-calendar { min-width: 980px; }
+.ereza-weekdays, .ereza-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.ereza-weekdays { background: #283a2e; color: #f4f6ef; }
+.ereza-weekdays span { padding: 13px 8px; text-align: center; font-size: 13px; font-weight: 500; }
+.ereza-day { padding: 9px; min-height: 150px; background: #fffefa; border-right: 1px solid #e0e3d9; border-bottom: 1px solid #e0e3d9; }
+.ereza-day:nth-child(7n) { border-right: 0; }
+.ereza-day--blank { background: #f0f1ea; }
+.ereza-day--today { box-shadow: inset 0 0 0 2px #728569; }
+.ereza-day header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+.ereza-day time { font-size: 14px; color: #606c5a; font-variant-numeric: tabular-nums; }
+.ereza-day header button { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 3px; color: #697461; }
+.ereza-day header button:hover { background: #e7ecdf; }
+.ereza-entry { width: 100%; display: block; text-align: left; padding: 11px; border-radius: 4px; margin-top: 7px; transition: transform .16s ease, box-shadow .16s ease; overflow-wrap: anywhere; }
+.ereza-entry:hover { transform: translateY(-1px); box-shadow: 0 2px 6px #1d302413; }
+.ereza-entry:focus-visible, .ereza-page button:focus-visible, .ereza-page input:focus-visible { outline: 2px solid #354d37; outline-offset: 3px; }
+.ereza-entry-venue { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 3px; font-size: 12px; margin-bottom: 8px; }
+.ereza-entry strong { font-size: 14px; line-height: 1.45; display: block; font-weight: 600; }
+.ereza-entry-meta { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; margin-top: 12px; font-size: 12px; }
+.ereza-entry-meta > span { display: inline-flex; align-items: center; gap: 4px; }
+.ereza-entry > small { display: block; font-size: 12px; margin-top: 7px; }
+.ereza-entry--posted { border-left: 3px solid currentColor; }
+.ereza-venue-columns { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+.ereza-venue-columns > section { background: #fffefa; border: 1px solid #dfe2d7; padding: 18px; border-radius: 5px; }
+.ereza-venue-columns header { display: flex; justify-content: space-between; align-items: center; padding: 5px 0 16px; margin-bottom: 15px; border-bottom: 5px solid; }
+.ereza-venue-columns h2 { font-family: var(--font-editorial), Georgia, serif; font-size: 25px; }
+.ereza-venue-columns header button { padding: 8px; }
+.ereza-agenda-item { margin-bottom: 20px; }
+.ereza-agenda-item time { display: block; font-size: 14px; color: #66715f; }
+.ereza-agenda-item .ereza-entry strong { font-size: 17px; }
+.ereza-venue-empty { color: #7a8275; font-size: 14px; }
+.ereza-footnote { padding-top: 20px; font-size: 12px; color: #787e72; line-height: 1.6; }
+.ereza-editor { width: min(640px, calc(100vw - 28px)); max-width: 640px !important; max-height: 92dvh; overflow-y: auto; padding: 26px; background: #fafaf6; }
+.ereza-editor form > fieldset { display: grid; gap: 18px; min-width: 0; }
+.ereza-field { display: flex; flex-direction: column; gap: 7px; font-size: 14px; min-width: 0; }
+.ereza-field input:not([type="color"]), .ereza-field textarea { font-size: 16px; background: #fff; min-height: 40px; }
+.ereza-field [data-slot="select-trigger"] { width: 100%; height: 40px; font-size: 15px; background: #fff; }
+.ereza-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }
+.ereza-channels { display: flex; flex-wrap: wrap; gap: 17px; padding: 0; border: 0; }
+.ereza-channels legend { font-size: 14px; margin-bottom: 10px; }
+.ereza-channels label { display: flex; align-items: center; gap: 7px; font-size: 14px; }
+.ereza-channels input { width: 17px; height: 17px; accent-color: #3b513b; }
+.ereza-color-inline { display: flex; align-items: center; gap: 10px; }
+.ereza-color-inline input { width: 43px; height: 40px; padding: 2px; cursor: pointer; border: 1px solid #d7dbcf; }
+.ereza-color-inline button { font-size: 13px; text-decoration: underline; text-underline-offset: 3px; }
+.ereza-optional { color: #7d8275; font-size: 12px; }
+.ereza-editor-actions { margin-top: 22px; padding-top: 18px; border-top: 1px solid #d8ddd1; }
+.ereza-error { color: #974834; background: #fff4f0; border: 1px solid #e6c7bc; padding: 13px; margin: 10px 0; font-size: 14px; line-height: 1.5; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.ereza-color-dialog > input { width: 100%; height: 100px; padding: 0; border: 0; cursor: pointer; }
+@media (max-width: 1150px) { .ereza-page { padding: 26px 22px; } .ereza-venue-columns { grid-template-columns: 1fr; } }
+@media (max-width: 650px) { .ereza-page { padding: 22px 14px; } .ereza-heading { align-items: start; flex-direction: column; gap: 14px; } .ereza-heading h1 span { display: block; margin-top: 4px; } .ereza-month-control { gap: 2px; flex-wrap: wrap; } .ereza-month-control input { font-size: 16px; max-width: 180px; } .ereza-venue-bar { gap: 7px; } .ereza-form-grid { grid-template-columns: 1fr; } .ereza-editor { padding: 22px 18px; } .ereza-editor-actions { flex-wrap: wrap; } }
+@media (prefers-reduced-motion: reduce) { .ereza-entry { transition: none; } .ereza-entry:hover { transform: none; } }

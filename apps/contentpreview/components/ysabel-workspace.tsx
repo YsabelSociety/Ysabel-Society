@@ -2181,7 +2181,7 @@ export default function YsabelWorkspace() {
     { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
     { label: 'Captions', value: 'captions', icon: MessageCircle },
     { label: 'Email Marketing', value: 'email', icon: Mail },
-    { label: 'Ereza Stories and Monthly Planning', value: 'ereza', icon: CalendarDays },
+    { label: 'Ereza Reels and Stories', value: 'ereza', icon: CalendarDays },
     { label: 'Archive', value: 'archive', icon: Archive },
   ];
 

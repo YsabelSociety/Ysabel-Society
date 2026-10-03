@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { createCompactReviewPDF } from './review-pdf';
 import { REVIEW_CATEGORIES } from './review-categories';
 import { autoTable } from 'jspdf-autotable';
 import {
@@ -137,6 +138,10 @@ export async function createReportPDF(
   progress: ReportProgress = () => {},
   signal?: AbortSignal,
 ) {
+  if (bundle.scope === 'reviews') {
+    const selected = reportSelection(bundle);
+    return createCompactReviewPDF(bundle, selected.reviews, selected.uncertainReviews, assets, progress, signal);
+  }
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'pt',
@@ -1333,17 +1338,31 @@ export async function downloadReportPDF(
     read('/fonts/NotoSans-Regular.ttf'),
     read('/fonts/NotoSans-Bold.ttf'),
     read('/ysabel-society-logo.png'),
-    read('/maps/world-countries.json'),
+    bundle.scope === 'reviews' ? Promise.resolve(null) : read('/maps/world-countries.json'),
   ]);
+  // The source artwork is 8000 x 4500. An opaque, print-sized PNG avoids a
+  // 36-megapixel alpha mask being decoded when readers display each PDF page.
+  let printLogo = logo;
+  try {
+    const bitmap = await createImageBitmap(new Blob([logo as BlobPart]), { resizeWidth: 512, resizeQuality: 'high' });
+    const canvas = document.createElement('canvas');
+    try {
+      canvas.width = bitmap.width; canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d', { alpha: false })!;
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(bitmap, 0, 0);
+      const png = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/png'));
+      if (png) printLogo = new Uint8Array(await png.arrayBuffer());
+    } finally { bitmap.close(); canvas.width = canvas.height = 1; }
+  } catch { /* Retain the original artwork when browser resizing is unavailable. */ }
   const photos=new Map<string,Uint8Array>(), attachments=new Map<string,Uint8Array>();
   const selected=reportSelection(bundle),reviews=[...selected.reviews,...selected.uncertainReviews];
   const items=reviews.flatMap(r=>[
     ...(r.avatar?[{accountId:r.accountId,id:r.id,photoIndex:undefined as number|undefined,key:photoKey(r)}]:[]),
     ...(r.reviewPhotos||[]).map((_,i)=>({accountId:r.accountId,id:r.id,photoIndex:i,key:photoKey(r)+':'+i}))
   ]);
-  for(let i=0;i<items.length;i+=8){
+  let completedImages = 0;
+  const prepareBatch = async (batch: typeof items) => {
     if(signal?.aborted)throw new DOMException('Report cancelled','AbortError');
-    const batch=items.slice(i,i+8);
     try {
       const response=await fetch(appPath('/api/review-report-images'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:batch.map(({key,...item})=>item)}),signal:signal?AbortSignal.any([signal,AbortSignal.timeout(35000)]):AbortSignal.timeout(35000)});
       if(response.status===401)throw new Error('Please sign in again to export review images.');
@@ -1351,29 +1370,37 @@ export async function downloadReportPDF(
         const {images}=await response.json();
         for(const image of images||[]){
           const item=batch.find(r=>r.accountId===image.accountId&&r.id===image.id&&r.photoIndex===image.photoIndex);if(!item)continue;
-          const blob=await(await fetch(image.data)).blob();const bitmap=await createImageBitmap(blob);
-          const canvas=document.createElement('canvas'),limit=item.photoIndex===undefined?160:1000;
-          const scale=Math.min(1,limit/Math.max(bitmap.width,bitmap.height));
-          canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-          const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
-          const jpeg=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',0.9));
-          if(jpeg)(item.photoIndex===undefined?photos:attachments).set(item.key,new Uint8Array(await jpeg.arrayBuffer()));
-          canvas.width=canvas.height=1;
+          try {
+            const blob=await(await fetch(image.data)).blob();const bitmap=await createImageBitmap(blob);
+            const canvas=document.createElement('canvas'),limit=item.photoIndex===undefined?192:bundle.scope==='reviews'?640:1000;
+            try {
+              const scale=Math.min(1,limit/Math.max(bitmap.width,bitmap.height));
+              canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+              const ctx=canvas.getContext('2d')!;ctx.fillStyle='#ffffff';ctx.fillRect(0,0,canvas.width,canvas.height);ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+              const jpeg=await new Promise<Blob|null>(resolve=>canvas.toBlob(resolve,'image/jpeg',0.87));
+              if(jpeg)(item.photoIndex===undefined?photos:attachments).set(item.key,new Uint8Array(await jpeg.arrayBuffer()));
+            } finally { bitmap.close(); canvas.width=canvas.height=1; }
+          } catch { /* Keep other photos and the original link if one image cannot be decoded. */ }
         }
       }
-    } catch(error){if(signal?.aborted)throw error;}
-    progress(`Preparing review images · ${Math.min(i+8,items.length)} / ${items.length}`);
+    } catch(error){if(signal?.aborted || error instanceof Error && error.message.startsWith('Please sign in again'))throw error;}
+    completedImages += batch.length;
+    progress(`Preparing review images · ${completedImages} / ${items.length}`);
     await yieldWork();
+  };
+  // Two bounded requests overlap network time without loading a large photo set at once.
+  for(let i=0;i<items.length;i+=16){
+    await Promise.all([prepareBatch(items.slice(i,i+8)), ...(i+8<items.length?[prepareBatch(items.slice(i+8,i+16))]:[])]);
   }
   const doc = await createReportPDF(
     bundle,
     {
       regular,
       bold,
-      logo,
+      logo: printLogo,
       photos,
       attachments,
-      countries: JSON.parse(new TextDecoder().decode(mapBytes)),
+      countries: mapBytes ? JSON.parse(new TextDecoder().decode(mapBytes)) : undefined,
     },
     progress,
     signal,

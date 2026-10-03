@@ -385,8 +385,9 @@ export function ReviewReports({
                 </button>
               </div>
               <p className="source-asof">
-                The PDF includes only the selected reviews and embedded reviewer
-                photos when available. All {snapshot.rows.length} matching
+                A compact PDF with a rating summary, full original comments, criticism
+                highlights, reviewer names and supplied usernames, profile photos, replies,
+                attached images and Google links. All {snapshot.rows.length} matching
                 reviews are included, grouped by star rating.
               </p>
               <div role="status" aria-live="polite">
@@ -419,6 +420,7 @@ export function ReviewReports({
                                 <strong>
                                   {r.name || 'Anonymous reviewer'}
                                 </strong>
+                                {r.username && <small>{r.username}</small>}
                                 <small>{reviewDateLabel(r, timezone)}</small>
                               </div>
                               <span aria-label={`${r.rating} stars`}>

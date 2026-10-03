@@ -1111,32 +1111,19 @@ export async function createReportPDF(
         : null,
     },
     {
-      name: '1-3 star reviews',
-      value: reviews.filter((r) => (r.rating || 5) <= 3).length,
+      name: 'Reviews with criticism',
+      value: reviews.filter((r) => reviewTopics(r).criticisms.length > 0).length,
     },
   ]);
-  bars(
-    'Rating distribution',
-    [1, 2, 3, 4, 5].map((star) => ({
-      name: star + ' stars',
-      value: reviews.filter((r) => r.rating === star).length,
-    })),
-  );
-  const criticism = reviews.flatMap((r) =>
-    reviewTopics(r).criticisms.map((c) => c.topic),
-  );
+  need(235);
+  sub('Criticism across every rating', 'Positive ratings can still contain concerns. Counts reflect the selected reviews only.');
+  table(['Rating', 'Reviews', 'With criticism', 'Concerns identified'], [1, 2, 3, 4, 5].map(star => {
+    const group = reviews.filter(r => r.rating === star);
+    const concerns = group.flatMap(r => reviewTopics(r).criticisms);
+    return [`${star} / 5`, group.length, group.filter(r => reviewTopics(r).criticisms.length > 0).length, [...new Set(concerns.map(c => c.topic))].join(', ') || 'None identified'];
+  }));
   need(420);
   table('Category|Reviews with criticism|What it covers'.split('|'),REVIEW_CATEGORIES.map(c=>[c.label, reviews.filter(r=>reviewTopics(r).criticisms.some(issue=>issue.topic===c.topic)).length,c.detail]));
-  bars(
-    'Criticism themes',
-    [...new Set(criticism)]
-      .map((name) => ({
-        name,
-        value: criticism.filter((t) => t === name).length,
-      }))
-      .sort((a, b) => b.value - a.value),
-    '#b87b73',
-  );
   const reviewList = async (list: CommunityRecord[], title: string) => {
     for (const star of [1, 2, 3, 4, 5]) {
       const group = list.filter((r) => r.rating === star);
@@ -1158,10 +1145,14 @@ export async function createReportPDF(
         text(`${star} / 5`,W-M-77,y+32,21,'#365448',true);
         text(`REVIEW ${index+1}`,W-M-78,y+56,8,'#62746b');
         y+=103;
+        const issues=reviewTopics(r).criticisms;
+        need(34);
+        gradient(M,y,C,25,issues.length?'#ba8b86':'#719589');
+        text(issues.length ? `CRITICISM IDENTIFIED · ${issues.length} ${issues.length===1?'TOPIC':'TOPICS'}` : 'NO CRITICISM IDENTIFIED',M+12,y+17,8,issues.length?'#775d55':'#365448',true);
+        y+=43;
         sub('Guest review');
         paragraph(r.reviewAnalysis?.englishText||r.text||'No written comment.',11,'#33453d');
         if(r.reviewAnalysis && r.reviewAnalysis.englishText!==r.text){sub('Original language');paragraph(r.text,10);}
-        const issues=reviewTopics(r).criticisms;
         if(issues.length){
           sub('Criticism & supporting details');
           for(const issue of issues){

@@ -8833,3 +8833,13 @@ h1 {
 .story-summary-card[data-primary='true'] { background:linear-gradient(135deg,#fff,#e9f2ec); }
 @media(max-width:760px) { .story-summary-cards { grid-template-columns:repeat(2,minmax(0,1fr)); } .story-summary-card { padding:14px; } }
 @media(max-width:360px) { .story-summary-cards { grid-template-columns:1fr; } }
+.review-report-ratings .review-rating-criticism {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: linear-gradient(120deg, #f2e6e0, #f8f3ee);
+  color: #76534a;
+  font-size: 12px;
+  font-weight: 500;
+}

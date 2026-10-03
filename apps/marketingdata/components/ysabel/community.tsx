@@ -1888,6 +1888,15 @@ export function GoogleReviews({
   return (
     <section className="community-view google-reviews">
       {children}
+      <ReviewReports
+        records={all}
+        range={range}
+        timezone={timezone}
+        loading={data.loading}
+        truncated={data.truncated}
+        dates={dates}
+        onDatesChange={setDates}
+      />
       <div className="section-head">
         <div>
           <h2>Guest reviews</h2>
@@ -2130,15 +2139,6 @@ export function GoogleReviews({
         kind="review"
         source="gbp"
         onSaved={data.refresh}
-      />
-      <ReviewReports
-        records={all}
-        range={range}
-        timezone={timezone}
-        loading={data.loading}
-        truncated={data.truncated}
-        dates={dates}
-        onDatesChange={setDates}
       />
     </section>
   );

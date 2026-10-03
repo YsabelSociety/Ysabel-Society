@@ -56,6 +56,7 @@ export function ReviewReports({
     ...DEFAULT_REVIEW_FILTERS,
     topic: 'All topics',
     stars: [1, 2, 3, 4, 5],
+    evidence: 'All matching reviews',
   });
   const [title, setTitle] = useState('Guest feedback review report');
   const selectedRange = reviewPeriodRange(dates, range);
@@ -81,7 +82,7 @@ export function ReviewReports({
         star,
         rows: makeReviewReport(
           records,
-          { ...filters, stars: [star] },
+          { ...filters, stars: [star], evidence: 'All matching reviews' },
           reportRange,
           timezone,
         ).rows,
@@ -139,8 +140,8 @@ export function ReviewReports({
           </span>
           <h2>Critical review reports</h2>
           <p>
-            Find criticism about food, drinks, service, hospitality, menu, cleanliness, reservations and atmosphere, then
-            export the complete selection.
+            All ratings, with criticism highlighted separately. Choose a month or dates to
+            report on food, drinks, service, hospitality, menu, cleanliness, reservations and atmosphere.
           </p>
         </div>
         <button
@@ -174,6 +175,9 @@ export function ReviewReports({
               {star}-star reviews
             </span>
             <strong>{loading ? '—' : rows.length}</strong>
+            <span className="review-rating-criticism">
+              {loading ? '—' : rows.filter((review) => review.criticisms.length > 0).length} with criticism
+            </span>
             <MiniHistory
               values={loading ? [] : reviewMonthHistory(ratingBasis, rows)}
               label="Captured reviews by month"
@@ -232,10 +236,9 @@ export function ReviewReports({
         label="Report"
       />
       <p className="source-asof">
-        Updated from every completed import. Matching reviews are ordered newest first.{' '}
-        Criticism is suggested from context and related terms. Choose “All
-        matching reviews” to include topic mentions without a detected
-        complaint.
+        Updated after each completed sync or import. All star ratings are included by default,
+        newest first. Criticism can appear even in a five-star review. Choose
+        “Criticism detected” to focus only on reviews with identified concerns.
       </p>
       {(
         <div
@@ -272,7 +275,7 @@ export function ReviewReports({
             <div className="review-report-author">{review.avatar&&<img src={review.avatar} alt="Reviewer profile" width={44} height={44} loading="lazy" referrerPolicy="no-referrer"/>}<strong>{review.name || 'Anonymous reviewer'} · {review.rating}/5</strong></div>
             <p className="source-asof">{reviewDateLabel(review, timezone)}</p>
             <ReviewBody review={review}/>
-            {review.criticisms.map((issue) => <div key={issue.topic}><p><strong>{issue.topic}</strong> · {'explanation' in issue ? String(issue.explanation) : issue.excerpt}{'confidence' in issue && issue.confidence==='low'?' · Possible criticism — needs review':''}</p>{'explanation' in issue&&<blockquote>{issue.excerpt}</blockquote>}</div>)}
+            {review.criticisms.map((issue) => <div className="review-criticism" key={issue.topic}><p><strong>{issue.topic}</strong> · {'explanation' in issue ? String(issue.explanation) : issue.excerpt}{'confidence' in issue && issue.confidence==='low'?' · Possible criticism — needs review':''}</p>{'explanation' in issue&&<blockquote>{issue.excerpt}</blockquote>}</div>)}
           </article>
         ))}
         {!loading && !selection.rows.length && <p>No reviews match these filters. Try another month, topic or feedback filter.</p>}
@@ -423,6 +426,7 @@ export function ReviewReports({
                               </span>
                             </div>
                             <ReviewBody review={r}/>
+                            {r.criticisms.map((issue) => <div className="review-criticism" key={issue.topic}><strong>{issue.topic} · criticism</strong><p>{issue.excerpt}</p></div>)}
                             {link && (
                               <a
                                 href={link.url}

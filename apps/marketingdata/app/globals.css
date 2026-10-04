@@ -7992,6 +7992,7 @@ h1 {
   overflow: hidden;
 }
 [data-slot='dialog-content'].review-report-dialog {
+  grid-template-columns: minmax(0, 1fr);
   width: min(950px, 95vw);
   max-width: 950px;
   max-height: 90vh;
@@ -7999,6 +8000,15 @@ h1 {
   padding: 2rem;
   background: linear-gradient(130deg, #f5f8f7, #e6ece7);
   border-radius: 26px;
+}
+.review-report-dialog > * {
+  min-width: 0;
+  max-width: 100%;
+}
+@media (max-width: 600px) {
+  [data-slot='dialog-content'].review-report-dialog {
+    padding: 1.25rem;
+  }
 }
 .review-report-downloads {
   display: flex;

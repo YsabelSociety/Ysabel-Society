@@ -15,6 +15,7 @@ import { type Range } from '@/lib/analytics';
 import { ReviewDateControls } from './review-date-controls';
 import { ReviewAI } from './review-ai';
 import { ReviewBody } from './review-body';
+import { ReviewStars } from './review-stars';
 import { REVIEW_CATEGORIES, reviewCategoryLabel } from '@/lib/review-categories';
 import { DataIcon } from './data-icons';
 import { MiniHistory } from './mini-history';
@@ -272,7 +273,7 @@ export function ReviewReports({
         <h3>Newest matching reviews</h3>
         {selection.rows.slice(0, 5).map((review) => (
           <article key={reviewKey(review)} className="community-help">
-            <div className="review-report-author">{review.avatar&&<img src={review.avatar} alt="Reviewer profile" width={44} height={44} loading="lazy" referrerPolicy="no-referrer"/>}<strong>{review.name || 'Anonymous reviewer'} · {review.rating}/5</strong></div>
+            <div className="review-report-author">{review.avatar&&<img src={review.avatar} alt="Reviewer profile" width={44} height={44} loading="lazy" referrerPolicy="no-referrer"/>}<strong>{review.name || 'Anonymous reviewer'}</strong><ReviewStars rating={review.rating}/></div>
             <p className="source-asof">{reviewDateLabel(review, timezone)}</p>
             <ReviewBody review={review}/>
             {review.criticisms.map((issue) => <div className="review-criticism" key={issue.topic}><p><strong>{issue.topic}</strong> · {'explanation' in issue ? String(issue.explanation) : issue.excerpt}{'confidence' in issue && issue.confidence==='low'?' · Possible criticism — needs review':''}</p>{'explanation' in issue&&<blockquote>{issue.excerpt}</blockquote>}</div>)}
@@ -423,9 +424,7 @@ export function ReviewReports({
                                 {r.username && <small>{r.username}</small>}
                                 <small>{reviewDateLabel(r, timezone)}</small>
                               </div>
-                              <span aria-label={`${r.rating} stars`}>
-                                {'★'.repeat(r.rating || 0)}
-                              </span>
+                              <ReviewStars rating={r.rating} />
                             </div>
                             <ReviewBody review={r}/>
                             {r.criticisms.map((issue) => <div className="review-criticism" key={issue.topic}><strong>{issue.topic} · criticism</strong><p>{issue.excerpt}</p></div>)}

@@ -1,4 +1,4 @@
-import { aiStore, AI_MODEL, analysisKey, analyzeReview } from '../../../../lib/review-ai';
+import { aiStore, AI_MODEL, AI_VERSION, analysisKey, analyzeReview } from '../../../../lib/review-ai';
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -18,7 +18,7 @@ async function handle(req:Request) {
     const key=config?.key||process.env.OPENAI_API_KEY;
     const analyses=await s.get('analyses',{type:'json'});
     const pending=records.filter((r:Parameters<typeof analysisKey>[0])=>!analyses?.[analysisKey(r)]);
-    if(req.method==='GET') return json({configured:!!key,model:AI_MODEL,total:records.length,completed:records.length-pending.length,pending:pending.length});
+    if(req.method==='GET') return json({configured:!!key,model:AI_MODEL,version:AI_VERSION,total:records.length,completed:records.length-pending.length,pending:pending.length});
     const raw=await req.text();
     if(raw.length>2000) return json({error:'Request too large.'},413);
     const body=JSON.parse(raw);

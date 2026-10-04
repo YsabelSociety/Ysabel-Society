@@ -7,7 +7,7 @@ const normalize = (s: string) =>
     .replace(/[’‘]/g, "'")
     .toLowerCase();
 const TOPICS: [string, RegExp][] = [
-  ['Hospitality', /\b(welcome\w*|hospitality|greeting\w*|reception|hosts?|hostess\w*|unwelcoming|mikprit\w*|accoglienza)\b/i],
+  ['Hospitality', /\b(welcome\w*|hospitality|greeting\w*|reception|hosts?|hostess\w*|unwelcoming|guest treatment|team attitude|courtesy|respect\w*|mikprit\w*|sjellj\w*|accoglienza)\b/i],
   ['Menu', /\b(menu\w*|selection|variety|choices?|options?|allergen\w*|dietary|vegan|vegetarian|gluten|karte|auswahl|choix)\b/i],
   ['Reservations', /\b(reserv\w*|bookings?|booked|confirmation|confirmed|prenot\w*)\b/i],
   [
@@ -20,7 +20,7 @@ const TOPICS: [string, RegExp][] = [
   ],
   [
     'Service',
-    /\b(service|staff|waiters?|waitress\w*|servers?|bartenders?|bar tenders?|hosts?|hostess\w*|manager\w*|management|security|reception\w*|bouncers?|employees?|personnel|sherbim\w*|staf\w*|kamerier\w*|servizio|personale|camerier\w*)\b/i,
+    /\b(service|staff|waiters?|waitress\w*|servers?|servants?|bartenders?|bar tenders?|hosts?|hostess\w*|manager\w*|management|security|reception\w*|bouncers?|employees?|personnel|sherbim\w*|staf\w*|kamerier\w*|servizio|personale|camerier\w*)\b/i,
   ],
   [
     'Waiting time',
@@ -42,7 +42,7 @@ const TOPICS: [string, RegExp][] = [
 const NEGATIVE =
   /\b(bad|poor|terrible|awful|disappoint\w*|cold|raw|burnt|overcook\w*|undercook\w*|salty|bland|tasteless|stale|greasy|watery|diluted|mediocre|leftover|falling apart|not worth|no taste|limited|unavailable|rude|slow|dirty|overpriced|expensive|noisy|loud|wrong|forgot\w*|unfriendly|unhelpful|worst|unpleasant|miserable|inedible|rubbery|soggy|chewy|tough|dry|tiny|lukewarm|spoiled|sour|burned|keq\w*|ftoh\w*|shtrenjt\w*|pist\w*|vones\w*|dobet|pessim\w*|cattiv\w*|fredd\w*|crudo|bruciat\w*|sporco|sporca|scortese|lento|lenta|not (?:fresh|good|tasty|friendly|attentive|clean|welcoming|cooked|warm)|no flavou?r)\b/i;
 const IMPLICIT: [string, RegExp][] = [
-  ['Hospitality', /\b(?:unwelcoming|not (?:made to feel |very )?welcome|nobody (?:greeted|welcomed)|no one (?:greeted|welcomed)|turned (?:us|me) away|dismissive welcome|felt (?:ignored|unwelcome))\b/i],
+  ['Hospitality', /\b(?:unwelcoming|not (?:made to feel |very )?welcome|nobody (?:greeted|welcomed)|no one (?:greeted|welcomed)|turned (?:us|me) away|dismissive welcome|felt (?:ignored|unwelcome|unwanted|humiliated)|(?:treated|treating) (?:us|me|guests|customers) (?:badly|poorly|unfairly|disrespectfully|like (?:an? )?inconvenience)|(?:looked|talked) down (?:on|to) (?:us|me)|(?:laughed|shouted|yelled) at (?:us|me)|(?:na|me) trajto\w*.{0,30}(?:keq|pa respekt))\b/i],
   ['Menu', /\b(?:(?:limited|little|no|poor|lack of|not much) (?:variety|choice|selection|options)|(?:menu|items?|dishes?) (?:was |were )?(?:unavailable|sold out|not available)|(?:no|not enough) (?:vegan|vegetarian|gluten.free) options|(?:allergens?|ingredients?) (?:were |was )?(?:not listed|missing|unclear))\b/i],
   ['Reservations', /\b(?:(?:reservation|booking) (?:was |had been )?(?:lost|forgotten|cancelled|ignored|not hono[u]?red)|(?:couldn't|could not|unable to) (?:book|reserve)|(?:despite|with) (?:a |our |my )?(?:confirmed )?(?:reservation|booking).{0,45}(?:no table|wait|turned away)|double.booked)\b/i],
   [
@@ -75,6 +75,22 @@ const IMPLICIT: [string, RegExp][] = [
   ],
 ];
 
+const TEAM = /\b(?:staff|team|waiters?|waitress\w*|servers?|servants?|hosts?|hostess\w*|manager\w*|reception\w*|security|bouncers?|employees?|personnel|staf\w*|kamerier\w*|personale|camerier\w*)\b/gi;
+const GUEST_MANNER = /\b(?:rude|impolite|unfriendly|unhelpful|dismissive|arrogant\w*|disrespect\w*|condescending|hostile|insulting|unprofessional|mean|humiliat\w*|maleducat\w*|scortese|pasjell\w*|pa respekt|not (?:polite|courteous|welcoming|respectful)|(?:behaviou?r|attitude|treatment) (?:was |is |were )?(?:very |extremely )?(?:bad|poor|unacceptable)|answers? with ignorance)\b/gi;
+const NEGATABLE = 'bad|expensive|slow|dirty|rude|impolite|unfriendly|unhelpful|noisy|loud|cold|unwelcoming|disrespect\\w*|condescending|hostile|insulting|unprofessional|mean|humiliat\\w*|disappoint\\w*|ignored|dismissive|arrogant|overcharged';
+const NEGATED_COMPLAINT = new RegExp(`\\b(?:not|never|without|wasn't|weren't|isn't|aren't)\\s+(?:(?:very|at all|too|so|particularly)\\s+)?(?:${NEGATABLE})\\b(?:\\s+(?:or|and)\\s+(?:${NEGATABLE})\\b)*|\\bno (?:complaints|delays?|disrespect)\\b|\\bslow (?:down|motion)\\b|\\bpa vones\\w*`, 'gi');
+function teamTreatmentConcern(sentence: string, previousTeam?: string) {
+  const people = [
+    ...[...sentence.matchAll(new RegExp(TEAM))].map(m => ({ index: m.index!, team: true })),
+    ...[...sentence.matchAll(/\b(?:other guests|other customers|another guest|fellow diners|my friends?)\b/gi)].map(m => ({ index: m.index!, team: false })),
+  ];
+  return [...sentence.matchAll(new RegExp(GUEST_MANNER))].some(m => {
+    const actor = people.map(p => ({ ...p, distance: Math.abs(p.index - m.index!) })).sort((a, b) => a.distance - b.distance)[0];
+    if(actor) return actor.team && actor.distance <= 90;
+    return !!previousTeam && /^\s*(?:he|she|they|his|her|their|nothing less than)\b/.test(sentence);
+  });
+}
+
 export function classifyReview(review: CommunityRecord) {
   if (review.reviewAnalysis) return {categories:review.reviewAnalysis.categories,criticisms:review.reviewAnalysis.criticisms};
   const text = review.text.startsWith('(Translated by Google)')
@@ -85,6 +101,7 @@ export function classifyReview(review: CommunityRecord) {
   );
   const criticisms: { topic: string; excerpt: string }[] = [];
   let previous: { topic: string; sentence: string } | undefined;
+  let previousTeam: string | undefined;
   const add = (topic: string, excerpt: string) => {
     categories.add(topic);
     if (!criticisms.some((c) => c.topic === topic))
@@ -106,10 +123,7 @@ export function classifyReview(review: CommunityRecord) {
   )) {
     const raw = normalize(sentence);
     // Suppress explicitly negated complaints, while retaining "not fresh" etc.
-    const check = raw.replace(
-      /\b(?:not|never|without|wasn't|weren't|isn't|aren't)\s+(?:(?:very|at all|too|so|particularly)\s+)?(?:bad|expensive|slow|dirty|rude|unfriendly|noisy|loud|cold|disappoint\w*)\b|\bno (?:complaints|delays?)\b|\bslow (?:down|motion)\b|\bpa vones\w*|\b(?:not|never|weren't|wasn't)\s+(?:ignored|dismissive|arrogant|overcharged)\b/gi,
-      '',
-    );
+    const check = raw.replace(NEGATED_COMPLAINT, '');
     const mentions = TOPICS.flatMap(([topic, re]) =>
       [...check.matchAll(new RegExp(re.source, 'gi'))].map((m) => ({
         topic,
@@ -117,6 +131,7 @@ export function classifyReview(review: CommunityRecord) {
       })),
     );
     const explicitTopics = [...new Set(mentions.map((m) => m.topic))];
+    if (teamTreatmentConcern(check, previousTeam)) add('Hospitality', previousTeam&&!new RegExp(TEAM).test(check)?previousTeam+' '+sentence:sentence);
     // Mixed reviews often express disappointment without a blunt negative adjective.
     if (/\b(?:basic fare|(?:food|pizza|cocktails?) (?:is|are|was|were) (?:very )?basic|nothing exceptional|not much variety|(?:didn't|did not|doesn't|does not) (?:quite )?meet (?:our|my|the) expectations)\b/.test(check)) {
       const subject = explicitTopics.filter((t) => t === 'Food' || t === 'Drinks');
@@ -179,6 +194,7 @@ export function classifyReview(review: CommunityRecord) {
       explicitTopics.length === 1
         ? { topic: explicitTopics[0], sentence: sentence.trim() }
         : undefined;
+    previousTeam = new RegExp(TEAM).test(check) ? sentence.trim() : undefined;
   }
   return {
     categories: categories.size ? [...categories] : ['Other'],

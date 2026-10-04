@@ -86,6 +86,18 @@ export async function createCompactReviewPDF(
     }
   };
   const label = (value: string, color = '#738177') => { need(26); text(value, M, y + 8, 7.5, color, true); y += 17; };
+  const ratingStars = (rating: number, x: number, top: number) => {
+    const size = 10;
+    for (let star = 0; star < 5; star++) {
+      const points = Array.from({ length: 10 }, (_, i) => {
+        const angle = -Math.PI / 2 + i * Math.PI / 5, radius = size * (i % 2 ? 0.22 : 0.5);
+        return [x + star * 12 + size / 2 + Math.cos(angle) * radius, top + size / 2 + Math.sin(angle) * radius];
+      });
+      doc.setFillColor(star < rating ? '#c8a45d' : '#faf6ec');
+      doc.setDrawColor(star < rating ? '#b8934c' : '#d8c7a3'); doc.setLineWidth(0.45);
+      doc.lines(points.slice(1).map((point, i) => [point[0] - points[i][0], point[1] - points[i][1]]), points[0][0], points[0][1], [1, 1], 'FD', true);
+    }
+  };
   frame();
   progress(`Designing PDF · ${bundle.title}`);
   paragraph(bundle.title, { size: 22, color: '#1d3428', bold: true });
@@ -160,8 +172,9 @@ export async function createCompactReviewPDF(
         let metaY = y + nameLines.length * 14 + 10;
         if (usernameLines.length) { text(usernameLines, M + 45, metaY, 8, '#60756a'); metaY += usernameLines.length * 11; }
         text(dateLines, M + 45, metaY, 8, '#738177');
-        text(`${star} / 5`, W - M - 43, y + 14, 12, '#1d3428', true);
-        text(`#${sequence}`, W - M - 43, y + 30, 7.5, '#738177');
+        ratingStars(star, W - M - 60, y + 3);
+        text(`${star} / 5`, W - M - 43, y + 29, 10, '#1d3428', true);
+        text(`#${sequence}`, W - M - 43, y + 43, 7.5, '#738177');
         y += headerHeight;
         label('ORIGINAL REVIEW');
         paragraph(r.text || 'No written comment supplied.', { size: 9.5, highlight: true });

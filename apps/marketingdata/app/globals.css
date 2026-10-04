@@ -6276,8 +6276,12 @@ h1 {
   flex: 1;
 }
 .review-stars {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
   font-size: 20px;
-  color: #8e7856;
+  color: #c8a45d;
   letter-spacing: 2px;
 }
 .review-text {

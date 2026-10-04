@@ -1,5 +1,6 @@
 'use client';
 import { ReviewBody } from './review-body';
+import { ReviewStars } from './review-stars';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   MessageCircle,
@@ -2066,13 +2067,7 @@ export function GoogleReviews({
                     {r.origin === 'api' ? 'Google' : 'Imported file'}
                   </small>
                 </div>
-                <span
-                  className="review-stars"
-                  aria-label={r.rating + ' out of 5 stars'}
-                >
-                  {'★'.repeat(r.rating || 0)}
-                  {'☆'.repeat(5 - (r.rating || 0))}
-                </span>
+                <ReviewStars rating={r.rating} />
               </div>
               <ReviewBody review={r}/>
               <div className="review-tags">

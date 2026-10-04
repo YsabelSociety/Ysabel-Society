@@ -3,7 +3,7 @@ export const REVIEW_CATEGORIES = [
   {topic:'Drinks',label:'Drinks & beverages',detail:'Cocktails, wine, coffee, water and drink quality'},
   {topic:'Menu',label:'Menu & choice',detail:'Variety, selection, unavailable items and menu clarity'},
   {topic:'Service',label:'Service & staff',detail:'Waiters, order accuracy, attention and professionalism'},
-  {topic:'Hospitality',label:'Hospitality & welcome',detail:'Reception, greeting, courtesy and guest treatment'},
+  {topic:'Hospitality',label:'Hospitality & guest treatment',detail:'Welcome, courtesy, team attitude, respect, empathy and how guests are treated'},
   {topic:'Cleanliness',label:'Cleanliness & hygiene',detail:'Clean or dirty plates, glasses, cutlery, tables and toilets'},
   {topic:'Reservations',label:'Reservations & bookings',detail:'Booking, confirmation, cancellation and table availability'},
   {topic:'Atmosphere',label:'Atmosphere & comfort',detail:'Music, noise, seating, decor, ventilation and comfort'},

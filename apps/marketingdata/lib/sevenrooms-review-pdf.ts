@@ -342,13 +342,15 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   };
   const ratingSummary = (list: GuestReview[], featured = false) => {
     const groups = guestReviewRatingGroups(list);
+    const starsInScope = scope.rating === 'negative' ? [1, 2, 3] : scope.rating === 'positive' ? [4, 5] : [1, 2, 3, 4, 5];
+    const ratedGroups = groups.filter(group => group.star != null && starsInScope.includes(group.star));
     if (featured) {
-      need(111); const gap = 5, width = (C - 28 - gap * 4) / 5;
+      need(111); const gap = 5, width = (C - 28 - gap * (ratedGroups.length - 1)) / ratedGroups.length;
       doc.saveGraphicsState(); doc.roundedRect(M, y - 4, C, 101, 8, 8, null); doc.clip(); doc.discardPath();
       gradient(M, y - 4, C, 101, '#F8F1E1', '#FFFEFA'); doc.restoreGraphicsState();
-      text('Feedback from 1 to 5 stars', M + 14, y + 14, 12, true, '#715720');
+      text(`Feedback from ${starsInScope[0]} to ${starsInScope[starsInScope.length - 1]} stars`, M + 14, y + 14, 12, true, '#715720');
       text('Guest responses grouped by overall rating', M + 14, y + 27, 7, false, '#887A5F');
-      groups.slice(0, 5).forEach((group, i) => {
+      ratedGroups.forEach((group, i) => {
         const x = M + 14 + i * (width + gap);
         doc.setFillColor('#FFFFFF'); doc.roundedRect(x, y + 38, width, 54, 5, 5, 'F');
         stars(group.star!, x + 10, y + 50, 2.2);
@@ -362,8 +364,8 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       return;
     }
     need(80);
-    const width = C / 5;
-    groups.slice(0, 5).forEach((group, i) => {
+    const width = C / ratedGroups.length;
+    ratedGroups.forEach((group, i) => {
       const x = M + i * width, issues = group.rows.filter(row => concerns.get(row.id)?.length).length;
       doc.setFillColor('#F5F6F3'); doc.roundedRect(x, y, width - 5, 58, 5, 5, 'F');
       text(`${group.star}-star`, x + 10, y + 17, 8, true, '#896A2A');

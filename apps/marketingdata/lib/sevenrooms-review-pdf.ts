@@ -45,7 +45,7 @@ export async function loadGuestReviewAssets(rows: GuestReview[], progress: (s: s
     return new Uint8Array(await response.arrayBuffer());
   };
   progress('Preparing report typography and images…');
-  const [regular, bold, logo] = await Promise.all([read('/fonts/NotoSans-Regular.ttf'), read('/fonts/NotoSans-Bold.ttf'), read('/ysabel-society-logo.png')]);
+  const [regular, bold, logo] = await Promise.all([read('/fonts/NotoSans-Regular.ttf'), read('/fonts/NotoSans-Bold.ttf'), read('/ysabel-loading-identity.png')]);
   const urls = [...new Set(rows.flatMap(r => [r.profile_photo, ...(r.photos || []).map(p => p.url)]).filter((v): v is string => !!v))];
   const images = new Map<string, Uint8Array>(); let cursor = 0, completed = 0;
   await Promise.all(Array.from({ length: Math.min(4, urls.length) }, async () => {
@@ -81,19 +81,24 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   }
   doc.setProperties({ title: 'SevenRooms - Ysabel Society guest reviews', subject: 'Monthly guest reviews and comments from SevenRooms', author: 'Ysabel Society', creator: 'arberhalili.com' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36, C = W - M * 2, bottom = H - 45;
-  let y = 83, continuing = '', activeVenue = '';
+  let y = 148, continuing = '', activeVenue = '';
   const neutral = { name: 'Ysabel Society', color: '#1D3428', end: '#6B8774', tint: '#EDF3EE', ink: '#FFFFFF' };
   const theme = () => SEVENROOMS_VENUE_THEMES[activeVenue] || { ...neutral, name: activeVenue ? venueLabel(activeVenue) : neutral.name };
   const concerns = new Map(rows.map(row => [row.id, guestReviewConcerns(row)]));
   const gradients = new Map<string, string>();
   // Native PDF shading stays smooth at every zoom level and reuses compact color resources.
-  const gradient = (x: number, top: number, width: number, height: number, start: string, end: string) => {
+  const gradient = (x: number, top: number, width: number, height: number, start: string, end: string, middle?: string) => {
     const rgb = (hex: string) => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
-    const colors = start + end;
+    const colors = start + end + (middle || '');
     doc.advancedAPI(pdf => {
       let key = gradients.get(colors);
-      if (!key) { key = `sr-gradient-${gradients.size}`; gradients.set(colors, key); pdf.addShadingPattern(key, pdf.ShadingPattern('axial', [0, 0, 1, 0], [{ offset: 0, color: rgb(start) }, { offset: 1, color: rgb(end) }])); }
-      pdf.rect(x, top, width, height); pdf.fill({ key, matrix: pdf.Matrix(width, 0, 0, 1, x, top) });
+      if (!key) {
+        key = `sr-gradient-${gradients.size}`; gradients.set(colors, key);
+        const stops = middle ? [{ offset: 0, color: rgb(start) }, { offset: .55, color: rgb(middle) }, { offset: 1, color: rgb(end) }]
+          : [{ offset: 0, color: rgb(start) }, { offset: 1, color: rgb(end) }];
+        pdf.addShadingPattern(key, pdf.ShadingPattern('axial', [0, 0, 1, middle ? .3 : 0], stops));
+      }
+      pdf.rect(x, top, width, height); pdf.fill({ key, matrix: pdf.Matrix(width, 0, 0, height, x, top) });
     });
   };
   const clean = (s: string) => Array.from(s.normalize('NFC').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '')).map(c => {
@@ -102,14 +107,23 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   }).join('');
   const font = (size = 9, bold = false, color = '#35463c') => { doc.setFont('Noto', bold ? 'bold' : 'normal'); doc.setFontSize(size); doc.setTextColor(color); };
   const text = (s: string, x: number, top: number, size = 9, bold = false, color = '#35463c') => { font(size, bold, color); doc.text(clean(s), x, top); };
-  const header = () => {
-    doc.addImage(assets.logo, 'PNG', M, 15, 64, 36, 'ysabel-logo', 'FAST');
-    text('SEVENROOMS', M + 80, 32, 11, true, activeVenue === 'italian' ? '#766019' : theme().color);
-    text(`${theme().name} / Guest reviews & comments`, M + 80, 47, 8, false, '#708078');
-    doc.setDrawColor('#e4e9e4'); doc.setLineWidth(.5); doc.line(M, 62, W - M, 62);
-    gradient(M, 62, 100, 2, theme().color, theme().end);
+  const brandLogo = (width: number) => {
+    // Display the original dark artwork without its transparent outer margins.
+    // The PNG remains untouched and is embedded once; PDF clipping preserves every logo detail.
+    const scale = width / 972, height = 702 * scale;
+    doc.saveGraphicsState(); doc.rect(M, 15, width, height, null); doc.clip(); doc.discardPath();
+    doc.addImage(assets.logo, 'PNG', M - 314 * scale, 15 - 99 * scale, 1600 * scale, 900 * scale, 'ysabel-logo', 'FAST');
+    doc.restoreGraphicsState();
+    return height;
   };
-  const next = () => { check(signal); doc.addPage(); header(); y = 84; if (continuing) { text(continuing + ' / continued', M, y, 8, false, '#708078'); y += 20; } };
+  const header = (cover = false) => {
+    const width = cover ? 132 : 96, height = brandLogo(width), left = M + width + 26;
+    text('SEVENROOMS', left, 15 + height / 2 - 2, 11, true, '#1D3428');
+    text(`${theme().name} / Guest reviews & comments`, left, 15 + height / 2 + 14, 8, false, '#708078');
+    const edge = cover ? 126 : 98;
+    doc.setDrawColor('#e4e9e4'); doc.setLineWidth(.5); doc.line(M, edge, W - M, edge);
+  };
+  const next = () => { check(signal); doc.addPage(); header(); y = 120; if (continuing) { text(continuing + ' / continued', M, y, 8, false, '#708078'); y += 20; } };
   const need = (height: number) => { if (y + height > bottom) next(); };
   const paragraph = (s: string, size = 9, bold = false, muted = false) => {
     if (!s) return; font(size, bold); const lines: string[] = doc.splitTextToSize(clean(s), C - 20);
@@ -148,6 +162,71 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     }
     y += 24;
   };
+  const dateLabel = (value?: string) => {
+    if (!value || !/^\d{4}-\d{2}-\d{2}/.test(value)) return value;
+    const date = new Date(value.slice(0, 10) + 'T12:00:00Z');
+    return Number.isNaN(date.getTime()) ? value : new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(date);
+  };
+  type Detail = { label: string; value: string | number | undefined; span?: number; url?: string };
+  const detailCards = (items: Detail[], reference = false) => {
+    const available = items.filter(item => item.value !== '' && item.value != null);
+    if (!available.length) return;
+    const columns = 3, gap = 5, width = (C - 20 - gap * (columns - 1)) / columns;
+    let batch: Detail[] = [], used = 0;
+    const draw = () => {
+      if (!batch.length) return;
+      const cells = batch.map(item => {
+        const span = item.span || 1, w = width * span + gap * (span - 1);
+        font(reference ? 7 : 8);
+        return { item, w, lines: doc.splitTextToSize(clean(String(item.value)), w - 16) as string[] };
+      });
+      const height = Math.max(...cells.map(cell => 24 + cell.lines.length * (reference ? 9 : 10)));
+      need(height + gap); let x = M + 10;
+      for (const { item, w, lines } of cells) {
+        doc.setFillColor(reference ? '#F8F9F7' : '#F2F5F2'); doc.roundedRect(x, y - 4, w, height, 4, 4, 'F');
+        text(item.label.toUpperCase(), x + 8, y + 7, 6.3, false, '#738078');
+        lines.forEach((line, index) => text(line, x + 8, y + 21 + index * (reference ? 9 : 10), reference ? 7 : 8, false, '#1D3428'));
+        if (item.url) doc.link(x, y - 4, w, height, { url: item.url });
+        x += w + gap;
+      }
+      y += height + gap; batch = []; used = 0;
+    };
+    for (const item of available) {
+      const span = item.span || 1;
+      if (used + span > columns) draw();
+      batch.push(item); used += span;
+      if (used === columns) draw();
+    }
+    draw(); y += 3;
+  };
+  const feedbackLink = (row: GuestReview) => {
+    need(28); const label = 'Open feedback in Ysabel Society'; font(7.5, true);
+    const width = doc.getTextWidth(label) + 33, x = M + 10;
+    doc.setFillColor('#EDF2ED'); doc.roundedRect(x, y - 5, width, 23, 5, 5, 'F');
+    text(label, x + 9, y + 9, 7.5, true, '#1D3428');
+    doc.setDrawColor('#1D3428'); doc.setLineWidth(.65);
+    doc.line(x + width - 16, y + 10, x + width - 10, y + 4); doc.line(x + width - 15, y + 4, x + width - 10, y + 4); doc.line(x + width - 10, y + 4, x + width - 10, y + 9);
+    doc.link(x, y - 5, width, 23, { url: 'https://ysabelsociety.com/marketingdata?' + new URLSearchParams({ sr_tab: 'Reviews & Comments', sr_venue: row.venue }) + '#Seven%20Rooms' });
+    y += 30;
+  };
+  const venueBanner = (name: string, detail: string, height: number, large = false) => {
+    const t = SEVENROOMS_VENUE_THEMES[name] || { ...neutral, name: venueLabel(name) };
+    const palette: Record<string, [string, string, string]> = {
+      garden: ['#132A20', '#345646', '#799080'],
+      asian: ['#6D1024', '#AD1731', '#D66570'],
+      italian: ['#C6A21E', '#EAC426', '#F6E6A5'],
+    };
+    const [start, middle, end] = palette[name] || [t.color, t.color, t.end];
+    need(height + 12);
+    doc.saveGraphicsState(); doc.roundedRect(M, y - 7, C, height, large ? 9 : 6, large ? 9 : 6, null); doc.clip(); doc.discardPath();
+    gradient(M, y - 7, C, height, start, end, middle);
+    // A fine inset line adds depth without introducing texture or raster artwork.
+    doc.setDrawColor(large ? middle : start); doc.setLineWidth(.35); doc.roundedRect(M + 1, y - 6, C - 2, height - 2, large ? 8 : 5, large ? 8 : 5, 'S');
+    doc.restoreGraphicsState();
+    text(t.name, M + (large ? 16 : 12), y + (large ? 19 : 7), large ? 23 : 11, true, t.ink);
+    text(detail, M + (large ? 16 : 12), y + (large ? 43 : 22), large ? 9 : 7.5, false, t.ink);
+    y += height + (large ? 14 : 9);
+  };
   const concernPanel = (row: GuestReview) => {
     const issues = concerns.get(row.id) || [];
     if (!issues.length) { paragraph('No specific criticism identified in the available feedback.', 7.5, false, true); return; }
@@ -175,7 +254,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     y += 73;
     if (groups[5].rows.length) paragraph(`${groups[5].rows.length} responses without an overall rating are included separately.`, 8, false, true);
   };
-  header();
+  header(true);
   text('Guest voices.', M, y, 26, true, '#1d3428'); y += 27;
   text(`${feedbackMonthLabel(scope.month)} / ${venueLabel(scope.venue)}`, M, y, 11); y += 21;
   const selected = `${scope.comments === 'written' ? 'Written comments only' : 'All reviews and comments'} - ${scope.rating === 'critical' ? 'Any score of 3 or below' : 'All ratings'}`;
@@ -201,11 +280,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   if (scope.venue === 'all') {
     paragraph('Venue chapters', 10, true);
     for (const group of venueGroups) {
-      need(50); const t = SEVENROOMS_VENUE_THEMES[group.venue] || { ...neutral, name: venueLabel(group.venue) };
-      gradient(M, y - 7, C, 39, t.color, t.end);
-      text(t.name, M + 12, y + 7, 11, true, t.ink);
-      text(`${group.rows.length} responses / ${group.rows.filter(row => concerns.get(row.id)?.length).length} with concerns`, M + 12, y + 22, 7.5, false, t.ink);
-      y += 48;
+      venueBanner(group.venue, `${group.rows.length} responses / ${group.rows.filter(row => concerns.get(row.id)?.length).length} with concerns`, 39);
     }
   }
   if (scope.month === 'all') {
@@ -216,10 +291,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   for (const venueGroup of venueGroups) {
     activeVenue = venueGroup.venue; continuing = ''; next();
     const t = theme();
-    gradient(M, y - 7, C, 70, t.color, t.end);
-    text(t.name, M + 16, y + 19, 23, true, t.ink);
-    text(`${venueGroup.rows.length} guest responses / ${venueGroup.rows.filter(row => concerns.get(row.id)?.length).length} with concerns`, M + 16, y + 43, 9, false, t.ink);
-    y += 84;
+    venueBanner(venueGroup.venue, `${venueGroup.rows.length} guest responses / ${venueGroup.rows.filter(row => concerns.get(row.id)?.length).length} with concerns`, 70, true);
     if (!venueGroup.rows.length) { paragraph('No guest feedback is available for this venue in the selected period. This does not mean there were no reservations or visits.', 9, false, true); continue; }
     ratingSummary(venueGroup.rows);
     for (const [month, list] of groupFeedbackByMonth(venueGroup.rows).sort(([a], [b]) => a === 'undated' ? 1 : b === 'undated' ? -1 : b.localeCompare(a))) {
@@ -249,15 +321,16 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       concernPanel(r);
       if (r.feedback) paragraph('Original guest comment', 8, true);
       paragraph(r.feedback || 'Rating only. No written comment was supplied.', 9);
+      // Keep the compact contact/history/reference group together when it fits on one page.
+      need(165 + (r.guest?.gender || r.guest?.birthday ? 40 : 0));
       if (r.guest) {
-        const details = [['Email', r.guest.email], ['Phone', r.guest.phone], ['Recorded visits', r.guest.visits], ['First visit', r.guest.first_visit], ['Last visit', r.guest.last_visit], ['Gender', r.guest.gender], ['Birthday', r.guest.birthday]].filter(([, v]) => v !== '' && v != null);
-        if (details.length) paragraph(details.map(([k, v]) => `${k}: ${v}`).join(' / '), 8, false, true);
+        detailCards([{ label: 'Email', value: r.guest.email, span: 2, url: r.guest.email ? 'mailto:' + r.guest.email : undefined }, { label: 'Phone', value: r.guest.phone, url: r.guest.phone ? 'tel:' + r.guest.phone : undefined }]);
+        detailCards([{ label: 'Recorded visits', value: r.guest.visits }, { label: 'First visit', value: dateLabel(r.guest.first_visit) }, { label: 'Last visit', value: dateLabel(r.guest.last_visit) }, { label: 'Gender', value: r.guest.gender }, { label: 'Birthday', value: dateLabel(r.guest.birthday) }]);
       }
-      paragraph(`SevenRooms reservation: ${r.reservation?.reference || 'Not supplied'}${r.guest?.reference ? ' / Guest: ' + r.guest.reference : ''}`, 7, false, true);
-      paragraph(`Ysabel record: ${r.id}`, 7, false, true);
+      detailCards([{ label: 'Reservation ID', value: r.reservation?.reference || 'Not supplied' }, { label: 'Guest ID', value: r.guest?.reference || 'Not supplied' }, { label: 'Ysabel record', value: r.id }], true);
       if (r.profile_photo) { need(110); paragraph('Guest profile photo', 8, true); photo(r.profile_photo, 64, 64); link('Open original profile photo', r.profile_photo); }
       for (const [i, p] of (r.photos || []).entries()) { need(190); paragraph(`Attached image ${i + 1}${p.caption ? ': ' + p.caption : ''}`, 8, true); photo(p.url); link('Open original attachment', p.url); }
-      link('Open SevenRooms monthly feedback in Ysabel Society', 'https://ysabelsociety.com/marketingdata?' + new URLSearchParams({ sr_tab: 'Reviews & Comments', sr_venue: r.venue }) + '#Seven%20Rooms');
+      feedbackLink(r);
       need(12); doc.setDrawColor('#e4e9e4'); doc.line(M, y, W - M, y); y += 20; continuing = '';
       if (sequence % 15 === 0) { progress(`Laying out review ${sequence} / ${rows.length}`); await yieldWork(); }
       }

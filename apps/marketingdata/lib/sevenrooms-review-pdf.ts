@@ -111,6 +111,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   };
   const criticismSurface: Surface = { start: '#ECD3E4', middle: '#F5E3F0', end: '#FDF6FB', ink: '#703E64', accent: '#9C5C87' };
   const reviewSurface: Surface = { start: '#EDF3EF', middle: '#F5F8F5', end: '#FEFEFC', ink: '#35463C', accent: '#52765F' };
+  const commentSurface: Surface = { start: '#E4EBE3', middle: '#F0F3EA', end: '#FDFEF9', ink: '#1D3428', accent: '#52765F' };
   const mix = (a: string, b: string, amount: number) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - amount) + parseInt(b.slice(i, i + 2), 16) * amount).toString(16).padStart(2, '0')).join('');
   const card = (x: number, top: number, width: number, height: number, surface: Surface, radius = 6) => {
     doc.saveGraphicsState(); doc.roundedRect(x, top, width, height, radius, radius, null); doc.clip(); doc.discardPath();
@@ -287,8 +288,9 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   };
   const commentPanel = (comment: string, hasWrittenCriticism = false) => {
     if (!comment.trim()) { paragraph('Rating only. No written comment was supplied.', 8, false, true); return; }
-    const size = 9.5, leading = 14, inset = 18;
-    font(size); const lines = doc.splitTextToSize(clean(comment), C - inset * 2) as string[];
+    const size = 10.2, leading = 15.5, inset = 32;
+    // Measure in the same weight used for the review so highlighted text never overruns the panel.
+    font(size, true); const lines = doc.splitTextToSize(clean(comment), C - inset * 2) as string[];
     let offset = 0;
     // Keep short comments together; paginate longer comments without cutting or shrinking their text.
     const fullHeight = 67 + (lines.length - 1) * leading;
@@ -297,12 +299,19 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       need(67 + (Math.min(3, lines.length - offset) - 1) * leading);
       const count = Math.min(lines.length - offset, Math.max(1, Math.floor((bottom - y - 67) / leading) + 1));
       const height = 58 + (count - 1) * leading;
-      const surface = hasWrittenCriticism ? criticismSurface : reviewSurface;
+      const surface = hasWrittenCriticism ? criticismSurface : commentSurface;
       card(M, y - 4, C, height, surface, 7);
       const accent = surface.accent;
       doc.setFillColor(accent); doc.roundedRect(M + 8, y + 10, 2, height - 28, 1, 1, 'F');
-      text(offset ? 'ORIGINAL GUEST COMMENT / CONTINUED' : 'ORIGINAL GUEST COMMENT', M + inset, y + 14, 6.8, true, accent);
-      lines.slice(offset, offset + count).forEach((line, i) => text(line, M + inset, y + 36 + i * leading, size, false, surface.ink));
+      text(offset ? 'ORIGINAL GUEST COMMENT / CONTINUED' : 'ORIGINAL GUEST COMMENT', M + inset, y + 14, 7, true, accent);
+      // A small vector quotation mark separates the original voice from report metadata.
+      doc.setFillColor(mix(accent, '#FFFFFF', .3));
+      for (let quote = 0; quote < 2; quote++) {
+        const x = M + 15 + quote * 7;
+        doc.roundedRect(x, y + 28, 5, 5, 1, 1, 'F');
+        doc.triangle(x, y + 31, x + 5, y + 31, x, y + 37, 'F');
+      }
+      lines.slice(offset, offset + count).forEach((line, i) => text(line, M + inset, y + 36 + i * leading, size, true, surface.ink));
       offset += count; y += height + 9;
       if (offset < lines.length) next();
     }

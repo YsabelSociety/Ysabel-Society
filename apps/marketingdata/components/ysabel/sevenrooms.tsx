@@ -92,6 +92,7 @@ export default function SevenRooms(){
 }
 function GuestReviews({venue,revision,openGuest}:{venue:string;revision:number;openGuest:(id:string)=>void}){
  const [month,Month]=useState('latest'),[page,Page]=useState(1),[rating,Rating]=useState('all'),[comments,Comments]=useState('all');
+ const [exportScope,ExportScope]=useState<import('../../lib/sevenrooms-review-pdf').GuestReviewScope|null>(null);
  const {data:d,error,loading}=useData('op=feedback&'+new URLSearchParams({venue,month,rating,comments,page:String(page)}),revision);
  const pickMonth=(value:string)=>{Month(value);Page(1);};
  const selectedMonth=month==='latest'?(d?.month||'latest'):month;
@@ -101,7 +102,9 @@ function GuestReviews({venue,revision,openGuest}:{venue:string;revision:number;o
    <label>Month<select aria-label="Review month" value={selectedMonth} onChange={e=>pickMonth(e.target.value)}><option value="all">All months</option>{selectedMonth==='latest'&&<option value="latest">Latest available month</option>}{selectedMonth!=='latest'&&selectedMonth!=='all'&&!d?.months.some((m:Row)=>m.month===selectedMonth)&&<option value={selectedMonth}>{feedbackMonthLabel(selectedMonth)}</option>}{d?.months.map((m:Row)=><option key={m.month} value={m.month}>{feedbackMonthLabel(m.month)}</option>)}</select></label>
    <label>Show<select aria-label="Review content" value={comments} onChange={e=>{Comments(e.target.value);Page(1);}}><option value="all">All reviews & comments</option><option value="written">Written comments only</option></select></label>
    <label>Rating<select aria-label="Review rating" value={rating} onChange={e=>{Rating(e.target.value);Page(1);}}><option value="all">All ratings</option><option value="critical">Any score of 3 or below</option></select></label>
+   <button className="sr-primary sr-review-download" disabled={loading||!total} onClick={()=>ExportScope({venue,month:selectedMonth,rating,comments,count:total})}><ArrowDownToLine size={16}/> Download PDF</button>
   </div></div>
+  {exportScope&&<GuestReviewExport scope={exportScope} close={()=>ExportScope(null)}/>}
   {error&&<p className="sr-error" role="alert">{error}</p>}
   {loading&&!d&&<p role="status">Loading guest feedback…</p>}
   {d&&<>
@@ -114,6 +117,13 @@ function GuestReviews({venue,revision,openGuest}:{venue:string;revision:number;o
    {total>0&&<div className="sr-pagination"><span>{num((page-1)*d.size+1)}–{num(Math.min(page*d.size,total))} of {num(total)}</span><button disabled={page===1||loading} onClick={()=>Page(p=>p-1)}>Previous</button><span>Page {page} of {Math.ceil(total/d.size)}</span><button disabled={page*d.size>=total||loading} onClick={()=>Page(p=>p+1)}>Next</button></div>}
   </>}
  </section>;
+}
+
+function GuestReviewExport({scope,close}:{scope:import('../../lib/sevenrooms-review-pdf').GuestReviewScope;close:()=>void}){
+ const [busy,Busy]=useState(false),[message,Message]=useState(''),[error,Error]=useState('');
+ const controller=useRef<AbortController|null>(null);
+ useEffect(()=>()=>controller.current?.abort(),[]);
+ return <Drawer title="SevenRooms review report" close={close}><AdminGate title="Download guest review report"><div className="sr-report-platform"><MessageSquareText size={20}/><strong>SevenRooms</strong><span>Guest reviews & comments</span></div><div className="sr-export-number">{num(scope.count)}</div><h3>Matching guest responses</h3><p>{feedbackMonthLabel(scope.month)} · {ven(scope.venue)}</p><p className="sr-muted">{scope.comments==='written'?'Written comments only':'All reviews & comments'} · {scope.rating==='critical'?'Any score of 3 or below':'All ratings'}</p><p className="sr-muted">Includes every matching response across all pages, full comments, ratings, recorded guest and reservation details, plus photos and attachments when supplied. Staff notes are excluded.</p><button className="sr-primary" disabled={busy} onClick={async()=>{const abort=new AbortController();controller.current=abort;Busy(true);Error('');try{const report=await import('../../lib/sevenrooms-review-pdf');const {rows,scope:verified}=await report.collectGuestReviews(scope,Message,abort.signal);const assets=await report.loadGuestReviewAssets(rows,Message,abort.signal);const doc=await report.createGuestReviewPDF(rows,verified,assets,Message,abort.signal);abort.signal.throwIfAborted();doc.save(`ysabel-sevenrooms-reviews-${verified.month}-${verified.venue}.pdf`);}catch(e){Error((e as Error).name==='AbortError'?'Report cancelled.':(e as Error).message);}finally{Busy(false);controller.current=null;}}}><ArrowDownToLine size={16}/>{busy?'Preparing PDF…':'Download '+num(scope.count)+' responses as PDF'}</button>{busy&&<button onClick={()=>controller.current?.abort()}>Cancel</button>}<p role="status" aria-live="polite">{message}</p>{error&&<p className="sr-error" role="alert">{error}</p>}</AdminGate></Drawer>;
 }
 
 function ReservationInsights({tab,venue,day,openGuest}:{tab:string;venue:string;day:string;openGuest:(id:string)=>void}){

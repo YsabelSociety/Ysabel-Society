@@ -79,7 +79,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   for (const [filename, bytes, weight] of [['regular', assets.regular, 'normal'], ['bold', assets.bold, 'bold']] as const) {
     doc.addFileToVFS(filename + '.ttf', binary(bytes)); doc.addFont(filename + '.ttf', 'Noto', weight);
   }
-  doc.setProperties({ title: 'SevenRooms - Ysabel Society guest reviews', subject: 'Monthly guest reviews and comments from SevenRooms', author: 'Ysabel Society', creator: 'arberhalili.com' });
+  doc.setProperties({ title: 'SevenRooms - Ysabel Society Guest Experience Report', subject: 'Monthly guest reviews and comments from SevenRooms', author: 'Ysabel Society', creator: 'arberhalili.com' });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight(), M = 36, C = W - M * 2, bottom = H - 45;
   let y = 148, continuing = '', activeVenue = '';
   const neutral = { name: 'Ysabel Society', color: '#1D3428', end: '#6B8774', tint: '#EDF3EE', ink: '#FFFFFF' };
@@ -134,9 +134,16 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   const stars = (rating: number, x: number, top: number, radius = 6) => {
     for (let s = 0; s < 5; s++) {
       const pts = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? radius * .45 : radius; return [Math.cos(a) * r, Math.sin(a) * r]; });
+      const fill = Math.max(0, Math.min(1, rating - s));
+      const left = x + s * (radius * 2 + 4);
+      const draw = (style: 'FD' | 'S' | null) => doc.lines(pts.map((p, i) => { const prev = pts[(i + 9) % 10]; return [p[0] - prev[0], p[1] - prev[1]]; }), left + pts[9][0], top + pts[9][1], [1, 1], style, true);
       doc.setLineWidth(radius <= 4 ? .35 : .5);
-      doc.setDrawColor('#b99342'); doc.setFillColor(s < Math.round(rating) ? '#b99342' : '#f4f1e9');
-      doc.lines(pts.map((p, i) => { const prev = pts[(i + 9) % 10]; return [p[0] - prev[0], p[1] - prev[1]]; }), x + s * (radius * 2 + 4) + pts[9][0], top + pts[9][1], [1, 1], 'FD', true);
+      doc.setDrawColor('#b99342'); doc.setFillColor(fill === 1 ? '#b99342' : '#f4f1e9'); draw('FD');
+      if (fill > 0 && fill < 1) {
+        doc.saveGraphicsState(); draw(null); doc.clip(); doc.discardPath();
+        doc.setFillColor('#b99342'); doc.rect(left - radius, top - radius, radius * 2 * fill, radius * 2, 'F');
+        doc.restoreGraphicsState(); draw('S');
+      }
     }
   };
   const ratingTabs = (scores: GuestReview['scores']) => {
@@ -287,8 +294,56 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       if (offset < lines.length) next();
     }
   };
-  const ratingSummary = (list: GuestReview[]) => {
-    const groups = guestReviewRatingGroups(list); need(80);
+  const categorySummary = (list: GuestReview[]) => {
+    need(108); const height = 98, gap = 5, width = (C - 28 - gap * 3) / 4;
+    doc.saveGraphicsState(); doc.roundedRect(M, y - 4, C, height, 8, 8, null); doc.clip(); doc.discardPath();
+    gradient(M, y - 4, C, height, '#EDF3EF', '#FEFEFC'); doc.restoreGraphicsState();
+    text('Category averages', M + 14, y + 14, 12, true, '#1D3428');
+    text('Scores in the selected reviews', M + 14, y + 27, 7, false, '#708078');
+    const palette: Record<string, [string, string]> = {
+      food: ['#FAF3E3', '#866820'], drinks: ['#F6EDF0', '#7B465B'],
+      service: ['#E9F1EB', '#365C46'], atmosphere: ['#EDF1F5', '#4C6073'],
+    };
+    fields.slice(1).forEach((key, i) => {
+      const values = list.map(row => row.scores[key]).filter((value): value is number => value != null);
+      const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+      const x = M + 14 + i * (width + gap), [tint, ink] = palette[key];
+      doc.setFillColor(average == null ? '#F3F4F1' : tint); doc.roundedRect(x, y + 37, width, 50, 5, 5, 'F');
+      text(key.toUpperCase(), x + 9, y + 48, 6.4, true, average == null ? '#708078' : ink);
+      if (average != null) {
+        text(average.toFixed(2) + ' / 5', x + 9, y + 66, 14, true, ink);
+        stars(average, x + 11, y + 78, 2.6);
+        const count = `${values.length} scores`; font(6.4, false);
+        text(count, x + width - 9 - doc.getTextWidth(count), y + 80, 6.4, false, '#708078');
+      } else {
+        text('Not recorded', x + 9, y + 65, 8.5, false, '#708078');
+        text('No scores supplied', x + 9, y + 80, 6.4, false, '#708078');
+      }
+    });
+    y += 108;
+  };
+  const ratingSummary = (list: GuestReview[], featured = false) => {
+    const groups = guestReviewRatingGroups(list);
+    if (featured) {
+      need(111); const gap = 5, width = (C - 28 - gap * 4) / 5;
+      doc.saveGraphicsState(); doc.roundedRect(M, y - 4, C, 101, 8, 8, null); doc.clip(); doc.discardPath();
+      gradient(M, y - 4, C, 101, '#F8F1E1', '#FFFEFA'); doc.restoreGraphicsState();
+      text('Feedback from 1 to 5 stars', M + 14, y + 14, 12, true, '#715720');
+      text('Guest responses grouped by overall rating', M + 14, y + 27, 7, false, '#887A5F');
+      groups.slice(0, 5).forEach((group, i) => {
+        const x = M + 14 + i * (width + gap);
+        doc.setFillColor('#FFFFFF'); doc.roundedRect(x, y + 38, width, 54, 5, 5, 'F');
+        stars(group.star!, x + 10, y + 50, 2.2);
+        const label = `${group.star} STAR${group.star === 1 ? '' : 'S'}`; font(6.3, true);
+        text(label, x + width - 8 - doc.getTextWidth(label), y + 52, 6.3, true, '#896A2A');
+        text(String(group.rows.length), x + 9, y + 74, 18, true, '#1D3428');
+        text(`${group.rows.filter(row => concerns.get(row.id)?.length).length} with concerns`, x + 9, y + 87, 6.3, false, '#887A5F');
+      });
+      y += 111;
+      if (groups[5].rows.length) paragraph(`${groups[5].rows.length} responses without an overall rating are included separately.`, 8, false, true);
+      return;
+    }
+    need(80);
     const width = C / 5;
     groups.slice(0, 5).forEach((group, i) => {
       const x = M + i * width; doc.setFillColor('#F5F6F3'); doc.roundedRect(x, y, width - 5, 58, 5, 5, 'F');
@@ -300,7 +355,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     if (groups[5].rows.length) paragraph(`${groups[5].rows.length} responses without an overall rating are included separately.`, 8, false, true);
   };
   header(true);
-  text('Guest voices.', M, y, 26, true, '#1d3428'); y += 27;
+  text('Guest Experience Report', M, y, 26, true, '#1d3428'); y += 27;
   text(`${feedbackMonthLabel(scope.month)} / ${venueLabel(scope.venue)}`, M, y, 11); y += 21;
   const selected = `${scope.comments === 'written' ? 'Written comments only' : 'All reviews and comments'} - ${scope.rating === 'critical' ? 'Any score of 3 or below' : 'All ratings'}`;
   font(8); const scopeLines: string[] = doc.splitTextToSize(selected, C); doc.text(scopeLines, M, y); y += scopeLines.length * 12 + 14;
@@ -316,10 +371,8 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   paragraph('Source: SevenRooms imported reservation feedback. Months use reservation dates; review submission times were not supplied. Internal staff notes are excluded.', 8, false, true);
   const imagesSupplied = rows.reduce((sum, r) => sum + (r.profile_photo ? 1 : 0) + (r.photos?.length || 0), 0);
   paragraph(imagesSupplied ? `${imagesSupplied} image references supplied; ${assets.images.size} unique images embedded. Original image links remain available.` : 'No profile photos or review attachments were supplied in these imported records.', 8, false, true);
-  paragraph('Category averages in this selection', 10, true);
-  for (const key of fields.slice(1)) { const values = rows.map(r => r.scores[key]).filter((v): v is number => v != null); paragraph(`${key[0].toUpperCase() + key.slice(1)}: ${values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2) + ' / 5 (' + values.length + ' scores)' : 'Not recorded'}`, 8); }
-  paragraph('Feedback from 1 to 5 stars', 10, true);
-  ratingSummary(rows);
+  categorySummary(rows);
+  ratingSummary(rows, true);
   paragraph('Written concerns use the same contextual detector as Google review reports. Category ratings of 3 or below are shown as separate score evidence. An overall rating alone does not identify a complaint. Check the full original comment before acting.', 8, false, true);
   const venueGroups = guestReviewVenueGroups(rows, scope.venue);
   if (scope.venue === 'all') {

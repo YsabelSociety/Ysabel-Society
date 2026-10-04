@@ -105,18 +105,21 @@ export function ReviewReports({
     () => makeReviewReport(records, {...filters,topic:'All topics',evidence:'Criticism detected'}, reportRange, timezone, title),
     [records, localFilters, dates, range.start, range.end, timezone, title],
   );
-  async function exportIllustrated() {
+  async function exportIllustrated(stars?: number[]) {
     if (!snapshot || busy) return;
+    const selected = stars ? { ...snapshot, rows: snapshot.rows.filter(r => stars.includes(r.rating || 0)), filters: { ...snapshot.filters, stars } } : snapshot;
+    if (!selected.rows.length) return;
     setBusy(true);
     setMessage('Preparing selected reviews…');
     try {
       const bundle: ReportBundle = {
-        scope: 'reviews', title: snapshot.title, range: snapshot.range,
-        generatedAt: snapshot.generatedAt, timezone: snapshot.timezone,
-        mode: 'live', rows: [], posts: [], tables: [], records: snapshot.rows,
-        sourceStatus: [], communityStatus: [], reviewSelection: snapshot.rows,
-        reviewNote: reviewFilterLabel(snapshot),
-        ratingComparison: snapshot.ratingComparison,
+        scope: 'reviews', title: selected.title, range: selected.range,
+        generatedAt: selected.generatedAt, timezone: selected.timezone,
+        mode: 'live', rows: [], posts: [], tables: [], records: selected.rows,
+        sourceStatus: [], communityStatus: [], reviewSelection: selected.rows,
+        reviewNote: reviewFilterLabel(selected),
+        reviewStars: selected.filters.stars,
+        ratingComparison: selected.ratingComparison,
       };
       const { downloadReportPDF } = await import('@/lib/report-pdf');
       await downloadReportPDF(bundle, setMessage);
@@ -166,6 +169,19 @@ export function ReviewReports({
         </button>
       </div>
       <ReviewRatingComparison comparison={ratingComparison} />
+      <div className="community-toolbar" role="group" aria-label="Review download groups">
+        {[
+          { label: 'All reviews · 1–5 stars', stars: [1, 2, 3, 4, 5] },
+          { label: 'Low ratings · 1–3 stars', stars: [1, 2, 3] },
+          { label: 'Positive ratings · 4–5 stars', stars: [4, 5] },
+        ].map(group => (
+          <button key={group.label} className={group.stars.length === filters.stars.length && group.stars.every(s => filters.stars.includes(s)) ? 'primary' : 'secondary'}
+            aria-pressed={group.stars.length === filters.stars.length && group.stars.every(s => filters.stars.includes(s))}
+            onClick={() => patch({ stars: group.stars })}>
+            <FileText size={15} />{group.label}
+          </button>
+        ))}
+      </div>
       <div
         className="review-report-ratings"
         role="group"
@@ -394,9 +410,19 @@ export function ReviewReports({
                   onClick={() => void exportIllustrated()}
                 >
                   <Download size={16} />
-                  {busy ? 'Preparing PDF…' : 'Download PDF'}
+                  {busy ? 'Preparing PDF…' : 'Download selected PDF'}
+                </button>
+                <button className="secondary" disabled={busy || !snapshot.rows.some(r => (r.rating || 0) >= 1 && (r.rating || 0) <= 3)} onClick={() => void exportIllustrated([1, 2, 3])}>
+                  <Download size={16} />1–3 stars · {snapshot.rows.filter(r => (r.rating || 0) >= 1 && (r.rating || 0) <= 3).length}
+                </button>
+                <button className="secondary" disabled={busy || !snapshot.rows.some(r => (r.rating || 0) >= 4)} onClick={() => void exportIllustrated([4, 5])}>
+                  <Download size={16} />4–5 stars · {snapshot.rows.filter(r => (r.rating || 0) >= 4).length}
                 </button>
               </div>
+              <p className="source-asof">
+                The separate downloads use this selection’s dates, topics and search. Low star ratings
+                do not automatically mean a written complaint; criticism is analysed at every rating.
+              </p>
               <p className="source-asof">
                 A compact PDF with a rating summary, full original comments, criticism
                 highlights, reviewer names and supplied usernames, profile photos, replies,

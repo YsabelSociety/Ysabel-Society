@@ -22,6 +22,7 @@ export type ReportBundle = {
   scope?: 'reviews';
   reviewSelection?: CommunityRecord[];
   reviewNote?: string;
+  reviewStars?: number[];
   ratingComparison?: ReviewRatingComparison;
   title: string;
   range: Range;

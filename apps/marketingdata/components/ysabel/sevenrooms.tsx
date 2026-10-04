@@ -3,7 +3,7 @@ import {useEffect,useState,useRef,useId,type ReactNode} from 'react';
 import {Search,ArrowUpRight,ArrowDownToLine,X,Plus,SlidersHorizontal,Upload,ChevronRight,Users,CalendarDays,Check,Copy,LayoutDashboard,UserRound,UserRoundCheck,UserRoundSearch,Mail,HeartHandshake,Cake,History,ChartNoAxesCombined,CalendarCheck,CalendarX,Clock,ShieldCheck,MapPin,Layers,UserRoundPlus,Star,Phone,Contact,Briefcase,Languages,MessageSquare,MessageSquareText} from 'lucide-react';
 import {AdminGate} from './admin-gate';
 import {ReviewStars} from './review-stars';
-import {feedbackMonthLabel,groupFeedbackByMonth} from '../../lib/sevenrooms-feedback';
+import {feedbackMonthLabel,groupFeedbackByMonth,feedbackRatingSelections,feedbackRatingLabel,feedbackRatingNote,feedbackReportFilename} from '../../lib/sevenrooms-feedback';
 import './sevenrooms.css';
 type Row=Record<string,any>;type Rule={field:string;value:string};
 const base='/marketingdata/api/sevenrooms';
@@ -101,9 +101,10 @@ function GuestReviews({venue,revision,openGuest}:{venue:string;revision:number;o
   <div className="sr-section-title"><div><h2>Reviews & Comments</h2><p className="sr-muted">Guest feedback, separated by reservation month. Internal staff notes stay in guest profiles.</p></div><div className="sr-toolbar sr-review-filters">
    <label>Month<select aria-label="Review month" value={selectedMonth} onChange={e=>pickMonth(e.target.value)}><option value="all">All months</option>{selectedMonth==='latest'&&<option value="latest">Latest available month</option>}{selectedMonth!=='latest'&&selectedMonth!=='all'&&!d?.months.some((m:Row)=>m.month===selectedMonth)&&<option value={selectedMonth}>{feedbackMonthLabel(selectedMonth)}</option>}{d?.months.map((m:Row)=><option key={m.month} value={m.month}>{feedbackMonthLabel(m.month)}</option>)}</select></label>
    <label>Show<select aria-label="Review content" value={comments} onChange={e=>{Comments(e.target.value);Page(1);}}><option value="all">All reviews & comments</option><option value="written">Written comments only</option></select></label>
-   <label>Rating<select aria-label="Review rating" value={rating} onChange={e=>{Rating(e.target.value);Page(1);}}><option value="all">All ratings</option><option value="critical">Any score of 3 or below</option></select></label>
+   <label>Review group<select aria-label="Review rating" value={rating} onChange={e=>{Rating(e.target.value);Page(1);}}>{feedbackRatingSelections.map(choice=><option key={choice.value} value={choice.value}>{choice.label}</option>)}</select></label>
    <button className="sr-primary sr-review-download" disabled={loading||!total} onClick={()=>ExportScope({venue,month:selectedMonth,rating,comments,count:total})}><ArrowDownToLine size={16}/> Download PDF</button>
   </div></div>
+  <p className="sr-muted sr-review-selection-note">{feedbackRatingNote(rating)}</p>
   {exportScope&&<GuestReviewExport scope={exportScope} close={()=>ExportScope(null)}/>}
   {error&&<p className="sr-error" role="alert">{error}</p>}
   {loading&&!d&&<p role="status">Loading guest feedback…</p>}
@@ -120,10 +121,31 @@ function GuestReviews({venue,revision,openGuest}:{venue:string;revision:number;o
 }
 
 function GuestReviewExport({scope,close}:{scope:import('../../lib/sevenrooms-review-pdf').GuestReviewScope;close:()=>void}){
- const [busy,Busy]=useState(false),[message,Message]=useState(''),[error,Error]=useState('');
+ const [selection,Selection]=useState(scope),[busy,Busy]=useState(false),[message,Message]=useState(''),[error,Error]=useState('');
  const controller=useRef<AbortController|null>(null);
+ const {data:counts,error:countError,loading:checking}=useData('op=feedback&'+new URLSearchParams({venue:selection.venue,month:selection.month,rating:selection.rating,comments:selection.comments,counts:'yes'}));
+ const current={...selection,month:counts?.month||selection.month,count:counts?.total??0};
+ const choose=(key:'rating'|'comments',value:string)=>{Selection(previous=>({...previous,[key]:value}));Message('');Error('');};
  useEffect(()=>()=>controller.current?.abort(),[]);
- return <Drawer title="SevenRooms review report" close={close}><AdminGate title="Download guest review report"><div className="sr-report-platform"><MessageSquareText size={20}/><strong>SevenRooms</strong><span>Guest reviews & comments</span></div><div className="sr-export-number">{num(scope.count)}</div><h3>Matching guest responses</h3><p>{feedbackMonthLabel(scope.month)} · {ven(scope.venue)}</p><p className="sr-muted">{scope.comments==='written'?'Written comments only':'All reviews & comments'} · {scope.rating==='critical'?'Any score of 3 or below':'All ratings'}</p><p className="sr-muted">Grouped by venue, from 1 to 5 stars. Includes every matching response, highlighted original comments and concerns, recorded guest and reservation details, plus photos and attachments when supplied. Staff notes are excluded.</p><button className="sr-primary" disabled={busy} onClick={async()=>{const abort=new AbortController();controller.current=abort;Busy(true);Error('');try{const report=await import('../../lib/sevenrooms-review-pdf');const {rows,scope:verified}=await report.collectGuestReviews(scope,Message,abort.signal);const assets=await report.loadGuestReviewAssets(rows,Message,abort.signal);const doc=await report.createGuestReviewPDF(rows,verified,assets,Message,abort.signal);abort.signal.throwIfAborted();doc.save(`ysabel-sevenrooms-reviews-${verified.month}-${verified.venue}.pdf`);}catch(e){Error((e as Error).name==='AbortError'?'Report cancelled.':(e as Error).message);}finally{Busy(false);controller.current=null;}}}><ArrowDownToLine size={16}/>{busy?'Preparing PDF…':'Download '+num(scope.count)+' responses as PDF'}</button>{busy&&<button onClick={()=>controller.current?.abort()}>Cancel</button>}<p role="status" aria-live="polite">{message}</p>{error&&<p className="sr-error" role="alert">{error}</p>}</AdminGate></Drawer>;
+ return <Drawer title="SevenRooms review report" close={close}><AdminGate title="Download guest review report">
+  <div className="sr-report-platform"><MessageSquareText size={20}/><strong>SevenRooms</strong><span>Guest reviews & comments</span></div>
+  <div className="sr-report-selection">
+   <label>Download group<select aria-label="Report review group" value={selection.rating} disabled={busy} onChange={e=>choose('rating',e.target.value)}>{feedbackRatingSelections.map(choice=><option key={choice.value} value={choice.value}>{choice.label}</option>)}</select></label>
+   <label>Include<select aria-label="Report review content" value={selection.comments} disabled={busy} onChange={e=>choose('comments',e.target.value)}><option value="all">Reviews & comments</option><option value="written">Written comments only</option></select></label>
+  </div>
+  <p className="sr-muted">{feedbackRatingNote(selection.rating)}</p>
+  <div className="sr-export-number" aria-live="polite">{checking||!counts?'—':num(current.count)}</div><h3>Matching guest responses</h3>
+  <p>{feedbackMonthLabel(current.month)} · {ven(current.venue)}</p><p className="sr-muted">{selection.comments==='written'?'Written comments only':'All reviews & comments'} · {feedbackRatingLabel(selection.rating)}</p>
+  <p className="sr-muted">Grouped by venue and recorded star rating. Includes every matching response, highlighted original comments and concerns, recorded guest and reservation details, plus photos and attachments when supplied. Staff notes are excluded.</p>
+  {counts&&!checking&&!current.count&&<p className="sr-empty">No reviews match this download group. Choose another group or month.</p>}
+  <button className="sr-primary" disabled={busy||checking||!counts||!current.count||!!countError} onClick={async()=>{
+   const abort=new AbortController();controller.current=abort;Busy(true);Error('');
+   try{const report=await import('../../lib/sevenrooms-review-pdf');const {rows,scope:verified}=await report.collectGuestReviews(current,Message,abort.signal);const assets=await report.loadGuestReviewAssets(rows,Message,abort.signal);const doc=await report.createGuestReviewPDF(rows,verified,assets,Message,abort.signal);abort.signal.throwIfAborted();doc.save(feedbackReportFilename(verified));}
+   catch(e){Error((e as Error).name==='AbortError'?'Report cancelled.':(e as Error).message);}
+   finally{Busy(false);controller.current=null;}
+  }}><ArrowDownToLine size={16}/>{busy?'Preparing PDF…':checking?'Updating selection…':'Download '+num(current.count)+' responses as PDF'}</button>
+  {busy&&<button onClick={()=>controller.current?.abort()}>Cancel</button>}<p role="status" aria-live="polite">{message}</p>{(error||countError)&&<p className="sr-error" role="alert">{error||countError}</p>}
+ </AdminGate></Drawer>;
 }
 
 function ReservationInsights({tab,venue,day,openGuest}:{tab:string;venue:string;day:string;openGuest:(id:string)=>void}){

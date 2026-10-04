@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf';
-import { feedbackMonthLabel, groupFeedbackByMonth } from './sevenrooms-feedback';
+import { feedbackMonthLabel, groupFeedbackByMonth, feedbackRatingLabel } from './sevenrooms-feedback';
 import { appPath } from './app-path';
 import { guestReviewConcerns, guestReviewRatingGroups, guestReviewVenueGroups, SEVENROOMS_VENUE_THEMES } from './sevenrooms-review-model';
 
@@ -27,7 +27,7 @@ export async function collectGuestReviews(scope: GuestReviewScope, progress: (s:
     check(signal);
     const q = new URLSearchParams({ op: 'feedback-export', venue: scope.venue, month, comments: scope.comments, rating: scope.rating, page: String(page) });
     const response = await fetch(appPath('/api/sevenrooms') + '?' + q, { cache: 'no-store', signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30000)]) : AbortSignal.timeout(30000) });
-    const data = await response.json();
+    const data = await response.json() as { rows: GuestReview[]; total: number; month: string; error?: string };
     if (!response.ok) throw new Error(data.error || 'Could not load all review details. Please retry.');
     if (page === 1) { total = data.total; month = data.month; }
     if (data.total !== total || !data.rows.length && rows.length < total) throw new Error('The review selection changed during export. Please retry.');
@@ -376,7 +376,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   header(true);
   text('Guest Experience Report', M, y, 26, true, '#1d3428'); y += 27;
   text(`${feedbackMonthLabel(scope.month)} / ${venueLabel(scope.venue)}`, M, y, 11); y += 21;
-  const selected = `${scope.comments === 'written' ? 'Written comments only' : 'All reviews and comments'} - ${scope.rating === 'critical' ? 'Any score of 3 or below' : 'All ratings'}`;
+  const selected = `${scope.comments === 'written' ? 'Written comments only' : 'All reviews and comments'} - ${feedbackRatingLabel(scope.rating)}`;
   font(8); const scopeLines: string[] = doc.splitTextToSize(selected, C); doc.text(scopeLines, M, y); y += scopeLines.length * 12 + 14;
   const rated = rows.filter(r => r.scores.overall != null), written = rows.filter(r => r.feedback.trim());
   const mean = rated.length ? (rated.reduce((sum, r) => sum + r.scores.overall!, 0) / rated.length).toFixed(2) + ' / 5' : 'Not recorded';

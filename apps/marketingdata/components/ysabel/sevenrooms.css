@@ -16,3 +16,10 @@
 .sr-review-download{align-self:end;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:40px;white-space:nowrap}
 .sr-report-platform{display:flex;align-items:center;gap:10px;margin:20px 0;padding:18px;background:linear-gradient(130deg,#eff3ee,#f8f8f5);border-radius:12px;color:#1d3428;flex-wrap:wrap}
 .sr-report-platform span{width:100%;font-size:12px;color:#708078}
+
+.sr-review-selection-note{margin:-8px 0 20px;max-width:720px;line-height:1.6}
+.sr-report-selection{display:grid;grid-template-columns:1fr;gap:14px;margin:20px 0}
+.sr-report-selection label{display:grid;gap:7px;font-size:11px;color:#708078}
+.sr-report-selection select{width:100%;min-width:0;max-width:100%;padding:11px 13px;color:#1d3428;font-size:13px;border:1px solid rgba(29,52,40,.12);border-radius:10px;background:#fbfcf9}
+.sr-report-selection select:focus-visible{outline:2px solid #52765f;outline-offset:2px}
+.sr-report-selection select:disabled{opacity:.65}

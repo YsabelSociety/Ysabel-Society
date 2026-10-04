@@ -139,7 +139,7 @@ export async function createCompactReviewPDF(
     let offset = 0;
     // Keep short comments together; paginate longer comments without cutting or shrinking their text.
     const fullHeight = 67 + (lines.length - 1) * leading;
-    if (fullHeight <= B - 140) need(fullHeight);
+    if (fullHeight <= 200) need(fullHeight);
     while (offset < lines.length) {
       need(67 + (Math.min(3, lines.length - offset) - 1) * leading);
       const count = Math.min(lines.length - offset, Math.max(1, Math.floor((B - y - 67) / leading) + 1));
@@ -279,7 +279,11 @@ export async function createCompactReviewPDF(
         const usernameLines = r.username ? doc.splitTextToSize(clean(r.username), nameWidth) as string[] : [];
         const dateLines = doc.splitTextToSize(clean(reviewDateLabel(r, bundle.timezone)), nameWidth) as string[];
         const headerHeight = Math.max(54, nameLines.length * 14 + dateLines.length * 11 + usernameLines.length * 11 + 14);
-        need(headerHeight + 35);
+        doc.setFont('Noto', 'bold'); doc.setFontSize(10.2);
+        const commentLines = doc.splitTextToSize(clean(r.text.trim() || 'User left a rating without a written comment.'), C - 64) as string[];
+        const commentHeight = 67 + (commentLines.length - 1) * 15.5;
+        // Keep the author beside their first comment lines; long reviews flow into the remaining space.
+        need(headerHeight + Math.min(200, commentHeight) + 14);
         card(M, y - 3, C, headerHeight + 1, reviewSurface, 6); y += 7;
         const portrait = assets.photos?.get(key(r));
         if (portrait) {

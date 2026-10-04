@@ -1,0 +1,33 @@
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const root = path.resolve(__dirname, '..'), ts = require(root + '/node_modules/typescript');
+const cache = new Map();
+function load(name) {
+  if (cache.has(name)) return cache.get(name);
+  const exports = {}; cache.set(name, exports);
+  const source = ts.transpileModule(fs.readFileSync(root + '/lib/' + name + '.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
+  new Function('require', 'exports', source)(id => load(id.slice(2)), exports);
+  return exports;
+}
+const model = load('sevenrooms-review-model');
+const row = (id, venue, rating, feedback = '', scores = {}) => ({ id, venue, feedback, date: '2026-09-04', scores: { overall: rating, ...scores } });
+const mixed = row('mixed', 'garden', 5, 'The sushi was salty, but the staff were excellent.');
+assert.ok(model.guestReviewConcerns(mixed).some(c => c.topic === 'Food' && c.evidence === 'Written feedback'));
+assert.equal(model.guestReviewStar(mixed), 5, 'Criticism never rewrites the original overall rating');
+assert.equal(model.guestReviewConcerns(row('overall-only', 'asian', 1)).length, 0, 'An overall rating alone does not invent a complaint topic');
+assert.equal(model.guestReviewConcerns(row('positive', 'garden', 5, 'The staff were not rude. The coffee was cold and lovely.')).length, 0, 'Negated complaints and normal cold drinks stay positive');
+assert.ok(model.guestReviewConcerns(row('portion', 'italian', 4, 'Negativ: small portion')).some(c => c.topic === 'Food'));
+assert.ok(model.guestReviewConcerns(row('hospitality', 'asian', 5, 'The staff were rude and treated us like an inconvenience.')).some(c => c.topic === 'Hospitality'));
+const categoryOnly = row('category-only', 'italian', null, '', { food: 2 });
+assert.equal(model.guestReviewStar(categoryOnly), null);
+assert.deepEqual(model.guestReviewConcerns(categoryOnly), [{ topic: 'Food', excerpt: 'Food score: 2 / 5', evidence: 'Category rating' }]);
+const rows = [mixed, categoryOnly, row('one', 'asian', 1), row('three', 'garden', 3), row('unmapped', 'unmapped:rooftop', 2), row('two', 'garden', 2), row('four', 'italian', 4)];
+const ratings = model.guestReviewRatingGroups(rows);
+assert.deepEqual(ratings.map(g => g.star), [1, 2, 3, 4, 5, null]);
+assert.equal(ratings.flatMap(g => g.rows).length, rows.length);
+assert.deepEqual(ratings[5].rows.map(r => r.id), ['category-only']);
+const venues = model.guestReviewVenueGroups(rows, 'all');
+assert.deepEqual(venues.map(g => g.venue), ['garden', 'asian', 'italian', 'unmapped:rooftop']);
+assert.equal(new Set(venues.flatMap(g => g.rows.map(r => r.id))).size, rows.length, 'Every source response appears exactly once, including unknown venues');
+assert.deepEqual(model.guestReviewVenueGroups(rows, 'all').flatMap(g => g.rows).map(r => r.id).sort(), rows.map(r => r.id).sort());
+assert.deepEqual(model.guestReviewVenueGroups([mixed], 'all').slice(1).map(g => g.rows.length), [0, 0], 'Missing venue feedback stays explicit');
+console.log('SevenRooms report: 1–5 star ordering, venue grouping, unrecorded ratings, high-star criticism, hospitality, negation and score evidence passed.');

@@ -131,12 +131,34 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     y += 4;
   };
   const link = (label: string, url: string) => { need(17); font(8); doc.textWithLink(label, M + 10, y, { url }); y += 17; };
-  const stars = (rating: number, x: number, top: number) => {
+  const stars = (rating: number, x: number, top: number, radius = 6) => {
     for (let s = 0; s < 5; s++) {
-      const pts = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 2.7 : 6; return [Math.cos(a) * r, Math.sin(a) * r]; });
+      const pts = Array.from({ length: 10 }, (_, i) => { const a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? radius * .45 : radius; return [Math.cos(a) * r, Math.sin(a) * r]; });
+      doc.setLineWidth(radius <= 4 ? .35 : .5);
       doc.setDrawColor('#b99342'); doc.setFillColor(s < Math.round(rating) ? '#b99342' : '#f4f1e9');
-      doc.lines(pts.map((p, i) => { const prev = pts[(i + 9) % 10]; return [p[0] - prev[0], p[1] - prev[1]]; }), x + s * 16 + pts[9][0], top + pts[9][1], [1, 1], 'FD', true);
+      doc.lines(pts.map((p, i) => { const prev = pts[(i + 9) % 10]; return [p[0] - prev[0], p[1] - prev[1]]; }), x + s * (radius * 2 + 4) + pts[9][0], top + pts[9][1], [1, 1], 'FD', true);
     }
+  };
+  const ratingTabs = (scores: GuestReview['scores']) => {
+    const keys = fields.filter(key => scores[key] != null);
+    if (!keys.length) return;
+    const colors: Record<string, [string, string]> = {
+      overall: [theme().tint, activeVenue === 'italian' ? '#766019' : theme().color],
+      food: ['#FAF3E3', '#866820'], drinks: ['#F6EDF0', '#7B465B'],
+      service: ['#EDF3EF', '#365C46'], atmosphere: ['#EDF1F5', '#4C6073'],
+    };
+    const gap = 5, columns = Math.max(4, keys.length), width = (C - 20 - gap * (columns - 1)) / columns;
+    need(46);
+    keys.forEach((key, i) => {
+      const x = M + 10 + i * (width + gap), [tint, ink] = colors[key];
+      doc.saveGraphicsState(); doc.roundedRect(x, y - 4, width, 38, 5, 5, null); doc.clip(); doc.discardPath();
+      gradient(x, y - 4, width, 38, tint, '#FEFEFC'); doc.restoreGraphicsState();
+      text(key.toUpperCase(), x + 9, y + 8, 6.4, true, ink);
+      stars(scores[key]!, x + 12, y + 23, 3.1);
+      font(8, true, ink); const score = `${scores[key]}/5`;
+      text(score, x + width - 9 - doc.getTextWidth(score), y + 26, 8, true, ink);
+    });
+    y += 44;
   };
   const photo = (url: string, width = C - 20, height = 150) => {
     const bytes = assets.images.get(url); if (!bytes) { link('Image unavailable to embed - open original image', url); return; }
@@ -334,11 +356,10 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       doc.setFillColor(t.color); doc.rect(M, y - 7, 3, headingHeight, 'F');
       text(`#${sequence}`, M + 10, y + 8, 8, false, '#708078');
       font(11, true); doc.text(nameLines, M + 40, y + 8); y += headingHeight;
-      if (r.scores.overall != null) { stars(r.scores.overall, W - M - 104, top + 4); text(`${r.scores.overall} / 5`, W - M - 30, top + 7, 8); }
+      if (r.scores.overall != null) { stars(r.scores.overall, W - M - 86, top + 4, 4.25); text(`${r.scores.overall} / 5`, W - M - 25, top + 7, 7.5); }
       continuing = `Review #${sequence}`;
       paragraph(`${venueLabel(r.venue)} - ${r.date || 'Date not recorded'}${r.time ? ' at ' + r.time : ''}${r.reservation?.covers != null ? ' - ' + r.reservation.covers + ' guests' : ''}${r.reservation?.status ? ' - ' + r.reservation.status : ''}`, 8, false, true);
-      const scores = fields.filter(k => r.scores[k] != null).map(k => `${k[0].toUpperCase() + k.slice(1)} ${r.scores[k]}/5`);
-      if (scores.length) paragraph(scores.join('   /   '), 8, true);
+      ratingTabs(r.scores);
       labels('Reservation labels', r.reservation?.tags);
       commentPanel(r.feedback);
       concernPanel(r);

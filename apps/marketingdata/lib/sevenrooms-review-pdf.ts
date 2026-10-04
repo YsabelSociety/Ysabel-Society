@@ -102,11 +102,6 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     });
   };
   type Surface = { start: string; middle: string; end: string; ink: string; accent: string };
-  const venueSurfaces: Record<string, Surface> = {
-    garden: { start: '#D3E4D8', middle: '#E6F0E9', end: '#F7FAF7', ink: '#244B37', accent: '#52765F' },
-    asian: { start: '#F1D5DD', middle: '#F8E6E9', end: '#FFF8F8', ink: '#861D34', accent: '#B3465D' },
-    italian: { start: '#F2E1A2', middle: '#FAEFC9', end: '#FFFCF0', ink: '#735719', accent: '#B18B27' },
-  };
   const categorySurfaces: Record<string, Surface> = {
     overall: { start: '#CCE0D7', middle: '#E1EFE8', end: '#F6FBF8', ink: '#28533E', accent: '#4C785F' },
     food: { start: '#F2DCAF', middle: '#F9EBCF', end: '#FFF9EC', ink: '#85601E', accent: '#B88B36' },
@@ -115,7 +110,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     atmosphere: { start: '#DED4EB', middle: '#EEE7F6', end: '#FAF7FF', ink: '#695282', accent: '#9279AE' },
   };
   const criticismSurface: Surface = { start: '#ECD3E4', middle: '#F5E3F0', end: '#FDF6FB', ink: '#703E64', accent: '#9C5C87' };
-  const venueSurface = () => venueSurfaces[activeVenue] || venueSurfaces.garden;
+  const reviewSurface: Surface = { start: '#EDF3EF', middle: '#F5F8F5', end: '#FEFEFC', ink: '#35463C', accent: '#52765F' };
   const mix = (a: string, b: string, amount: number) => '#' + [1, 3, 5].map(i => Math.round(parseInt(a.slice(i, i + 2), 16) * (1 - amount) + parseInt(b.slice(i, i + 2), 16) * amount).toString(16).padStart(2, '0')).join('');
   const card = (x: number, top: number, width: number, height: number, surface: Surface, radius = 6) => {
     doc.saveGraphicsState(); doc.roundedRect(x, top, width, height, radius, radius, null); doc.clip(); doc.discardPath();
@@ -140,7 +135,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   };
   const header = (cover = false) => {
     const width = cover ? 132 : 96, height = brandLogo(width), left = M + width + 26;
-    text('SEVENROOMS', left, 15 + height / 2 - 2, 11, true, activeVenue ? venueSurface().ink : '#1D3428');
+    text('SEVENROOMS', left, 15 + height / 2 - 2, 11, true, '#1D3428');
     text(`${theme().name} / Guest reviews & comments`, left, 15 + height / 2 + 14, 8, false, '#708078');
     const edge = cover ? 126 : 98;
     doc.setDrawColor('#e4e9e4'); doc.setLineWidth(.5); doc.line(M, edge, W - M, edge);
@@ -174,13 +169,9 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     const gap = 5, columns = Math.max(4, keys.length), width = (C - 20 - gap * (columns - 1)) / columns;
     need(46);
     keys.forEach((key, i) => {
-      const x = M + 10 + i * (width + gap), base = venueSurface(), category = categorySurfaces[key];
+      const x = M + 10 + i * (width + gap), category = categorySurfaces[key];
       const lowScore = key !== 'overall' && scores[key]! >= 1 && scores[key]! <= 3;
-      const surface = lowScore ? criticismSurface : {
-        ...base, start: mix(base.start, category.start, .75),
-        middle: mix(base.middle, category.middle, .65), end: mix(base.end, category.end, .35),
-        ink: category.ink, accent: category.accent,
-      };
+      const surface = lowScore ? criticismSurface : category;
       card(x, y - 4, width, 38, surface, 5);
       doc.setFillColor(surface.accent); doc.roundedRect(x + 8, y + 30, width - 16, 1.5, .75, .75, 'F');
       text(key.toUpperCase(), x + 9, y + 8, 6.4, true, surface.ink);
@@ -207,8 +198,8 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
         const width = Math.min(C - 20, doc.getTextWidth(line) + 16);
         if (x + width > W - M - 10) { x = M + 10; y += 21; }
         if (y + 21 > bottom) { next(); x = M + 10; }
-        card(x, y - 10, width, 18, venueSurface(), 4);
-        text(line, x + 8, y + 2, 7.5, true, venueSurface().ink);
+        doc.setFillColor('#EDF3EF'); doc.roundedRect(x, y - 10, width, 18, 4, 4, 'F');
+        text(line, x + 8, y + 2, 7.5, true, '#1D3428');
         x += width + 5;
       }
     }
@@ -235,10 +226,9 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       const height = Math.max(...cells.map(cell => 24 + cell.lines.length * (reference ? 9 : 10)));
       need(height + gap); let x = M + 10;
       for (const { item, w, lines } of cells) {
-        const base = venueSurface(), softness = reference ? .72 : .45;
-        card(x, y - 4, w, height, { ...base, start: mix(base.start, '#FFFFFF', softness), middle: mix(base.middle, '#FFFFFF', softness) }, 4);
-        text(item.label.toUpperCase(), x + 8, y + 7, 6.3, false, base.accent);
-        lines.forEach((line, index) => text(line, x + 8, y + 21 + index * (reference ? 9 : 10), reference ? 7 : 8, false, base.ink));
+        doc.setFillColor(reference ? '#F8F9F7' : '#F2F5F2'); doc.roundedRect(x, y - 4, w, height, 4, 4, 'F');
+        text(item.label.toUpperCase(), x + 8, y + 7, 6.3, false, '#738078');
+        lines.forEach((line, index) => text(line, x + 8, y + 21 + index * (reference ? 9 : 10), reference ? 7 : 8, false, '#1D3428'));
         if (item.url) doc.link(x, y - 4, w, height, { url: item.url });
         x += w + gap;
       }
@@ -255,9 +245,9 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
   const feedbackLink = (row: GuestReview) => {
     need(28); const label = 'Open feedback in Ysabel Society'; font(7.5, true);
     const width = doc.getTextWidth(label) + 33, x = M + 10;
-    const surface = venueSurface(); card(x, y - 5, width, 23, surface, 5);
-    text(label, x + 9, y + 9, 7.5, true, surface.ink);
-    doc.setDrawColor(surface.ink); doc.setLineWidth(.65);
+    doc.setFillColor('#EDF2ED'); doc.roundedRect(x, y - 5, width, 23, 5, 5, 'F');
+    text(label, x + 9, y + 9, 7.5, true, '#1D3428');
+    doc.setDrawColor('#1D3428'); doc.setLineWidth(.65);
     doc.line(x + width - 16, y + 10, x + width - 10, y + 4); doc.line(x + width - 15, y + 4, x + width - 10, y + 4); doc.line(x + width - 10, y + 4, x + width - 10, y + 9);
     doc.link(x, y - 5, width, 23, { url: 'https://ysabelsociety.com/marketingdata?' + new URLSearchParams({ sr_tab: 'Reviews & Comments', sr_venue: row.venue }) + '#Seven%20Rooms' });
     y += 30;
@@ -307,7 +297,7 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       need(67 + (Math.min(3, lines.length - offset) - 1) * leading);
       const count = Math.min(lines.length - offset, Math.max(1, Math.floor((bottom - y - 67) / leading) + 1));
       const height = 58 + (count - 1) * leading;
-      const surface = hasWrittenCriticism ? criticismSurface : venueSurface();
+      const surface = hasWrittenCriticism ? criticismSurface : reviewSurface;
       card(M, y - 4, C, height, surface, 7);
       const accent = surface.accent;
       doc.setFillColor(accent); doc.roundedRect(M + 8, y + 10, 2, height - 28, 1, 1, 'F');
@@ -365,11 +355,11 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     need(80);
     const width = C / 5;
     groups.slice(0, 5).forEach((group, i) => {
-      const x = M + i * width, surface = venueSurface(), issues = group.rows.filter(row => concerns.get(row.id)?.length).length;
-      card(x, y, width - 5, 58, surface, 5);
-      text(`${group.star}-star`, x + 10, y + 17, 8, true, surface.ink);
-      text(String(group.rows.length), x + 10, y + 37, 17, true, surface.ink);
-      text(`${issues} with concerns`, x + 10, y + 50, 6.5, false, issues ? criticismSurface.ink : surface.accent);
+      const x = M + i * width, issues = group.rows.filter(row => concerns.get(row.id)?.length).length;
+      doc.setFillColor('#F5F6F3'); doc.roundedRect(x, y, width - 5, 58, 5, 5, 'F');
+      text(`${group.star}-star`, x + 10, y + 17, 8, true, '#896A2A');
+      text(String(group.rows.length), x + 10, y + 37, 17, true);
+      text(`${issues} with concerns`, x + 10, y + 50, 6.5, false, issues ? criticismSurface.ink : '#708078');
     });
     y += 73;
     if (groups[5].rows.length) paragraph(`${groups[5].rows.length} responses without an overall rating are included separately.`, 8, false, true);
@@ -419,11 +409,11 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
     if (!venueGroup.rows.length) { paragraph('No guest feedback is available for this venue in the selected period. This does not mean there were no reservations or visits.', 9, false, true); continue; }
     ratingSummary(venueGroup.rows);
     for (const [month, list] of groupFeedbackByMonth(venueGroup.rows).sort(([a], [b]) => a === 'undated' ? 1 : b === 'undated' ? -1 : b.localeCompare(a))) {
-     need(80); text(feedbackMonthLabel(month), M, y + 12, 15, true, activeVenue === 'italian' ? '#766019' : t.color); y += 36;
+     need(80); text(feedbackMonthLabel(month), M, y + 12, 15, true, '#1D3428'); y += 36;
      for (const ratingGroup of guestReviewRatingGroups(list)) {
       if (!ratingGroup.rows.length) continue;
       need(240);
-      text(ratingGroup.star == null ? 'Overall rating not recorded' : `${ratingGroup.star}-star feedback`, M + 10, y + 10, 11, true, venueSurface().ink);
+      text(ratingGroup.star == null ? 'Overall rating not recorded' : `${ratingGroup.star}-star feedback`, M + 10, y + 10, 11, true);
       text(`${ratingGroup.rows.length} responses / ${ratingGroup.rows.filter(row => concerns.get(row.id)?.length).length} with concerns`, M + 10, y + 25, 7.5, false, '#708078');
       if (ratingGroup.star != null) stars(ratingGroup.star, W - M - 95, y + 7);
       y += 45;
@@ -431,11 +421,11 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       check(signal); continuing = ''; need(180); sequence++;
       const name = r.name || 'Unnamed guest'; font(11, true); const nameLines = doc.splitTextToSize(clean(name), C - 150) as string[];
       const headingHeight = Math.max(44, nameLines.length * 14 + 18); need(headingHeight + 68); const top = y;
-      card(M, y - 7, C, headingHeight, venueSurface());
-      doc.setFillColor(t.color); doc.rect(M, y - 7, 3, headingHeight, 'F');
+      card(M, y - 7, C, headingHeight, reviewSurface);
+      doc.setFillColor('#1D3428'); doc.rect(M, y - 7, 3, headingHeight, 'F');
       text(`#${sequence}`, M + 10, y + 8, 8, false, '#708078');
-      font(11, true, venueSurface().ink); doc.text(nameLines, M + 40, y + 8); y += headingHeight;
-      if (r.scores.overall != null) { stars(r.scores.overall, W - M - 86, top + 4, 4.25); text(`${r.scores.overall} / 5`, W - M - 25, top + 7, 7.5, false, venueSurface().ink); }
+      font(11, true); doc.text(nameLines, M + 40, y + 8); y += headingHeight;
+      if (r.scores.overall != null) { stars(r.scores.overall, W - M - 86, top + 4, 4.25); text(`${r.scores.overall} / 5`, W - M - 25, top + 7, 7.5); }
       continuing = `Review #${sequence}`;
       paragraph(`${venueLabel(r.venue)} - ${r.date || 'Date not recorded'}${r.time ? ' at ' + r.time : ''}${r.reservation?.covers != null ? ' - ' + r.reservation.covers + ' guests' : ''}${r.reservation?.status ? ' - ' + r.reservation.status : ''}`, 8, false, true);
       ratingTabs(r.scores);

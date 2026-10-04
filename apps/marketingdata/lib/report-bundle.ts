@@ -3,6 +3,7 @@ import type { ReportTable } from './reporting';
 import type { CommunityRecord, CommunityStatus } from './community';
 import type { SourceStatus } from './source-status';
 import { appPath } from './app-path';
+import type { ReviewRatingComparison } from './review-rating-comparison';
 
 export const REPORT_SECTIONS = [
   'Overview',
@@ -21,6 +22,7 @@ export type ReportBundle = {
   scope?: 'reviews';
   reviewSelection?: CommunityRecord[];
   reviewNote?: string;
+  ratingComparison?: ReviewRatingComparison;
   title: string;
   range: Range;
   generatedAt: string;

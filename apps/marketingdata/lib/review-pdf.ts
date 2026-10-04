@@ -4,6 +4,8 @@ import { reviewTopics, safeProfileURL, type CommunityRecord } from './community'
 import { reviewDateLabel, reviewLink } from './review-report';
 import { reviewCategoryLabel } from './review-categories';
 import type { ReportBundle, ReportProgress } from './report-bundle';
+import { localDate } from './community';
+import { reviewRatingComparison, ratingChangeLabel, ratingPeriodNote } from './review-rating-comparison';
 
 type ReviewAssets = {
   regular: Uint8Array;
@@ -93,18 +95,51 @@ export async function createCompactReviewPDF(
         const angle = -Math.PI / 2 + i * Math.PI / 5, radius = size * (i % 2 ? 0.22 : 0.5);
         return [x + star * 12 + size / 2 + Math.cos(angle) * radius, top + size / 2 + Math.sin(angle) * radius];
       });
-      doc.setFillColor(star < rating ? '#c8a45d' : '#faf6ec');
-      doc.setDrawColor(star < rating ? '#b8934c' : '#d8c7a3'); doc.setLineWidth(0.45);
-      doc.lines(points.slice(1).map((point, i) => [point[0] - points[i][0], point[1] - points[i][1]]), points[0][0], points[0][1], [1, 1], 'FD', true);
+      const lines = points.slice(1).map((point, i) => [point[0] - points[i][0], point[1] - points[i][1]]);
+      const fraction = Math.max(0, Math.min(1, rating - star));
+      doc.setFillColor('#faf6ec'); doc.setDrawColor('#d8c7a3'); doc.setLineWidth(0.45);
+      doc.lines(lines, points[0][0], points[0][1], [1, 1], 'FD', true);
+      if (fraction > 0) {
+        doc.saveGraphicsState(); doc.rect(x + star * 12, top, size * fraction, size, null); doc.clip(); doc.discardPath();
+        doc.setFillColor('#c8a45d'); doc.setDrawColor('#b8934c');
+        doc.lines(lines, points[0][0], points[0][1], [1, 1], 'FD', true); doc.restoreGraphicsState();
+      }
     }
   };
   frame();
   progress(`Designing PDF · ${bundle.title}`);
   paragraph(bundle.title, { size: 22, color: '#1d3428', bold: true });
   paragraph(bundle.reviewNote || 'All selected guest reviews and identified concerns.', { size: 8, color: '#738177' });
+  const asOf = localDate(bundle.generatedAt, bundle.timezone);
+  const comparison = bundle.ratingComparison || reviewRatingComparison(bundle.range.end, asOf);
+  need(152);
+  const comparisonTop = y;
+  ['#f5f7f1', '#f0f5ed', '#eaf2e9', '#e5eee5', '#e0eae1'].forEach((color, band) => {
+    doc.setFillColor(color); doc.rect(M, comparisonTop + band * 28, C, 28, 'F');
+  });
+  text('GOOGLE BUSINESS RATING / PREVIOUS MONTH', M + 15, y + 18, 8, '#556c59', true);
+  text('Month-to-month comparison', M + 15, y + 37, 14, '#1d3428', true);
+  const deltaColor = comparison.delta !== null && comparison.delta < 0 ? '#965b4f' : '#3d6d50';
+  text(ratingChangeLabel(comparison), W - M - 155, y + 35, 11, deltaColor, true);
+  [comparison.previous, comparison.current].forEach((period, i) => {
+    const x = M + 15 + i * (C / 2);
+    text(`${i ? 'REPORT MONTH' : 'PREVIOUS MONTH'} / ${period.label}`, x, y + 57, 7, '#647767', true);
+    text(period.rating === null ? 'Not recorded' : period.rating.toFixed(1), x, y + 86, period.rating === null ? 15 : 26, '#1d3428', true);
+    if (period.rating !== null) {
+      text('/ 5', x + 47, y + 86, 9, '#748378');
+      ratingStars(period.rating, x + 76, y + 72);
+    }
+    doc.setFont('Noto', 'normal'); doc.setFontSize(7);
+    const note = doc.splitTextToSize(clean(ratingPeriodNote(period)), C / 2 - 30) as string[];
+    text(note, x, y + 102, 7, '#667b69');
+    if (period.reviewCount !== null) text(`${period.reviewCount} Google reviews`, x, y + 114, 7, '#667b69');
+  });
+  text('Latest recorded Google rating in each month; independent of the selected reviews.', M + 15, y + 131, 7, '#667b69');
+  doc.link(M, y, C, 140, { url: comparison.sourceUrl });
+  y = comparisonTop + 155;
   const analyses = new Map([...reviews, ...uncertainReviews].map(r => [r, reviewTopics(r)]));
   const criticized = reviews.filter(r => analyses.get(r)!.criticisms.length > 0).length;
-  const metrics = [['Reviews', String(reviews.length)], ['Average rating', reviews.length ? (reviews.reduce((n, r) => n + (r.rating || 0), 0) / reviews.length).toFixed(2) : '—'], ['With criticism', String(criticized)]];
+  const metrics = [['Reviews', String(reviews.length)], ['Selection average', reviews.length ? (reviews.reduce((n, r) => n + (r.rating || 0), 0) / reviews.length).toFixed(2) : '—'], ['With criticism', String(criticized)]];
   need(62);
   metrics.forEach(([name, value], i) => {
     const x = M + i * ((C + 10) / 3), width = (C - 20) / 3;

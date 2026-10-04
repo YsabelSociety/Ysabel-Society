@@ -16,6 +16,10 @@ import { ReviewDateControls } from './review-date-controls';
 import { ReviewAI } from './review-ai';
 import { ReviewBody } from './review-body';
 import { ReviewStars } from './review-stars';
+import { ReviewRatingComparison } from './review-rating-comparison';
+import { useGoogleRatingHistory } from './use-google-rating';
+import { reviewRatingComparison } from '@/lib/review-rating-comparison';
+import { calendarDate } from '@/lib/sync-window';
 import { REVIEW_CATEGORIES, reviewCategoryLabel } from '@/lib/review-categories';
 import { DataIcon } from './data-icons';
 import { MiniHistory } from './mini-history';
@@ -62,6 +66,12 @@ export function ReviewReports({
   const [title, setTitle] = useState('Guest feedback review report');
   const selectedRange = reviewPeriodRange(dates, range);
   const reportRange = selectedRange || range;
+  const { history: ratingHistory, loading: ratingLoading } = useGoogleRatingHistory();
+  const today = calendarDate(timezone);
+  const ratingComparison = useMemo(
+    () => reviewRatingComparison(selectedRange?.end || today, today, ratingHistory),
+    [selectedRange?.end, today, ratingHistory],
+  );
   const filters: ReviewReportFilters = {
     ...localFilters,
     period: selectedRange ? 'Selected dates' : 'All imported reviews',
@@ -106,6 +116,7 @@ export function ReviewReports({
         mode: 'live', rows: [], posts: [], tables: [], records: snapshot.rows,
         sourceStatus: [], communityStatus: [], reviewSelection: snapshot.rows,
         reviewNote: reviewFilterLabel(snapshot),
+        ratingComparison: snapshot.ratingComparison,
       };
       const { downloadReportPDF } = await import('@/lib/report-pdf');
       await downloadReportPDF(bundle, setMessage);
@@ -124,7 +135,7 @@ export function ReviewReports({
   }
   const create = () => {
     setSnapshot(
-      makeReviewReport(records, filters, reportRange, timezone, title),
+      { ...makeReviewReport(records, filters, reportRange, timezone, title), ratingComparison },
     );
     setMessage('');
   };
@@ -147,13 +158,14 @@ export function ReviewReports({
         </div>
         <button
           className="primary"
-          disabled={loading || !selection.rows.length || truncated}
+          disabled={loading || ratingLoading || !selection.rows.length || truncated}
           onClick={create}
         >
           <FileText size={17} />
           Create report · {selection.rows.length}
         </button>
       </div>
+      <ReviewRatingComparison comparison={ratingComparison} />
       <div
         className="review-report-ratings"
         role="group"
@@ -394,6 +406,7 @@ export function ReviewReports({
               <div role="status" aria-live="polite">
                 {message}
               </div>
+              {snapshot.ratingComparison && <ReviewRatingComparison comparison={snapshot.ratingComparison} />}
               <div className="review-report-preview">
                 {[...snapshot.filters.stars].sort().map((star) => {
                   const rows = snapshot.rows.filter((r) => r.rating === star);

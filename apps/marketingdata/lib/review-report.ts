@@ -6,6 +6,7 @@ import {
 } from './community';
 import { type Range } from './analytics';
 import { reviewMatchesDates, reviewDateBounds } from './review-dates';
+import type { ReviewRatingComparison } from './review-rating-comparison';
 
 export type ReviewReportFilters = {
   stars: number[];
@@ -34,6 +35,7 @@ export type ReviewReportFilters = {
 };
 export type ReportReview = CommunityRecord & ReturnType<typeof reviewTopics>;
 export type ReviewReport = {
+  ratingComparison?: ReviewRatingComparison;
   title: string;
   generatedAt: string;
   timezone: string;

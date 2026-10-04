@@ -242,6 +242,29 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       y += 10;
     }
   };
+  const commentPanel = (comment: string) => {
+    if (!comment.trim()) { paragraph('Rating only. No written comment was supplied.', 8, false, true); return; }
+    const size = 9.5, leading = 14, inset = 18;
+    font(size); const lines = doc.splitTextToSize(clean(comment), C - inset * 2) as string[];
+    let offset = 0;
+    // Keep short comments together; paginate longer comments without cutting or shrinking their text.
+    const fullHeight = 67 + (lines.length - 1) * leading;
+    if (fullHeight <= bottom - 140) need(fullHeight);
+    while (offset < lines.length) {
+      need(67 + (Math.min(3, lines.length - offset) - 1) * leading);
+      const count = Math.min(lines.length - offset, Math.max(1, Math.floor((bottom - y - 67) / leading) + 1));
+      const height = 58 + (count - 1) * leading;
+      doc.saveGraphicsState(); doc.roundedRect(M, y - 4, C, height, 7, 7, null); doc.clip(); doc.discardPath();
+      gradient(M, y - 4, C, height, theme().tint, '#FEFEFC');
+      doc.restoreGraphicsState();
+      const accent = activeVenue === 'italian' ? '#927323' : theme().color;
+      doc.setFillColor(accent); doc.roundedRect(M + 8, y + 10, 2, height - 28, 1, 1, 'F');
+      text(offset ? 'ORIGINAL GUEST COMMENT / CONTINUED' : 'ORIGINAL GUEST COMMENT', M + inset, y + 14, 6.8, true, accent);
+      lines.slice(offset, offset + count).forEach((line, i) => text(line, M + inset, y + 36 + i * leading, size, false, '#20372A'));
+      offset += count; y += height + 9;
+      if (offset < lines.length) next();
+    }
+  };
   const ratingSummary = (list: GuestReview[]) => {
     const groups = guestReviewRatingGroups(list); need(80);
     const width = C / 5;
@@ -316,11 +339,9 @@ export async function createGuestReviewPDF(rows: GuestReview[], scope: GuestRevi
       paragraph(`${venueLabel(r.venue)} - ${r.date || 'Date not recorded'}${r.time ? ' at ' + r.time : ''}${r.reservation?.covers != null ? ' - ' + r.reservation.covers + ' guests' : ''}${r.reservation?.status ? ' - ' + r.reservation.status : ''}`, 8, false, true);
       const scores = fields.filter(k => r.scores[k] != null).map(k => `${k[0].toUpperCase() + k.slice(1)} ${r.scores[k]}/5`);
       if (scores.length) paragraph(scores.join('   /   '), 8, true);
-      labels('SevenRooms guest labels', r.guest?.labels);
       labels('Reservation labels', r.reservation?.tags);
+      commentPanel(r.feedback);
       concernPanel(r);
-      if (r.feedback) paragraph('Original guest comment', 8, true);
-      paragraph(r.feedback || 'Rating only. No written comment was supplied.', 9);
       // Keep the compact contact/history/reference group together when it fits on one page.
       need(165 + (r.guest?.gender || r.guest?.birthday ? 40 : 0));
       if (r.guest) {

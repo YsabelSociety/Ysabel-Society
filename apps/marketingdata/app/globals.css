@@ -8024,6 +8024,15 @@ h1 {
   display: flex;
   gap: 0.8rem;
   align-items: center;
+  flex-wrap: wrap;
+}
+.review-report-author > strong {
+  flex: 1;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+.review-report-author .review-stars {
+  margin-left: 0;
 }
 .review-report-author img {
   border-radius: 50%;
@@ -8033,6 +8042,7 @@ h1 {
   display: grid;
   gap: 0.2rem;
   flex: 1;
+  min-width: 0;
 }
 .review-report-author small {
   font-size: 0.8rem;

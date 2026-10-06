@@ -141,8 +141,7 @@ export function ReviewDateControls({
       ) : (
         <p className="source-asof">
           {reviewPeriodLabel(value, dashboard)}.{' '}
-          {range ? 'Weeks run Monday–Sunday. ' : ''}Dates apply to reviews and
-          the critical report below.
+          {range ? 'Weeks run Monday–Sunday. ' : ''}Dates apply to the review list and downloaded reports.
         </p>
       )}
       {range && (

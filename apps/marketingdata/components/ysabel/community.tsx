@@ -1,7 +1,4 @@
 'use client';
-import { GoogleReviewCard } from './google-review-card';
-import reviewStyles from './google-reviews.module.css';
-import { REVIEW_CATEGORIES, reviewCategoryLabel } from '@/lib/review-categories';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   MessageCircle,
@@ -24,7 +21,6 @@ import { ResponsiveContainer } from './stable-chart-container';
 import { Tabs, TabsList, TabsContent } from '@/components/ui/tabs';
 import { DataIcon, DataTab as TabsTrigger } from './data-icons';
 import { MiniHistory } from './mini-history';
-import { reviewMonthHistory } from '@/lib/review-history';
 import { GoogleOwnerReviewImport } from './google-owner-review-import';
 import {
   Dialog,
@@ -42,8 +38,6 @@ import {
   inboxModel,
   nativeConversation,
   inWindow,
-  reviewTopics,
-  compareReviewsNewest,
   matchesProfile,
   followerTier,
   prepareMetaMessageParts,
@@ -54,11 +48,7 @@ import {
 import { number, type Range } from '@/lib/analytics';
 import { InstagramMessaging } from './instagram-messaging';
 import { ReviewReports } from './review-reports';
-import { ReviewDateControls } from './review-date-controls';
 import {
-  reviewMatchesDates,
-  reviewPeriodRange,
-  reviewPeriodLabel,
   type ReviewDateSelection,
 } from '@/lib/review-dates';
 import { communitySyncSources } from '@/lib/community-sync-plan';
@@ -1748,18 +1738,14 @@ export function GoogleReviews({
   children?: React.ReactNode;
   onLoadState?: (state: LoadState) => void;
 }) {
-  const data = useCommunity('review'),
-    [dates, setDates] = useState<ReviewDateSelection>({
-      mode: 'All dates',
-      anchor: range.end,
-      start: range.start,
-      end: range.end,
-      approximate: true,
-    }),
-    [category, setCategory] = useState('All topics'),
-    [stars, setStars] = useState('All ratings'),
-    [search, setSearch] = useState(''),
-    [page, setPage] = useState(1);
+  const data = useCommunity('review');
+  const [dates, setDates] = useState<ReviewDateSelection>({
+    mode: 'All dates',
+    anchor: range.end,
+    start: range.start,
+    end: range.end,
+    approximate: true,
+  });
   useEffect(() => {
     onLoadState?.({
       kind: 'review',
@@ -1767,37 +1753,16 @@ export function GoogleReviews({
       error: data.error,
     });
   }, [data.loading, data.error, onLoadState]);
-  const all = data.records
-      .filter((r) => r.kind === 'review')
-      .sort(compareReviewsNewest),
-    status = data.statuses.find(
-      (s) => s.source === 'gbp' && s.kind === 'review',
-    );
-  const reviewRange = reviewPeriodRange(dates, range);
-  const dated = all.filter((r) =>
-    reviewMatchesDates(r, reviewRange, timezone, dates.approximate),
-  );
-  const reviews = dated
-    .map((r) => ({ ...r, ...reviewTopics(r) }))
-    .filter(
-      (r) =>
-        (category === 'All topics' || r.categories.includes(category)) &&
-        (stars === 'All ratings' ||
-          (stars === 'Unanswered reviews'
-            ? !r.reply
-            : r.rating === Number(stars[0]))) &&
-        [r.name, r.text].join(' ').toLowerCase().includes(search.toLowerCase()),
-    );
-  const ready = all.length > 0 || status?.state === 'synced';
-  useEffect(
-    () => setPage(1),
-    [dates, range.start, range.end, category, stars, search],
+  const reviews = useMemo(
+    () => data.records.filter(record => record.kind === 'review' && record.source === 'gbp'),
+    [data.records],
   );
   return (
     <section className="community-view google-reviews">
       {children}
+      {data.error && <div className="save-error" role="alert">{data.error}</div>}
       <ReviewReports
-        records={all}
+        records={reviews}
         range={range}
         timezone={timezone}
         loading={data.loading}
@@ -1805,131 +1770,6 @@ export function GoogleReviews({
         dates={dates}
         onDatesChange={setDates}
       />
-      <div id="google-guest-reviews" className={`section-head ${reviewStyles.guestHeading}`}>
-        <div>
-          <span className={reviewStyles.eyebrow}>GOOGLE BUSINESS / GUEST FEEDBACK</span>
-          <h2>Guest reviews</h2>
-          <p>
-            All captured Google reviews and their original feedback. Removed
-            reviews may remain in captured history.
-          </p>
-        </div>
-
-      </div>
-      {data.error && (
-        <div className="save-error" role="alert">
-          {data.error}
-        </div>
-      )}
-      <ReviewDateControls value={dates} onChange={setDates} dashboard={range} />
-      {reviewRange && dated.some((r) => r.timePrecision === 'relative') && (
-        <p className="source-asof">
-          {dated.filter((r) => r.timePrecision === 'relative').length} of{' '}
-          {dated.length} date matches are approximate. Each review keeps
-          Google’s original date label.
-        </p>
-      )}
-      <CountCards
-        items={[
-          {
-            label: 'Captured Google reviews',
-            value: ready ? dated.length : null,
-            history: ready ? reviewMonthHistory(dated, dated) : [],
-            detail: reviewPeriodLabel(dates, range),
-          },
-          {
-            label: 'Food-related reviews',
-            history: ready
-              ? reviewMonthHistory(
-                  dated,
-                  dated.filter((r) =>
-                    reviewTopics(r).categories.includes('Food'),
-                  ),
-                )
-              : [],
-            value: ready
-              ? dated.filter((r) => reviewTopics(r).categories.includes('Food'))
-                  .length
-              : null,
-            detail: 'Positive and critical feedback about food',
-          },
-          {
-            label: 'Reviews without a reply',
-            value: ready ? dated.filter((r) => !r.reply).length : null,
-            history: ready
-              ? reviewMonthHistory(
-                  dated,
-                  dated.filter((r) => !r.reply),
-                )
-              : [],
-            detail: 'No owner reply supplied by Google or the import',
-          },
-        ]}
-      />
-      <div className="community-toolbar">
-        <Picker
-          label="Review topic"
-          value={reviewCategoryLabel(category)}
-          onChange={label => setCategory(REVIEW_CATEGORIES.find(topic => topic.label === label)?.topic || label)}
-          options={['All topics', ...REVIEW_CATEGORIES.map(category => category.label)]}
-        />
-        <Picker
-          label="Review rating"
-          value={stars}
-          onChange={setStars}
-          options={[
-            'All ratings',
-            '1 star',
-            '2 stars',
-            '3 stars',
-            '4 stars',
-            '5 stars',
-            'Unanswered reviews',
-          ]}
-        />
-        <input
-          className="community-search"
-          aria-label="Search reviews"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search review text or reviewer"
-        />
-      </div>
-      <div className="review-list">
-        {data.loading ? (
-          <p className="community-empty">Loading reviews…</p>
-        ) : reviews.length ? (
-          reviews.slice((page - 1) * 30, page * 30).map(review => <GoogleReviewCard key={review.accountId + ':' + review.id} review={review} timezone={timezone} onTopicChange={setCategory} />)
-        ) : (
-          <p className="community-empty">
-            No reviews match these filters. Connect Google Business or import a
-            reviewed export.
-          </p>
-        )}
-      </div>
-      {reviews.length > 30 && (
-        <div className="community-toolbar">
-          <button
-            className="secondary"
-            disabled={page === 1}
-            onClick={() => setPage((v) => v - 1)}
-          >
-            Previous
-          </button>
-          <span>
-            Page {page} of {Math.ceil(reviews.length / 30)}
-          </span>
-          <button
-            className="secondary"
-            disabled={page * 30 >= reviews.length}
-            onClick={() => setPage((v) => v + 1)}
-          >
-            Next
-          </button>
-        </div>
-      )}
-      {data.truncated && <p>The newest 10,000 stored reviews are shown.</p>}
-
     </section>
   );
 }

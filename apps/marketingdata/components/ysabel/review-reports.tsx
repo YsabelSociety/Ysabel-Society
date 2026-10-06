@@ -1,7 +1,7 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { type ReportBundle } from '@/lib/report-bundle';
-import { Download, FileText, ArrowUpRight, Check, ChevronDown, Star } from 'lucide-react';
+import { Download, FileText, ArrowUpRight, Check, ChevronDown, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -64,6 +64,8 @@ export function ReviewReports({
   });
   const [title, setTitle] = useState('Guest feedback review report');
   const [showAllTopics, setShowAllTopics] = useState(false);
+  const [pagination, setPagination] = useState({ key: '', page: 1 });
+  const reviewList = useRef<HTMLElement>(null);
   const selectedRange = reviewPeriodRange(dates, range);
   const reportRange = selectedRange || range;
   const { history: ratingHistory, loading: ratingLoading } = useGoogleRatingHistory();
@@ -85,8 +87,35 @@ export function ReviewReports({
     () => makeReviewReport(records, filters, reportRange, timezone, title),
     [records, localFilters, dates, range.start, range.end, timezone, title],
   );
-  const patch = (values: Partial<ReviewReportFilters>) =>
+  const pageSize = 30;
+  const pageCount = Math.max(1, Math.ceil(selection.rows.length / pageSize));
+  // Filters and a newly arrived latest review immediately return to page one.
+  // Background updates to existing reviews keep the reader's current page.
+  const pageKey = JSON.stringify([
+    localFilters, dates, selectedRange, timezone,
+    selection.rows[0] && [reviewKey(selection.rows[0]), selection.rows[0].time],
+  ]);
+  const page = pagination.key === pageKey ? Math.min(pagination.page, pageCount) : 1;
+  const pageStart = (page - 1) * pageSize;
+  const pageReviews = selection.rows.slice(pageStart, pageStart + pageSize);
+  const changePage = (next: number) => {
+    setPagination({ key: pageKey, page: Math.max(1, Math.min(next, pageCount)) });
+    requestAnimationFrame(() => reviewList.current?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
+      block: 'start',
+    }));
+  };
+  const pageControls = (label: string) => (
+    <nav className={styles.pagination} aria-label={label}>
+      <button className="secondary" aria-label="Previous review page" disabled={page === 1} onClick={() => changePage(page - 1)}><ChevronLeft size={15} />Newer reviews</button>
+      <label>Page <select aria-label={label + ' selector'} value={page} onChange={event => changePage(Number(event.target.value))}>{Array.from({ length: pageCount }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}</option>)}</select> of {pageCount}</label>
+      <button className="secondary" aria-label="Next review page" disabled={page === pageCount} onClick={() => changePage(page + 1)}>Older reviews<ChevronRight size={15} /></button>
+    </nav>
+  );
+  const patch = (values: Partial<ReviewReportFilters>) => {
+    setPagination({ key: '', page: 1 });
     setFilters((v) => ({ ...v, ...values }));
+  };
   const ratingReports = useMemo(
     () =>
       [1, 2, 3, 4, 5].map((star) => ({
@@ -151,17 +180,17 @@ export function ReviewReports({
   return (
     <section
       className={`surface review-report-builder ${styles.builder}`}
-      aria-label="Critical review reports"
+      aria-label="Google guest reviews"
     >
       <div className={`section-head ${styles.reportHeader}`}>
         <div>
           <span className="report-kicker">
             GOOGLE BUSINESS / REVIEW INTELLIGENCE
           </span>
-          <h2>Critical review reports</h2>
+          <h2>Guest reviews</h2>
           <p>
-            A closer look at the guest experience. Every rating, every voice,
-            with the details that deserve your attention.
+            Every rating, every guest perspective. All captured Google reviews,
+            from the latest feedback to the earliest visits.
           </p>
         </div>
         <button
@@ -195,7 +224,7 @@ export function ReviewReports({
       <div
         className={`review-report-ratings ${styles.ratingCards}`}
         role="group"
-        aria-label="Report star ratings"
+        aria-label="Review star ratings"
       >
         {ratingReports.map(({ star, rows }) => (
           <button
@@ -222,7 +251,7 @@ export function ReviewReports({
             />
             <small>
               {filters.stars.includes(star)
-                ? 'Included in report'
+                ? 'Included in selection'
                 : 'Click to include'}
             </small>
           </button>
@@ -230,13 +259,13 @@ export function ReviewReports({
       </div>
       <div className={`review-report-controls ${styles.filters}`}>
         <Picker
-          label="Report topic"
+          label="Review topic"
           value={reviewCategoryLabel(filters.topic === 'Service & staff' ? 'Service' : filters.topic)}
           options={['All topics','Food & drinks',...REVIEW_CATEGORIES.map(c=>c.label)]}
           onChange={(v) => {const topic=REVIEW_CATEGORIES.find(c=>c.label===v)?.topic||v;patch({topic:(topic==='Service'?'Service & staff':topic) as ReviewReportFilters['topic']});}}
         />
         <Picker
-          label="Report feedback"
+          label="Review feedback"
           value={filters.evidence}
           options={['Criticism detected', 'All matching reviews']}
           onChange={(v) =>
@@ -244,24 +273,19 @@ export function ReviewReports({
           }
         />
         <input
-          aria-label="Search report comments"
+          aria-label="Search reviews"
           type="search"
-          placeholder="Search comments or names"
+          placeholder="Search review text or reviewer"
           value={filters.search}
           onChange={(e) => patch({ search: e.target.value })}
         />
-        <label>
-          Report title
-          <input
-            maxLength={120}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-        </label>
       </div>
-      <div className="community-toolbar" aria-label="Quick report periods">
-        <button className="secondary" onClick={() => onDatesChange({ ...dates, mode: 'All dates' })}>
-          Newest reviews · all dates
+      <div className="community-toolbar" aria-label="Quick review periods">
+        <button className="secondary" onClick={() => {
+          patch({ stars: [1, 2, 3, 4, 5], topic: 'All topics', evidence: 'All matching reviews', search: '' });
+          onDatesChange({ ...dates, mode: 'All dates' });
+        }}>
+          All reviews · newest first
         </button>
         <button className="secondary" onClick={() => onDatesChange({ ...dates, mode: 'Monthly', approximate: true })}>
           Filter by month
@@ -271,7 +295,7 @@ export function ReviewReports({
         value={dates}
         onChange={onDatesChange}
         dashboard={range}
-        label="Report"
+        label="Review"
       />
       <p className="source-asof">
         Newest first · Updated after each completed sync or import. Even a five-star review can contain criticism.
@@ -297,11 +321,18 @@ export function ReviewReports({
         </div>
         <button className={styles.allTopics} aria-expanded={showAllTopics} onClick={() => setShowAllTopics(value => !value)}><ChevronDown size={15} aria-hidden="true" />{showAllTopics ? 'Show key topics' : `Explore all ${REVIEW_CATEGORIES.length} topics`}</button>
       </section>
-      <section className={styles.latestReviews} aria-label="Newest matching critical reviews" aria-live="polite">
-        <div className={styles.topicHeading}><div><span className={styles.eyebrow}>THE PEOPLE BEHIND THE RATINGS</span><h3>Latest guest perspectives</h3><p>{selection.rows.length.toLocaleString()} matching reviews · Full comments, with points to improve set apart.</p></div><button className={styles.textLink} onClick={() => document.getElementById('google-guest-reviews')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })}>Browse all reviews<ArrowUpRight size={16} aria-hidden="true" /></button></div>
-        <div className={styles.reviewerList}>{selection.rows.slice(0, 5).map(review => <GoogleReviewCard key={reviewKey(review)} review={review} timezone={timezone} onTopicChange={topic => patch({ topic: (topic === 'Service' ? 'Service & staff' : topic) as ReviewReportFilters['topic'] })} />)}</div>
+      <section id="google-guest-reviews" ref={reviewList} className={styles.latestReviews} aria-label="All matching Google reviews">
+        <div className={styles.topicHeading}>
+          <div>
+            <span className={styles.eyebrow}>THE PEOPLE BEHIND THE RATINGS</span>
+            <h3>Guest perspectives</h3>
+            <p role="status" aria-live="polite">{loading ? 'Loading Google reviews…' : selection.rows.length ? `${(pageStart + 1).toLocaleString()}–${Math.min(pageStart + pageSize, selection.rows.length).toLocaleString()} of ${selection.rows.length.toLocaleString()} reviews · Newest to oldest` : 'No matching reviews'}</p>
+          </div>
+        </div>
+        {selection.rows.length > pageSize && pageControls('Review pages')}
+        <div className={styles.reviewerList}>{pageReviews.map(review => <GoogleReviewCard key={reviewKey(review)} review={review} timezone={timezone} onTopicChange={topic => patch({ topic: (topic === 'Service' ? 'Service & staff' : topic) as ReviewReportFilters['topic'] })} />)}</div>
         {!loading && !selection.rows.length && <p className="community-empty">No reviews match these filters. Try another month, topic or feedback filter.</p>}
-        {selection.rows.length > 5 && <p className="source-asof">The newest 5 reviews are shown here. Your report includes all {selection.rows.length.toLocaleString()} matching reviews.</p>}
+        {selection.rows.length > pageSize && pageControls('Review pages bottom')}
       </section>
       {truncated && (
         <p role="alert" className="save-error">
@@ -331,6 +362,13 @@ export function ReviewReports({
           </DialogHeader>
           {snapshot && (
             <>
+              <label className={styles.reportTitle}>
+                Report title
+                <input maxLength={120} value={snapshot.title} onChange={event => {
+                  setTitle(event.target.value);
+                  setSnapshot({ ...snapshot, title: event.target.value });
+                }} />
+              </label>
               <div className="review-report-downloads">
                 <button
                   className="primary"

@@ -136,5 +136,5 @@ export function reviewMatchesDates(
 }
 export function reviewPeriodLabel(s: ReviewDateSelection, dashboard: Range) {
   const r = reviewPeriodRange(s, dashboard);
-  return r ? `${s.mode} · ${r.start} – ${r.end}` : 'All imported dates';
+  return r ? `${s.mode} · ${r.start} – ${r.end}` : 'All captured dates';
 }

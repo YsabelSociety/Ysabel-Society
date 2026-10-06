@@ -1,7 +1,7 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { type ReportBundle } from '@/lib/report-bundle';
-import { Download, FileText, ExternalLink } from 'lucide-react';
+import { Download, FileText, ArrowUpRight, Check, ChevronDown, Star } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -14,14 +14,15 @@ import { type CommunityRecord } from '@/lib/community';
 import { type Range } from '@/lib/analytics';
 import { ReviewDateControls } from './review-date-controls';
 import { ReviewAI } from './review-ai';
-import { ReviewBody } from './review-body';
-import { ReviewStars } from './review-stars';
+import { GoogleReviewCard } from './google-review-card';
+import { reviewHasComment } from './review-body';
+import { ReviewTopicIcon } from './review-topic-icon';
+import styles from './google-reviews.module.css';
 import { ReviewRatingComparison } from './review-rating-comparison';
 import { useGoogleRatingHistory } from './use-google-rating';
 import { reviewRatingComparison } from '@/lib/review-rating-comparison';
 import { calendarDate } from '@/lib/sync-window';
 import { REVIEW_CATEGORIES, reviewCategoryLabel } from '@/lib/review-categories';
-import { DataIcon } from './data-icons';
 import { MiniHistory } from './mini-history';
 import { reviewMonthHistory } from '@/lib/review-history';
 import {
@@ -32,10 +33,8 @@ import {
 import {
   DEFAULT_REVIEW_FILTERS,
   makeReviewReport,
-  reviewDateLabel,
   reviewFilterLabel,
   reviewKey,
-  reviewLink,
   type ReviewReport,
   type ReviewReportFilters,
 } from '@/lib/review-report';
@@ -64,6 +63,7 @@ export function ReviewReports({
     evidence: 'All matching reviews',
   });
   const [title, setTitle] = useState('Guest feedback review report');
+  const [showAllTopics, setShowAllTopics] = useState(false);
   const selectedRange = reviewPeriodRange(dates, range);
   const reportRange = selectedRange || range;
   const { history: ratingHistory, loading: ratingLoading } = useGoogleRatingHistory();
@@ -105,6 +105,12 @@ export function ReviewReports({
     () => makeReviewReport(records, {...filters,topic:'All topics',evidence:'Criticism detected'}, reportRange, timezone, title),
     [records, localFilters, dates, range.start, range.end, timezone, title],
   );
+  const topicCards = REVIEW_CATEGORIES.map(category => ({
+    ...category,
+    issue: categorySelection.issues.find(issue => issue.topic === category.topic),
+  })).sort((a, b) => (b.issue?.count || 0) - (a.issue?.count || 0));
+  const visibleTopics = showAllTopics ? topicCards : topicCards.filter((category, index) =>
+    index < 6 || filters.topic === (category.topic === 'Service' ? 'Service & staff' : category.topic));
   async function exportIllustrated(stars?: number[]) {
     if (!snapshot || busy) return;
     const selected = stars ? { ...snapshot, rows: snapshot.rows.filter(r => stars.includes(r.rating || 0)), filters: { ...snapshot.filters, stars } } : snapshot;
@@ -144,19 +150,18 @@ export function ReviewReports({
   };
   return (
     <section
-      className="surface review-report-builder"
+      className={`surface review-report-builder ${styles.builder}`}
       aria-label="Critical review reports"
     >
-      <ReviewAI records={records} onUpdated={()=>window.dispatchEvent(new Event("ysabel:community-updated"))}/>
-      <div className="section-head">
+      <div className={`section-head ${styles.reportHeader}`}>
         <div>
           <span className="report-kicker">
-            GOOGLE BUSINESS · INTERNAL REPORTS
+            GOOGLE BUSINESS / REVIEW INTELLIGENCE
           </span>
           <h2>Critical review reports</h2>
           <p>
-            All ratings, with criticism highlighted separately. Choose a month or dates to
-            report on food, drinks, service, hospitality, menu, cleanliness, reservations and atmosphere.
+            A closer look at the guest experience. Every rating, every voice,
+            with the details that deserve your attention.
           </p>
         </div>
         <button
@@ -168,8 +173,13 @@ export function ReviewReports({
           Create report · {selection.rows.length}
         </button>
       </div>
+      <div className={styles.selectionSummary} aria-label="Selected review summary">
+        <div><span>REVIEWS IN SELECTION</span><strong>{loading ? '—' : selection.rows.length.toLocaleString()}</strong><small>{reviewPeriodLabel(dates, range)}</small></div>
+        <div><span>WITH WRITTEN FEEDBACK</span><strong>{loading ? '—' : selection.rows.filter(reviewHasComment).length.toLocaleString()}</strong><small>The original guest experience</small></div>
+        <div data-concern="true"><span>WITH POINTS TO IMPROVE</span><strong>{loading ? '—' : selection.rows.filter(review => review.criticisms.length > 0).length.toLocaleString()}</strong><small>Identified across all star ratings</small></div>
+      </div>
       <ReviewRatingComparison comparison={ratingComparison} />
-      <div className="community-toolbar" role="group" aria-label="Review download groups">
+      <div className={`community-toolbar ${styles.downloadGroups}`} role="group" aria-label="Review download groups">
         {[
           { label: 'All reviews · 1–5 stars', stars: [1, 2, 3, 4, 5] },
           { label: 'Low ratings · 1–3 stars', stars: [1, 2, 3] },
@@ -183,13 +193,15 @@ export function ReviewReports({
         ))}
       </div>
       <div
-        className="review-report-ratings"
+        className={`review-report-ratings ${styles.ratingCards}`}
         role="group"
         aria-label="Report star ratings"
       >
         {ratingReports.map(({ star, rows }) => (
           <button
             key={star}
+            className={styles.ratingCard}
+            aria-label={`${star}-star reviews · ${rows.length} ${rows.length === 1 ? 'review' : 'reviews'}`}
             aria-pressed={filters.stars.includes(star)}
             onClick={() =>
               patch({
@@ -199,10 +211,7 @@ export function ReviewReports({
               })
             }
           >
-            <span>
-              <DataIcon name="reviews" />
-              {star}-star reviews
-            </span>
+            <span className={styles.ratingCardTop}><span><Star size={15} fill="currentColor" strokeWidth={1.2} aria-hidden="true" />{star}-star reviews</span><i aria-hidden="true">{filters.stars.includes(star) && <Check size={12} />}</i></span>
             <strong>{loading ? '—' : rows.length}</strong>
             <span className="review-rating-criticism">
               {loading ? '—' : rows.filter((review) => review.criticisms.length > 0).length} with criticism
@@ -219,7 +228,7 @@ export function ReviewReports({
           </button>
         ))}
       </div>
-      <div className="review-report-controls">
+      <div className={`review-report-controls ${styles.filters}`}>
         <Picker
           label="Report topic"
           value={reviewCategoryLabel(filters.topic === 'Service & staff' ? 'Service' : filters.topic)}
@@ -265,129 +274,48 @@ export function ReviewReports({
         label="Report"
       />
       <p className="source-asof">
-        Updated after each completed sync or import. All star ratings are included by default,
-        newest first. Criticism can appear even in a five-star review. Choose
-        “Criticism detected” to focus only on reviews with identified concerns.
+        Newest first · Updated after each completed sync or import. Even a five-star review can contain criticism.
       </p>
-      {(
-        <div
-          className="review-report-issues"
-          aria-label="All criticism categories"
-        >
-          <div className="review-category-heading"><h3>Criticism categories</h3><p>Every category is available. Counts follow the selected ratings, dates and search. One review can contain several concerns.</p><button className="secondary" onClick={()=>patch({topic:'All topics'})}>Show all categories</button></div>
-          {REVIEW_CATEGORIES.map((category) => {
-            const issue=categorySelection.issues.find(i=>i.topic===category.topic);
-            const topic=category.topic==='Service'?'Service & staff':category.topic;
-            return <button className="review-category-card" key={category.topic} aria-pressed={filters.topic===topic} onClick={()=>patch({topic,evidence:'Criticism detected'})}>
-              <span>
-                <DataIcon name={category.topic} />
-                {category.label}
-                <b>{loading?'—':issue?.count||0}</b>
-              </span>
-              <small>{category.detail}</small>
-              <div>
-                <i
-                  style={{
-                    width: ((issue?.count||0) / Math.max(1,categorySelection.rows.length)) * 100 + '%',
-                  }}
-                />
-              </div>
-              <p>{issue?.excerpt || (loading?'Loading reviews…':'No criticism detected in the selected reviews.')}</p>
+      <section className={styles.topicSection} aria-label="All criticism categories">
+        <div className={styles.topicHeading}>
+          <div><span className={styles.eyebrow}>UNDERSTAND THE DETAILS</span><h3>Where we can improve</h3><p>Choose a topic to read the feedback behind it. One review can raise several concerns.</p></div>
+          {filters.topic !== 'All topics' && <button className="secondary" onClick={() => patch({ topic: 'All topics' })}>Clear topic</button>}
+        </div>
+        <div className={styles.topicGrid}>
+          {visibleTopics.map(category => {
+            const { issue } = category;
+            const topic = category.topic === 'Service' ? 'Service & staff' : category.topic;
+            const count = issue?.count || 0;
+            const excerpt = categorySelection.rows.find(review => review.criticisms.some(criticism => criticism.topic === category.topic))?.criticisms.find(criticism => criticism.topic === category.topic)?.excerpt;
+            return <button className={styles.topicCard} key={category.topic} aria-pressed={filters.topic === topic} onClick={() => patch({ topic, evidence: 'Criticism detected' })}>
+              <div className={styles.topicTop}><span className={styles.topicIcon}><ReviewTopicIcon topic={category.topic} /></span><span className={styles.topicCount}>{loading ? '—' : count}<small>{count === 1 ? 'review' : 'reviews'}</small></span><ArrowUpRight size={17} className={styles.topicArrow} aria-hidden="true" /></div>
+              <h4>{category.label}</h4><p className={styles.topicDetail}>{category.detail}</p>
+              <div className={styles.topicBar}><i style={{ width: `${count / Math.max(1, categorySelection.rows.length) * 100}%` }} /></div>
+              <p className={styles.topicExcerpt}>{excerpt ? `“${excerpt}”` : issue?.excerpt || (loading ? 'Loading reviews…' : 'No concerns identified in this selection.')}</p>
             </button>;
           })}
         </div>
-      )}
-      <div aria-label="Newest matching critical reviews" aria-live="polite">
-        <h3>Newest matching reviews</h3>
-        {selection.rows.slice(0, 5).map((review) => (
-          <article key={reviewKey(review)} className="community-help">
-            <div className="review-report-author">{review.avatar&&<img src={review.avatar} alt="Reviewer profile" width={44} height={44} loading="lazy" referrerPolicy="no-referrer"/>}<strong>{review.name || 'Anonymous reviewer'}</strong><ReviewStars rating={review.rating}/></div>
-            <p className="source-asof">{reviewDateLabel(review, timezone)}</p>
-            <ReviewBody review={review}/>
-            {review.criticisms.map((issue) => <div className="review-criticism" key={issue.topic}><p><strong>{issue.topic}</strong> · {'explanation' in issue ? String(issue.explanation) : issue.excerpt}{'confidence' in issue && issue.confidence==='low'?' · Possible criticism — needs review':''}</p>{'explanation' in issue&&<blockquote>{issue.excerpt}</blockquote>}</div>)}
-          </article>
-        ))}
-        {!loading && !selection.rows.length && <p>No reviews match these filters. Try another month, topic or feedback filter.</p>}
-        {selection.rows.length > 5 && <p className="source-asof">Showing the newest 5 of {selection.rows.length}. Create report includes the complete selection.</p>}
-      </div>
+        <button className={styles.allTopics} aria-expanded={showAllTopics} onClick={() => setShowAllTopics(value => !value)}><ChevronDown size={15} aria-hidden="true" />{showAllTopics ? 'Show key topics' : `Explore all ${REVIEW_CATEGORIES.length} topics`}</button>
+      </section>
+      <section className={styles.latestReviews} aria-label="Newest matching critical reviews" aria-live="polite">
+        <div className={styles.topicHeading}><div><span className={styles.eyebrow}>THE PEOPLE BEHIND THE RATINGS</span><h3>Latest guest perspectives</h3><p>{selection.rows.length.toLocaleString()} matching reviews · Full comments, with points to improve set apart.</p></div><button className={styles.textLink} onClick={() => document.getElementById('google-guest-reviews')?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })}>Browse all reviews<ArrowUpRight size={16} aria-hidden="true" /></button></div>
+        <div className={styles.reviewerList}>{selection.rows.slice(0, 5).map(review => <GoogleReviewCard key={reviewKey(review)} review={review} timezone={timezone} onTopicChange={topic => patch({ topic: (topic === 'Service' ? 'Service & staff' : topic) as ReviewReportFilters['topic'] })} />)}</div>
+        {!loading && !selection.rows.length && <p className="community-empty">No reviews match these filters. Try another month, topic or feedback filter.</p>}
+        {selection.rows.length > 5 && <p className="source-asof">The newest 5 reviews are shown here. Your report includes all {selection.rows.length.toLocaleString()} matching reviews.</p>}
+      </section>
       {truncated && (
         <p role="alert" className="save-error">
           The review collection was truncated. A complete report cannot be
           exported until all matching records are loaded.
         </p>
       )}
-      <div className="review-report-summary">
-        <div>
-          <strong>{loading ? '—' : selection.rows.length}</strong>
-          <span>
-            <DataIcon name="reviews" />
-            reviews in this report
-          </span>
-          <MiniHistory
-            values={
-              loading ? [] : reviewMonthHistory(selection.rows, selection.rows)
-            }
-            label="Captured reviews by month"
-          />
-        </div>
-        <div>
-          <strong>
-            {selection.issues.find((v) => v.topic === 'Food')?.count || 0}
-          </strong>
-          <span>
-            <DataIcon name="food" />
-            with food criticism
-          </span>
-          <MiniHistory
-            values={
-              loading
-                ? []
-                : reviewMonthHistory(
-                    selection.rows,
-                    selection.rows.filter((r) =>
-                      r.criticisms.some((c) => c.topic === 'Food'),
-                    ),
-                  )
-            }
-            label="Food criticism by month"
-          />
-        </div>
-        <div>
-          <strong>
-            {selection.issues.find((v) => v.topic === 'Drinks')?.count || 0}
-          </strong>
-          <span>
-            <DataIcon name="drinks" />
-            with drink criticism
-          </span>
-          <MiniHistory
-            values={
-              loading
-                ? []
-                : reviewMonthHistory(
-                    selection.rows,
-                    selection.rows.filter((r) =>
-                      r.criticisms.some((c) => c.topic === 'Drinks'),
-                    ),
-                  )
-            }
-            label="Drink criticism by month"
-          />
-        </div>
-      </div>
-      {!loading && !selection.rows.length && (
-        <p className="community-empty">
-          No reviews match this combination. Include a star rating, broaden the
-          topic or choose “All matching reviews”.
-        </p>
-      )}
       <p className="source-asof">
         Downloads include every matching review, full comments, available
-        profile photos and Google links. Original review links are used where
-        supplied; otherwise the reviewer’s Google reviews link is clearly
-        identified.
+        profile photos and Google links. Guest photos appear when saved with the review;
+        Google’s Reviews API does not supply attached photos.
       </p>
 
+      <details className={styles.aiDisclosure}><summary>Review analysis & translations</summary><ReviewAI records={records} onUpdated={() => window.dispatchEvent(new Event('ysabel:community-updated'))} /></details>
       <Dialog
         open={!!snapshot}
         onOpenChange={(open) => {
@@ -433,7 +361,7 @@ export function ReviewReports({
                 {message}
               </div>
               {snapshot.ratingComparison && <ReviewRatingComparison comparison={snapshot.ratingComparison} />}
-              <div className="review-report-preview">
+              <div className={styles.preview}>
                 {[...snapshot.filters.stars].sort().map((star) => {
                   const rows = snapshot.rows.filter((r) => r.rating === star);
                   return (
@@ -441,45 +369,7 @@ export function ReviewReports({
                       <h3>
                         {star}-star reviews <span>{rows.length}</span>
                       </h3>
-                      {rows.slice(0, 5).map((r) => {
-                        const link = reviewLink(r);
-                        return (
-                          <article key={reviewKey(r)}>
-                            <div className="review-report-author">
-                              {r.avatar && (
-                                <img
-                                  src={r.avatar}
-                                  alt=""
-                                  width={44}
-                                  height={44}
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                />
-                              )}
-                              <div>
-                                <strong>
-                                  {r.name || 'Anonymous reviewer'}
-                                </strong>
-                                {r.username && <small>{r.username}</small>}
-                                <small>{reviewDateLabel(r, timezone)}</small>
-                              </div>
-                              <ReviewStars rating={r.rating} />
-                            </div>
-                            <ReviewBody review={r}/>
-                            {r.criticisms.map((issue) => <div className="review-criticism" key={issue.topic}><strong>{issue.topic} · criticism</strong><p>{issue.excerpt}</p></div>)}
-                            {link && (
-                              <a
-                                href={link.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                {link.label}
-                                <ExternalLink size={13} />
-                              </a>
-                            )}
-                          </article>
-                        );
-                      })}
+                      {rows.slice(0, 5).map(review => <GoogleReviewCard key={reviewKey(review)} review={review} timezone={timezone} />)}
                       {rows.length > 5 && (
                         <p className="source-asof">
                           Previewing 5 of {rows.length}; the download includes

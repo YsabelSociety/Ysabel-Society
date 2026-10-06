@@ -1,6 +1,7 @@
 'use client';
-import { ReviewBody } from './review-body';
-import { ReviewStars } from './review-stars';
+import { GoogleReviewCard } from './google-review-card';
+import reviewStyles from './google-reviews.module.css';
+import { REVIEW_CATEGORIES, reviewCategoryLabel } from '@/lib/review-categories';
 import { useEffect, useMemo, useState, useRef } from 'react';
 import {
   MessageCircle,
@@ -60,7 +61,6 @@ import {
   reviewPeriodLabel,
   type ReviewDateSelection,
 } from '@/lib/review-dates';
-import { reviewDateLabel } from '@/lib/review-report';
 import { communitySyncSources } from '@/lib/community-sync-plan';
 import { AdminGate } from './admin-gate';
 type LoadState = { kind: string; ready: boolean; error: string };
@@ -1856,16 +1856,7 @@ export function GoogleReviews({
             : r.rating === Number(stars[0]))) &&
         [r.name, r.text].join(' ').toLowerCase().includes(search.toLowerCase()),
     );
-  const issues = new Map<string, { count: number; examples: string[] }>();
-  for (const r of dated)
-    for (const c of reviewTopics(r).criticisms) {
-      const item = issues.get(c.topic) || { count: 0, examples: [] };
-      item.count++;
-      if (item.examples.length < 3) item.examples.push(c.excerpt);
-      issues.set(c.topic, item);
-    }
-  const ranked = [...issues].sort((a, b) => b[1].count - a[1].count),
-    ready = all.length > 0 || status?.state === 'synced';
+  const ready = all.length > 0 || status?.state === 'synced';
   async function sync() {
     setBusy(true);
     data.setError('');
@@ -1898,8 +1889,9 @@ export function GoogleReviews({
         dates={dates}
         onDatesChange={setDates}
       />
-      <div className="section-head">
+      <div id="google-guest-reviews" className={`section-head ${reviewStyles.guestHeading}`}>
         <div>
+          <span className={reviewStyles.eyebrow}>GOOGLE BUSINESS / GUEST FEEDBACK</span>
           <h2>Guest reviews</h2>
           <p>
             All captured Google reviews and their original feedback. Removed
@@ -1940,7 +1932,7 @@ export function GoogleReviews({
       <CountCards
         items={[
           {
-            label: 'Imported reviews',
+            label: 'Captured Google reviews',
             value: ready ? dated.length : null,
             history: ready ? reviewMonthHistory(dated, dated) : [],
             detail: reviewPeriodLabel(dates, range),
@@ -1974,58 +1966,12 @@ export function GoogleReviews({
           },
         ]}
       />
-      <div className="surface community-panel">
-        <h3>What guests criticize most</h3>
-        <p className="source-asof">
-          Suggestions consider dishes, ingredients, drinks, staff behaviour and
-          the surrounding language, including negation and mixed feedback.
-          Review the quoted evidence before acting. One review can raise several
-          issues; a low rating alone does not identify the cause.
-        </p>
-        {ranked.length ? (
-          <div className="review-issues">
-            {ranked.map(([topic, v]) => (
-              <button key={topic} onClick={() => setCategory(topic)}>
-                <span>
-                  <DataIcon name={topic} />
-                  {topic}
-                  <b>{v.count} reviews</b>
-                </span>
-                <div className="review-issue-bar">
-                  <i
-                    style={{
-                      width: (v.count / ranked[0][1].count) * 100 + '%',
-                    }}
-                  />
-                </div>
-                <p>“{v.examples[0]}”</p>
-              </button>
-            ))}
-          </div>
-        ) : (
-          <p className="community-empty">
-            {ready
-              ? 'No explicit criticism matched the supported wording. Read the review text for other feedback.'
-              : 'Import reviews to identify recurring criticism.'}
-          </p>
-        )}
-      </div>
       <div className="community-toolbar">
         <Picker
           label="Review topic"
-          value={category}
-          onChange={setCategory}
-          options={[
-            'All topics',
-            'Food',
-            'Drinks',
-            'Service',
-            'Waiting time',
-            'Price & value',
-            'Atmosphere',
-            'Cleanliness',
-            'Other',
-          ]}
+          value={reviewCategoryLabel(category)}
+          onChange={label => setCategory(REVIEW_CATEGORIES.find(topic => topic.label === label)?.topic || label)}
+          options={['All topics', ...REVIEW_CATEGORIES.map(category => category.label)]}
         />
         <Picker
           label="Review rating"
@@ -2053,50 +1999,7 @@ export function GoogleReviews({
         {data.loading ? (
           <p className="community-empty">Loading reviews…</p>
         ) : reviews.length ? (
-          reviews.slice((page - 1) * 30, page * 30).map((r) => (
-            <article
-              className="surface review-card"
-              key={r.accountId + ':' + r.id}
-            >
-              <div className="review-author">
-                <Portrait person={r} />
-                <div>
-                  <strong>{r.name || 'Anonymous reviewer'}</strong>
-                  <small>
-                    {reviewDateLabel(r, timezone)} ·{' '}
-                    {r.origin === 'api' ? 'Google' : 'Imported file'}
-                  </small>
-                </div>
-                <ReviewStars rating={r.rating} />
-              </div>
-              <ReviewBody review={r}/>
-              <div className="review-tags">
-                {r.categories.map((c) => (
-                  <button
-                    className="pill"
-                    key={c}
-                    onClick={() => setCategory(c)}
-                  >
-                    {c}
-                  </button>
-                ))}
-              </div>
-              {r.criticisms.map((c) => (
-                <div className="review-criticism" key={c.topic}>
-                  <strong>{c.topic} · possible criticism</strong>
-                  <p>“{c.excerpt}”</p>
-                </div>
-              ))}
-              {r.reply ? (
-                <div className="review-reply">
-                  <strong>Ysabel Society’s reply</strong>
-                  <p>{r.reply}</p>
-                </div>
-              ) : (
-                <span className="pill">No reply supplied</span>
-              )}
-            </article>
-          ))
+          reviews.slice((page - 1) * 30, page * 30).map(review => <GoogleReviewCard key={review.accountId + ':' + review.id} review={review} timezone={timezone} onTopicChange={setCategory} />)
         ) : (
           <p className="community-empty">
             No reviews match these filters. Connect Google Business or import a

@@ -315,7 +315,7 @@ export function ReviewReports({
         Google’s Reviews API does not supply attached photos.
       </p>
 
-      <details className={styles.aiDisclosure}><summary>Review analysis & translations</summary><ReviewAI records={records} onUpdated={() => window.dispatchEvent(new Event('ysabel:community-updated'))} /></details>
+      <ReviewAI controls={false} records={records} onUpdated={() => window.dispatchEvent(new Event('ysabel:community-updated'))} />
       <Dialog
         open={!!snapshot}
         onOpenChange={(open) => {

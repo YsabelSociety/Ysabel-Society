@@ -1,4 +1,5 @@
 'use client';
+import { openDataCenter } from './data-center-navigation';
 import { useMinimalMotion } from './use-motion';
 import { StoryPerformance } from './story-performance';
 import { useState, useMemo } from 'react';
@@ -60,7 +61,6 @@ import type { ReportTable } from '@/lib/reporting';
 import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
-import { HistoryImport } from './history-import';
 import { activitySeries } from '@/lib/activity-series';
 import {
   AudienceHistory,
@@ -319,8 +319,8 @@ export function InsightsPage({
             title="More evidence is needed"
             description="Daily social observations are not available yet. View current account statistics in Connections, or connect Google for daily website and business metrics."
           >
-            <a className="secondary" href="/marketingdata/connections">
-              Open Connections
+            <a className="secondary" href="/marketingdata/connections" onClick={event=>{event.preventDefault();openDataCenter('access');}}>
+              Open Data Center
             </a>
           </Panel>
         )}
@@ -443,7 +443,6 @@ export function PerformancePage({
   );
   return (
     <div className="view-enter platform-workspace" data-platform={channel}>
-      {live && <HistoryImport />}
       <div className="studio-toolbar">
         <Tabs value={channel} onValueChange={(v) => setChannel(String(v))}>
           <TabsList className="page-tabs platform-tabs">
@@ -475,7 +474,8 @@ export function PerformancePage({
             <SourceReports
               tables={websiteTables}
               group="website"
-              title="Website source reports"
+              archive={false}
+              title="Website activity details"
             />
           )}
         </>
@@ -485,7 +485,9 @@ export function PerformancePage({
             <SourceReports
               tables={tables.filter((t) => t.source === 'gbp')}
               group="google"
-              title="Google Business source reports"
+              daily={r}
+              archive={false}
+              title="Google Business performance"
             />
           )}
         </>
@@ -508,14 +510,7 @@ export function PerformancePage({
             channel={channel}
             loading={loading}
           />
-          {live &&
-            (channel === 'All' || channel === 'TikTok') &&
-            tables.some((t) => t.source === 'tiktok') && (
-              <SourceReports
-                tables={tables.filter((t) => t.source === 'tiktok')}
-                title="TikTok Studio source reports"
-              />
-            )}
+
         </>
       )}
       <details className="surface performance-notes">
@@ -626,16 +621,7 @@ export function AudiencePage({
             loading={loading}
             separate={layout === 'Separate platforms'}
           />
-          <SourceReports
-            key={channel}
-            tables={tables.filter((t) =>
-              channels.includes(
-                SOURCE_PLATFORM[t.source] as (typeof SOCIAL_PLATFORMS)[number],
-              ),
-            )}
-            group="audience"
-            title="Audience detail"
-          />
+
         </>
       )}
     </div>
@@ -657,7 +643,7 @@ function CommunitySummary({
         title="Follower history is not available"
         description="Current social account statistics are shown in Connections. Daily historical follower series are not supplied by the connected sources."
       >
-        <a className="secondary" href="/marketingdata/connections">
+        <a className="secondary" href="/marketingdata/connections" onClick={event=>{event.preventDefault();openDataCenter('access');}}>
           View account snapshots
         </a>
       </Panel>
@@ -891,97 +877,19 @@ export function WebsitePage({
   status?: SourceStatus;
   realtime?: WebsiteRealtime;
 }) {
-  const [refreshing, setRefreshing] = useState(false),
-    [refreshError, setRefreshError] = useState('');
   const r = rows.filter((r) => r.channel === 'Website'),
     p = previous.filter((r) => r.channel === 'Website');
-  const connection = websiteStatus(status, metricAvailable(r, 'users'));
-  async function refreshWebsite() {
-    setRefreshing(true);
-    setRefreshError('');
-    try {
-      const response = await fetch('/marketingdata/api/connectors', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ op: 'refresh', source: 'ga4' }),
-      });
-      const result = (await response.json()) as { error?: string };
-      if (!response.ok)
-        throw new Error(result.error || 'Website refresh failed.');
-    } catch (e) {
-      setRefreshError(
-        e instanceof Error ? e.message : 'Website refresh failed.',
-      );
-    } finally {
-      setRefreshing(false);
-      window.dispatchEvent(new Event('ysabel:sources-updated'));
-    }
-  }
-  const connectionPanel = live && (
-    <Panel title={connection.title} description={connection.detail}>
-      <p className="footnote">
-        Website source:{' '}
-        <a href="https://ysabelsociety.com" target="_blank" rel="noreferrer">
-          ysabelsociety.com
-        </a>{' '}
-        · Google Analytics. Dashboard visits are excluded from daily website
-        reports.
-      </p>
-      {status?.lastSync && (
-        <p className="footnote">
-          Last successful report check:{' '}
-          {new Date(status.lastSync).toLocaleString()}.
-        </p>
-      )}
-      <div className="inline-controls">
-        <a className="secondary" href="/marketingdata/connections">
-          Manage Google connection
-        </a>
-        {status && (
-          <button
-            className="secondary"
-            disabled={refreshing}
-            onClick={() => void refreshWebsite()}
-          >
-            {refreshing ? 'Refreshing website…' : 'Refresh website data'}
-          </button>
-        )}
-      </div>
-      {refreshError && <p role="alert">{refreshError}</p>}
-      {realtime && (
-        <>
-          <h3>Activity in the last 30 minutes</h3>
-          <p className="footnote">
-            Snapshot checked {new Date(realtime.observedAt).toLocaleString()}.
-            This is the 30-minute window before that check, separate from the
-            selected dates. Refresh to update it.
-          </p>
-          <StatRow
-            items={[
-              {
-                label: 'Active users · 30 min',
-                value:
-                  realtime.activeUsers == null
-                    ? '—'
-                    : number(realtime.activeUsers),
-              },
-              {
-                label: 'Page views · 30 min',
-                value:
-                  realtime.pageViews == null ? '—' : number(realtime.pageViews),
-              },
-              {
-                label: 'Events · 30 min',
-                value: realtime.events == null ? '—' : number(realtime.events),
-              },
-            ]}
-          />
-        </>
-      )}
+  const connectionPanel = live && realtime && (
+    <Panel title="Activity right now" description="Website activity in the latest captured 30-minute window.">
+      <StatRow items={[
+        { label: 'Active users · 30 min', value: realtime.activeUsers == null ? '—' : number(realtime.activeUsers) },
+        { label: 'Page views · 30 min', value: realtime.pageViews == null ? '—' : number(realtime.pageViews) },
+        { label: 'Events · 30 min', value: realtime.events == null ? '—' : number(realtime.events) },
+      ]} />
     </Panel>
   );
   if (live && !metricAvailable(r, 'users'))
-    return <div className="view-enter">{connectionPanel}</div>;
+    return <div className="view-enter">{connectionPanel}<Panel title="No website activity for these dates" description="Available source reports and connection details can be checked in the Data Center. Missing observations remain unavailable.">{null}</Panel></div>;
   const users = total(r, 'users'),
     sessions = total(r, 'sessions'),
     engaged = total(r, 'engaged'),

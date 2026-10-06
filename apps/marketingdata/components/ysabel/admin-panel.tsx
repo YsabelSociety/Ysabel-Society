@@ -8,13 +8,14 @@ import {
   Images,
   PenLine,
   Plug,
+  Database,
   RefreshCw,
   Settings,
   ShieldCheck,
 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-import { ConnectionsPage, SettingsPage } from './system-pages';
+import { SettingsPage } from './system-pages';
 import { type WorkspaceData } from './use-workspace';
 import { BRAND_NAME, type Post } from '@/lib/analytics';
 
@@ -46,7 +47,6 @@ type SourceState = {
 const sections = [
   { name: 'Dashboard', theme: 'Admin Panel', icon: ShieldCheck },
 
-  { name: 'Connections', theme: 'Connections', icon: Plug },
   { name: 'Preferences', theme: 'Settings', icon: Settings },
 ];
 
@@ -78,14 +78,10 @@ export function AdminPanel({
             data={data}
             onSelect={onSelect}
             onNavigate={onNavigate}
-            onManage={setTab}
+            onManage={(section) => section === 'Connections' ? onNavigate('Connections') : setTab(section)}
           />
         </TabsContent>
-        <TabsContent value="Connections">
-          <ConnectionsPage notify={data.notify} />
-        </TabsContent>
         <TabsContent value="Preferences">
-          {syncSettings}
           <SettingsPage data={data} />
         </TabsContent>
       </Tabs>
@@ -215,90 +211,7 @@ function AdminDashboard({
             </button>
           </div>
         </section>
-        <section className="surface admin-section">
-          <div className="section-head">
-            <h2>Platform connections</h2>
-            <button
-              className="icon-button"
-              disabled={loading}
-              onClick={() => window.dispatchEvent(new Event('ysabel:sync-now'))}
-              aria-label="Sync all connected platforms now"
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-            </button>
-          </div>
-          {error ? (
-            <div className="save-error" role="alert">
-              {error}
-              <button onClick={refresh}>Retry</button>
-            </div>
-          ) : sources ? (
-            sources.connections
-              .filter((c) => c.kind !== 'Future advertising')
-              .map((connection) => (
-                <button
-                  className="admin-source-row"
-                  data-platform={connection.channel}
-                  key={connection.id}
-                  onClick={() => onManage('Connections')}
-                >
-                  <span className="admin-source-dot" />
-                  <span>
-                    <strong>{connection.name}</strong>
-                    <small>
-                      {connection.lastSync
-                        ? 'Synced ' +
-                          new Date(connection.lastSync).toLocaleDateString()
-                        : 'No live sync yet'}
-                    </small>
-                  </span>
-                  <span className="status-chip">{connection.status}</span>
-                </button>
-              ))
-          ) : (
-            <p className="admin-empty">Loading connection status…</p>
-          )}
-          {sources?.connections
-            .filter((c) => c.channel === 'Google Business')
-            .map((c) => (
-              <div className="surface padded" key={'gbp-' + c.id}>
-                <h3>Google Business reporting</h3>
-                <p className="muted">
-                  {c.snapshot?.method === 'file'
-                    ? 'Performance exports imported. Automatic Google API reporting is not connected.'
-                    : c.status === 'Connected'
-                      ? 'Business Profile reporting is connected.'
-                      : 'Connect a Business Profile location or import its Google performance exports.'}
-                </p>
-                {c.snapshot?.period && (
-                  <p className="footnote">
-                    Latest imported period: {c.snapshot.period.start} –{' '}
-                    {c.snapshot.period.end}
-                  </p>
-                )}
-                {c.snapshot?.observedAt && (
-                  <p className="footnote">
-                    Updated {new Date(c.snapshot.observedAt).toLocaleString()}
-                  </p>
-                )}
-                <button
-                  className="secondary"
-                  onClick={() => onNavigate('Google Business')}
-                >
-                  Open Google Business reports <ArrowUpRight size={15} />
-                </button>
-              </div>
-            ))}
-          <div className="admin-section-foot">
-            <button
-              className="secondary"
-              onClick={() => onManage('Connections')}
-            >
-              <Plug size={15} />
-              Manage connections
-            </button>
-          </div>
-        </section>
+        <section className="surface admin-section"><h2>Daily data management</h2><p>Refresh sources, check imports, and manage account access in one place.</p><button className="secondary" onClick={()=>onNavigate('Data Center')}><Database size={15}/>Open Data Center<ArrowUpRight size={15}/></button></section>
       </div>
       <div className="admin-bottom">
         <button

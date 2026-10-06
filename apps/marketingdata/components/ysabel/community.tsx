@@ -63,6 +63,8 @@ import {
 } from '@/lib/review-dates';
 import { communitySyncSources } from '@/lib/community-sync-plan';
 import { AdminGate } from './admin-gate';
+import { ReviewAI } from './review-ai';
+import { openDataCenter } from './data-center-navigation';
 type LoadState = { kind: string; ready: boolean; error: string };
 
 async function communityAction(body: unknown) {
@@ -289,7 +291,7 @@ function AccessStatus({
               ? 'No mention history imported. Automatic story-event collection is not active.'
               : platform === 'tiktok'
                 ? 'TikTok Display API does not supply messages. Use a reviewed message export.'
-                : 'Messaging access has not been verified. Use Access & import to check the requirements.',
+                : 'Messaging access has not been verified. Open Data Center → Import & access to check the requirements.',
         syncedAt: undefined,
       },
   );
@@ -337,7 +339,7 @@ function AccessStatus({
               ? 'Only explicit story mentions or repost records count. Private, expired and untagged stories cannot be reconstructed. Import an available export to add verified history.'
               : kind === 'review'
                 ? 'Connect the Google account that manages your location, then import its reviews.'
-                : 'Analytics sign-in does not automatically grant inbox access. Use Access & import to see the additional requirements.'}
+                : 'Analytics sign-in does not automatically grant inbox access. Open Data Center → Import & access to see the additional requirements.'}
           </p>
         </div>
       )}
@@ -1171,7 +1173,7 @@ export function CommunityPage({
     const url=new URL(window.location.href), outcome=url.searchParams.get('instagramLogin');
     if (!outcome) return;
     url.searchParams.delete('instagramLogin'); window.history.replaceState(null,'',url);
-    if (outcome !== 'authorized') { setSyncResults([{source:'instagram',detail:'Instagram sign-in did not complete. The previous connection is preserved. Open Access & import to try again.'}]);setSetup(true);return; }
+    if (outcome !== 'authorized') { setSyncResults([{source:'instagram',detail:'Instagram sign-in did not complete. The previous connection is preserved. Open Access & import to try again.'}]);openDataCenter('access');return; }
     setBusy(true);
     void communityAction({op:'sync',source:'instagram'})
       .then(async result => {setSyncResults([{source:'instagram',detail:result.detail || 'Instagram import finished.'}]);await communityAction({op:'profiles',source:'instagram'});})
@@ -1347,52 +1349,7 @@ export function CommunityPage({
           }
           options={mode === 'inbox' ? ['All platforms', 'Facebook', 'Instagram'] : ['All platforms', 'Facebook', 'Instagram', 'TikTok']}
         />
-        <button className="secondary" onClick={() => setSetup(true)}>
-          <Settings2 size={16} />
-          Access & import
-        </button>
-        {
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => void sync()}
-          >
-            <RefreshCw size={16} className={busy ? 'animate-spin' : ''} />
-            {busy
-              ? 'Importing…'
-              : mode === 'inbox'
-                ? source === 'all'
-                  ? 'Sync all inboxes'
-                  : 'Sync ' +
-                    COMMUNITY_NAMES[source as CommunitySource] +
-                    ' inbox'
-                : source === 'all'
-                  ? 'Sync all mentions'
-                  : 'Sync ' +
-                    COMMUNITY_NAMES[source as CommunitySource] +
-                    ' mentions'}
-          </button>
-        }
-        {mode !== 'inbox' && data.statuses.some(
-          (s) =>
-            (s.kind === kind ||
-              (mode === 'mentions' && s.kind === 'message')) &&
-            s.more &&
-            (source === 'all' || s.source === source),
-        ) && (
-          <button
-            className="secondary"
-            disabled={busy}
-            onClick={() => void sync(true)}
-          >
-            {'Load older mentions'}
-          </button>
-        )}
-        {false && (
-          <button className="secondary" onClick={() => setArchive(true)}>
-            <Upload size={16} /> Import Meta history
-          </button>
-        )}
+
       </div>
       {mode === 'inbox' && <div className="community-coverage" role="status" aria-live="polite">
         {data.loading ? <p>Loading Instagram and Facebook messages from the last 48 hours…</p> : <p>
@@ -1400,24 +1357,7 @@ export function CommunityPage({
           {' · Last 48 hours · Incoming and outgoing messages'}
         </p>}
       </div>}
-      <AccessStatus statuses={data.statuses} kind={kind} source={source} />
-      {!!syncResults.length && (
-        <div
-          className="community-coverage"
-          role="status"
-          aria-label="Results of this sync"
-        >
-          {syncResults.map((result) => (
-            <details key={result.source}>
-              <summary>
-                <strong>{COMMUNITY_NAMES[result.source]}</strong> ·{' '}
-                {result.detail.split('. ')[0]}
-              </summary>
-              <p>{result.detail}</p>
-            </details>
-          ))}
-        </div>
-      )}
+
       {data.error && (
         <div className="save-error" role="alert">
           {data.error}
@@ -1667,7 +1607,7 @@ export function CommunityPage({
                   ? 'Loading saved conversations…'
                   : model.conversations.length
                     ? 'No conversations match these filters. Choose All conversations to include older imported messages, or clear the profile and folder filters.'
-                    : 'No conversations have been imported for this platform. Open its access status above to see the current blocker, or use Access & import.'}
+                    : 'No conversations have been imported for this platform. Open its access status above to see the current blocker, or open Data Center → Import & access.'}
               </p>
             )}
             {conversations.length > 200 && (
@@ -1785,13 +1725,7 @@ export function CommunityPage({
           onSaved={data.refresh}
         />
       )}
-      <ImportAccess
-        open={setup}
-        onOpenChange={setSetup}
-        kind={kind}
-        source={source === 'all' ? 'instagram' : (source as CommunitySource)}
-        onSaved={data.refresh}
-      />
+
       {selected && (
         <ConversationDetail
           key={selected.id}
@@ -1825,8 +1759,6 @@ export function GoogleReviews({
     [category, setCategory] = useState('All topics'),
     [stars, setStars] = useState('All ratings'),
     [search, setSearch] = useState(''),
-    [setup, setSetup] = useState(false),
-    [busy, setBusy] = useState(false),
     [page, setPage] = useState(1);
   useEffect(() => {
     onLoadState?.({
@@ -1857,22 +1789,6 @@ export function GoogleReviews({
         [r.name, r.text].join(' ').toLowerCase().includes(search.toLowerCase()),
     );
   const ready = all.length > 0 || status?.state === 'synced';
-  async function sync() {
-    setBusy(true);
-    data.setError('');
-    try {
-      await communityAction({
-        op: 'sync',
-        source: 'gbp',
-        continue: status?.more === true,
-      });
-      data.refresh();
-    } catch (e) {
-      data.setError((e as Error).message);
-    } finally {
-      setBusy(false);
-    }
-  }
   useEffect(
     () => setPage(1),
     [dates, range.start, range.end, category, stars, search],
@@ -1898,23 +1814,7 @@ export function GoogleReviews({
             reviews may remain in captured history.
           </p>
         </div>
-        <div className="community-toolbar">
-          <button className="secondary" onClick={() => setSetup(true)}>
-            Access & import
-          </button>
-          <button
-            className="primary"
-            disabled={busy}
-            onClick={() => void sync()}
-          >
-            <RefreshCw size={16} />
-            {busy
-              ? 'Importing reviews…'
-              : status?.more
-                ? 'Continue review import'
-                : 'Import reviews'}
-          </button>
-        </div>
+
       </div>
       {data.error && (
         <div className="save-error" role="alert">
@@ -2029,15 +1929,48 @@ export function GoogleReviews({
         </div>
       )}
       {data.truncated && <p>The newest 10,000 stored reviews are shown.</p>}
-      <GoogleOwnerReviewImport records={all} onSaved={data.refresh} />
-      <AccessStatus statuses={data.statuses} kind="review" source="gbp" />
-      <ImportAccess
-        open={setup}
-        onOpenChange={setSetup}
-        kind="review"
-        source="gbp"
-        onSaved={data.refresh}
-      />
+
     </section>
   );
+}
+
+export function CommunityDataTools(){
+  const [kind,setKind]=useState<'review'|'message'>('review'),[setup,setSetup]=useState(false),[archive,setArchive]=useState(false),[busy,setBusy]=useState(false),[result,setResult]=useState('');
+  const data=useCommunity(kind);
+  const source=kind==='review'?'gbp':'all';
+  const reviews=data.records.filter(r=>r.kind==='review'&&r.source==='gbp');
+  const updated=()=>{data.refresh();window.dispatchEvent(new Event('ysabel:community-updated'));};
+  async function sync(){
+    setBusy(true);setResult('');
+    try{
+      const messages=[];
+      for(const target of (kind==='review'?['gbp']:['instagram','facebook'])){
+        const status=data.statuses.find(s=>s.source===target&&s.kind===kind);
+        try{
+          let imported=0,detail='';
+          for(let batch=0;batch<(kind==='message'?10:1);batch++){
+            const outcome=await communityAction({op:'sync',source:target,kind,continue:batch>0||(kind==='review'&&status?.more===true)});
+            imported+=Number(outcome.imported||0);detail=outcome.detail||'';
+            data.refresh();
+            if(kind!=='message'||!outcome.more||outcome.needsAttention||outcome.skipped)break;
+          }
+          messages.push(COMMUNITY_NAMES[target as CommunitySource]+': '+imported+' records returned. '+detail);
+        }catch(e){messages.push(COMMUNITY_NAMES[target as CommunitySource]+': '+(e as Error).message);}
+      }
+      setResult(messages.join(' '));updated();
+    }finally{setBusy(false);}
+  }
+  return <section className="surface padded" aria-label="Community data tools">
+    <div className="section-head"><div><span className="metric-eyebrow">COMMUNITY</span><h2>Messages & review imports</h2><p className="muted">Refresh the latest 48 hours of messages, or continue collecting Google reviews.</p></div></div>
+    <div className="inline-controls"><select aria-label="Community data source" value={kind} disabled={busy} onChange={e=>{setKind(e.target.value as 'review'|'message');setResult('');}}><option value="review">Google reviews</option><option value="message">Instagram & Facebook Inbox</option></select>
+      <button className="secondary" disabled={busy||data.loading} onClick={()=>setSetup(true)}>Access & import</button>
+      <button className="primary" disabled={busy||data.loading} aria-busy={busy} onClick={()=>void sync()}><RefreshCw size={15}/>{busy?'Refreshing…':kind==='review'&&data.statuses.some(s=>s.source==='gbp'&&s.more)?'Continue review import':'Refresh '+(kind==='review'?'Google reviews':'both inboxes')}</button>
+      {kind==='message'&&<button className="secondary" onClick={()=>setArchive(true)}>Import Meta history</button>}
+    </div>
+    {result&&<p role="status">{result}</p>}{data.error&&<p className="save-error" role="alert">{data.error}</p>}
+    <AccessStatus statuses={data.statuses} kind={kind} source={source}/>
+    {kind==='review'&&<><GoogleOwnerReviewImport records={reviews} onSaved={updated}/><details className="surface padded"><summary>Review analysis & translations</summary><ReviewAI records={reviews} onUpdated={updated}/></details></>}
+    <ImportAccess open={setup} onOpenChange={setSetup} kind={kind} source={kind==='review'?'gbp':'instagram'} onSaved={updated}/>
+    <Dialog open={archive} onOpenChange={setArchive}>{archive&&<MetaArchiveImport onClose={()=>setArchive(false)} onSaved={updated}/>}</Dialog>
+  </section>;
 }

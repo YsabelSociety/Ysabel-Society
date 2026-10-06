@@ -1,4 +1,5 @@
 'use client';
+import { openDataCenter } from './data-center-navigation';
 import { useState, useMemo, useId } from 'react';
 import {
   AreaChart,
@@ -34,9 +35,11 @@ const colors = [
 function WebsiteReport({
   table,
   index,
+  archive,
 }: {
   table: ReportTable;
   index: number;
+  archive: boolean;
 }) {
   const [metric, setMetric] = useState(''),
     [view, setView] = useState(
@@ -231,7 +234,7 @@ function WebsiteReport({
           </p>
         </>
       )}
-      <details className="website-report-details">
+      {archive && <details className="website-report-details">
         <summary>
           Report details · {table.rows.length.toLocaleString()} rows
         </summary>
@@ -288,7 +291,7 @@ function WebsiteReport({
             Next rows
           </button>
         </div>
-      </details>
+      </details>}
       <p className="metric-definition">
         {table.period.start} – {table.period.end} · {table.scope}
         {table.truncated
@@ -301,9 +304,11 @@ function WebsiteReport({
 export function WebsiteReports({
   tables,
   title,
+  archive = true,
 }: {
   tables: ReportTable[];
   title: string;
+  archive?: boolean;
 }) {
   const available = tables.filter((t) => t.source === 'ga4');
   const reports = [
@@ -327,7 +332,7 @@ export function WebsiteReports({
             loading={false}
           >
             {table ? (
-              <WebsiteReport table={table} index={i} />
+              <WebsiteReport table={table} index={i} archive={archive} />
             ) : (
               <section className="surface padded website-report-card">
                 <span className="metric-eyebrow">
@@ -342,7 +347,7 @@ export function WebsiteReports({
                 </p>
                 <a
                   className="text-link"
-                  href="/marketingdata/connections?connect=ga4"
+                  href="/marketingdata/connections?connect=ga4" onClick={event=>{event.preventDefault();openDataCenter('access');}}
                 >
                   Import website reports
                 </a>

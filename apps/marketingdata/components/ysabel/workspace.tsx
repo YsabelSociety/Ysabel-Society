@@ -51,7 +51,8 @@ import {
 } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { WorkspaceIntro, useWorkspaceIntro } from './workspace-intro';
-import { SyncSettings } from './sync-details';
+import { type DataCenterSection } from './data-center-navigation';
+const DataCenter = lazy(() => import('./data-center'));
 import { AdminGate } from './admin-gate';
 import {
   Command,
@@ -87,7 +88,6 @@ import { Picker } from './controls';
 import Overview from './overview';
 import { SourceStatusContext } from './source-badge';
 import { sourceFeedLabel } from '@/lib/source-status';
-import { categoryScope } from '@/lib/refresh-scope';
 import { useWorkspace } from './use-workspace';
 import { useSourceAnalytics } from './use-analytics';
 import { PostDetail, ContentIntelligence } from './content';
@@ -99,7 +99,7 @@ import {
   InsightsPage,
 } from './analytics-pages';
 import { ReportsPage, ExportDialog } from './reports';
-import { ConnectionsPage, DataSourcesPage, SettingsPage } from './system-pages';
+import { SettingsPage } from './system-pages';
 import { AdminPanel } from './admin-panel';
 import { useInboxSync } from './use-inbox-sync';
 import { useAutoRefresh } from './use-auto-refresh';
@@ -138,15 +138,14 @@ const groups = [
     label: 'SYSTEM',
     items: [
       ['Admin Panel', ShieldCheck],
-      ['Connections', Plug],
-      ['Data Sources', Database],
+      ['Data Center', Database],
       ['Settings', Settings],
     ],
   },
 ];
 const StableOverview = memo(Overview);
 const StablePerformance = memo(PerformancePage);
-const names = groups.flatMap((g) => g.items.map((i) => String(i[0])));
+const names = [...groups.flatMap((g) => g.items.map((i) => String(i[0]))), 'Connections', 'Data Sources'];
 const dateOptions = [
   'Today',
   'Yesterday',
@@ -164,6 +163,7 @@ const dateOptions = [
   'Custom Range',
 ];
 const headings: Record<string, [string, string]> = {
+  'Data Center': ['A quiet place for daily updates.', 'Refresh sources, manage imports, and explore the report archive.'],
   'Seven Rooms': ['Guest Intelligence', 'Understand who visits, how they return, and who to speak to next.'],
   'Admin Panel': [
     'Admin panel',
@@ -256,6 +256,7 @@ export default function Workspace({
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [dataCenterSection, setDataCenterSection] = useState<DataCenterSection>('refresh');
   const [today, setToday] = useState(() => calendarDate('Europe/Tirane'));
   const liveInitialized = useRef(false);
   const [page, setPage] = useState(
@@ -325,8 +326,18 @@ export default function Workspace({
     if (!names.includes(name)) return;
     if (name === 'Overview') setDate('This Month');
     setMobileMenuOpen(false);
-    setPage(name);
+    if (name === 'Connections' || name === 'Data Sources') { setDataCenterSection('access'); setPage('Data Center'); }
+    else setPage(name);
     setCommand(false);
+  }, []);
+  useEffect(() => {
+    const open = (event: Event) => {
+      const section = (event as CustomEvent).detail;
+      setDataCenterSection(['refresh','reports','access'].includes(section) ? section : 'refresh');
+      setMobileMenuOpen(false); setPage('Data Center'); setCommand(false);
+    };
+    window.addEventListener('ysabel:open-data-center', open);
+    return () => window.removeEventListener('ysabel:open-data-center', open);
   }, []);
   useLayoutEffect(() => {
     window.scrollTo({ top: 0, behavior: 'auto' });
@@ -344,7 +355,8 @@ export default function Workspace({
         const section = decodeURIComponent(location.hash.slice(1));
         if (names.includes(section)) name = section;
       } catch {}
-      setPage(names.includes(name) ? name : 'Overview');
+      if (name === 'Connections' || name === 'Data Sources') { setDataCenterSection('access'); setPage('Data Center'); }
+      else setPage(names.includes(name) ? name : 'Overview');
     };
     read();
     window.addEventListener('popstate', read);
@@ -630,7 +642,7 @@ export default function Workspace({
               <SidebarFooter>
                 <button
                   className="sync-status"
-                  onClick={() => navigate('Connections')}
+                  onClick={() => navigate('Data Center')}
                 >
                   <i />
                   {source.mode === 'live'
@@ -638,7 +650,7 @@ export default function Workspace({
                         (s) => s.status === 'Needs Attention',
                       )
                       ? 'Connections need attention'
-                      : 'Source reports'
+                      : 'Data Center'
                     : 'Demo workspace'}
                   <span>
                     {source.mode === 'live'
@@ -665,23 +677,7 @@ export default function Workspace({
                   <span className="workspace-location">{page}</span>
                 </div>
                 <div className="top-actions">
-                  <button
-                    className="secondary sync-now"
-                    disabled={!data.ready || syncBusy}
-                    onClick={() => void syncState.sync()}
-                    aria-label="Sync all connected platforms now"
-                    aria-busy={syncBusy}
-                  >
-                    <span className="header-sync-icon" aria-hidden="true">
-                      <RefreshCw size={16} />
-                    </span>
-                    <span className="header-desktop-label">
-                      {syncBusy ? 'Syncing…' : 'Sync now'}
-                    </span>
-                    <span className="header-mobile-label" aria-hidden="true">
-                      {syncBusy ? 'Syncing' : 'Sync'}
-                    </span>
-                  </button>
+                  <button className="secondary" onClick={() => navigate('Data Center')} aria-label="Open Data Center"><Database size={16}/><span className="header-desktop-label">Data Center</span></button>
                   <button
                     className="admin-launch header-sign-out"
                     onClick={async () => {
@@ -714,7 +710,7 @@ export default function Workspace({
                   </button>
                   <button
                     className="demo-badge"
-                    onClick={() => navigate('Data Sources')}
+                    onClick={() => navigate('Data Center')}
                   >
                     <i />
                     {source.mode === 'live' ? 'Live sources' : 'Demo Data'}
@@ -756,7 +752,7 @@ export default function Workspace({
                       {heading[1]}
                     </p>
                   </div>
-                  {page !== 'Admin Panel' && page !== 'Seven Rooms' && (
+                  {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && (
                     <button
                       className="secondary"
                       onClick={() => setExportOpen(true)}
@@ -765,7 +761,7 @@ export default function Workspace({
                     </button>
                   )}
                 </div>
-                {page !== 'Admin Panel' && page !== 'Seven Rooms' && (
+                {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && (
                   <div className="filter-row">
                     <div className="inline-controls">
                       <CalendarDays size={15} />
@@ -817,20 +813,10 @@ export default function Workspace({
                         </button>
                       )}
                     </div>
-                    <div className="category-refresh-controls"><button className="secondary" disabled={!data.ready || syncBusy} onClick={() => void syncState.syncCategory(categoryScope(page))} aria-label={'Refresh ' + page} aria-busy={syncBusy}><RefreshCw size={14} /><span>{syncBusy ? 'Syncing…' : 'Refresh ' + page}</span></button><button
-                      className="freshness"
-                      onClick={() => navigate('Connections')}
-                    >
-                      <span className="small-dot" />{' '}
-                      {source.loading
-                        ? 'Updating…'
-                        : source.mode === 'live'
-                          ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined)
-                          : 'Preview data'}
-                    </button></div>
+                    <span className="freshness"><span className="small-dot" />{source.loading ? 'Updating…' : source.mode === 'live' ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined) : 'Preview data'}</span>
                   </div>
                 )}
-                {page !== 'Admin Panel' && page !== 'Seven Rooms' && date === 'Custom Range' && (
+                {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && date === 'Custom Range' && (
                   <div className="custom-dates">
                     <label>
                       From
@@ -880,7 +866,6 @@ export default function Workspace({
                         data={data}
                         onSelect={setPost}
                         onNavigate={navigate}
-                        syncSettings={<SyncSettings {...syncState} />}
                       />
                     </AdminGate>
                   )}
@@ -943,7 +928,8 @@ export default function Workspace({
                     <SourceReports
                       tables={source.tables}
                       group="website"
-                      title="Website source reports"
+                      archive={false}
+                      title="Website activity details"
                     />
                   )}
                   {page === 'Google Business' && (
@@ -957,6 +943,7 @@ export default function Workspace({
                           <SourceReports
                             tables={source.tables}
                             group="google"
+                            archive={false}
                             daily={rows}
                             title="Google Business reports"
                           />
@@ -991,16 +978,7 @@ export default function Workspace({
                   {page === 'Reports' && (
                     <ReportsPage data={data} range={range} unit={unit} />
                   )}
-                  {page === 'Connections' && (
-                    <AdminGate title="Connections">
-                      <ConnectionsPage notify={data.notify} />
-                    </AdminGate>
-                  )}
-                  {page === 'Data Sources' && (
-                    <AdminGate title="Data Sources">
-                      <DataSourcesPage />
-                    </AdminGate>
-                  )}
+                  <VisitedPanel active={page === 'Data Center'}><Suspense fallback={<p role="status">Opening Data Center…</p>}><DataCenter tables={source.tables} rows={rows} statuses={source.sourceStatus} range={range} ready={data.ready} busy={syncBusy} sync={syncState} section={dataCenterSection} onSectionChange={setDataCenterSection} onRangeChange={value=>{setCustom(value);setDate('Custom Range');setComparison('No Comparison');}} notify={data.notify}/></Suspense></VisitedPanel>
                   {page === 'Settings' && (
                     <AdminGate title="Settings">
                       <SettingsPage data={data} />
@@ -1035,7 +1013,7 @@ export default function Workspace({
                 <CommandList>
                   <CommandEmpty>No matching pages or content.</CommandEmpty>
                   <CommandGroup heading="Workspace">
-                    {names.map((n) => (
+                    {names.filter(n => !['Connections','Data Sources'].includes(n)).map((n) => (
                       <CommandItem
                         key={n}
                         value={'Go to ' + n}
@@ -1082,8 +1060,8 @@ export default function Workspace({
                         Change date range: {d}
                       </CommandItem>
                     ))}
-                    <CommandItem onSelect={() => navigate('Connections')}>
-                      Sync data / Connections
+                    <CommandItem onSelect={() => navigate('Data Center')}>
+                      Data Center / Refresh & imports
                     </CommandItem>
                   </CommandGroup>
                 </CommandList>

@@ -1,4 +1,5 @@
 'use client';
+import { openDataCenter } from './data-center-navigation';
 import {
   Component,
   useEffect,
@@ -387,7 +388,7 @@ export function MetricCard({
                   ? 'TikTok’s current connection supplies public-video lifetime counters. Select Published content for its video results.'
                   : 'This metric needs a supported platform report or an imported export.'}
             </p>
-            <a href="/marketingdata/connections">View connection coverage</a>
+            <a href="/marketingdata/connections" onClick={event=>{event.preventDefault();openDataCenter('access');}}>View source access</a>
           </div>
         )}
       </div>

@@ -1,4 +1,5 @@
 'use client';
+import { openDataCenter } from './data-center-navigation';
 import { ReportDownloadButton } from './reports';
 import { useId, useState } from 'react';
 import {
@@ -156,7 +157,7 @@ function MetricCard({
 function label(key: string) {
   return GBP_METRICS.find((m) => m.key === key)?.label || key;
 }
-export function GoogleBusinessReports({ tables, daily = [] }: { tables: ReportTable[]; daily?: Daily[] }) {
+export function GoogleBusinessReports({ tables, daily = [], archive = true }: { tables: ReportTable[]; daily?: Daily[]; archive?: boolean }) {
   const [selected, setSelected] = useState(''),
     animate = useMinimalMotion();
   const summaries = tables
@@ -196,16 +197,16 @@ export function GoogleBusinessReports({ tables, daily = [] }: { tables: ReportTa
     <section id="google-business-reports" className={styles.section}>
       <div className="section-head">
         <div>
-          <span className="metric-eyebrow">Google Business reports</span>
-          <h2>Reports from your Business Profile</h2>
-          <p className="muted">
+          <span className="metric-eyebrow">{archive ? 'Google Business reports' : 'GOOGLE BUSINESS / PERFORMANCE'}</span>
+          <h2>{archive ? 'Reports from your Business Profile' : 'Search, Maps & customer actions'}</h2>
+          {archive && <p className="muted">
             Live daily statistics follow your dashboard dates. Earlier exports remain available separately.
-          </p>
+          </p>}
         </div>
       </div>
       {active ? (
         <>
-          <div className={styles.toolbar}>
+          {archive && <div className={styles.toolbar}>
             <label>
               Report period
               <select
@@ -224,14 +225,14 @@ export function GoogleBusinessReports({ tables, daily = [] }: { tables: ReportTa
               range={active.period}
               title="Google Business · All platforms"
             />
-          </div>
-          <p className={styles.coverage}>
+          </div>}
+          {archive && <p className={styles.coverage}>
             {active.period.start} – {active.period.end} · {isLive ? 'Google API daily observations' : 'Google export'}{' '}
             {active.observedAt
               ? 'imported ' + new Date(active.observedAt).toLocaleString()
               : ''}
             {isLive ? '. Coverage includes the available days within your selected dates.' : '. This export retains its original reporting period.'}
-          </p>
+          </p>}
           <div className={styles.cards}>
             {GBP_METRICS.map((metric) => {
               const points = isLive ? liveRows.map(d => ({date: d.date, value: gbpDailyValue(d, metric.key)})) : gbpMonthlyPoints(
@@ -327,8 +328,8 @@ export function GoogleBusinessReports({ tables, daily = [] }: { tables: ReportTa
               );
             })}
           </div>
-          <p className="footnote">{active.scope}</p>
-          {!!monthly.length && (
+          {archive && <p className="footnote">{active.scope}</p>}
+          {archive && !!monthly.length && (
             <details className="surface padded" open>
               <summary>
                 <strong>Monthly performance comparisons</strong>
@@ -399,13 +400,13 @@ export function GoogleBusinessReports({ tables, daily = [] }: { tables: ReportTa
           </p>
           <a
             className="text-link"
-            href="/marketingdata/connections?source=gbp&method=file"
+            href="/marketingdata/connections?source=gbp&method=file" onClick={event=>{event.preventDefault();openDataCenter('access');}}
           >
             Import a Google Business performance export
           </a>
         </div>
       )}
-      {details.map((t) => (
+      {archive && details.map((t) => (
         <details className="surface padded" key={t.key + reportId(t)}>
           <summary>
             <strong>{t.title}</strong> · {t.period.start} – {t.period.end}

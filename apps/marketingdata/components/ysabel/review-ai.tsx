@@ -4,13 +4,14 @@ import { Sparkles, Settings } from 'lucide-react';
 import { Dialog,DialogContent,DialogHeader,DialogTitle,DialogDescription } from '@/components/ui/dialog';
 import { AdminGate } from './admin-gate';
 import type { CommunityRecord } from '@/lib/community';
-export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdated:()=>void}) {
+let analyzingReviews = false;
+export function ReviewAI({records,onUpdated,controls=true}:{records:CommunityRecord[];onUpdated:()=>void;controls?:boolean}) {
   const [open,setOpen]=useState(false),[key,setKey]=useState(''),[configured,setConfigured]=useState(false),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
   const [analysisVersion,setAnalysisVersion]=useState('');
   const running=useRef(false),mounted=useRef(true),blocked=useRef(false);
   useEffect(()=>{mounted.current=true;void fetch('/marketingdata/api/review-ai').then(r=>r.json()).then(d=>{if(mounted.current){setConfigured(d.configured===true);setAnalysisVersion(d.version||'');}}).catch(()=>{});return()=>{mounted.current=false;};},[]);
   async function analyze(){
-    if(running.current)return;running.current=true;setBusy(true);
+    if(running.current||analyzingReviews)return;analyzingReviews=true;running.current=true;setBusy(true);
     try{
       let remaining=1, rounds=0;
       while(remaining>0&&mounted.current){
@@ -20,7 +21,7 @@ export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdate
         ++rounds; if(!remaining||rounds%10===0)onUpdated();
         if(remaining&&d.completed===0){setMessage('Another session is analyzing reviews. Saved results will appear on refresh.');break;}
       }
-    }catch(e){blocked.current=true;setMessage((e as Error).message);if((e as Error).message.includes('key is invalid'))setConfigured(false);onUpdated();}finally{running.current=false;if(mounted.current)setBusy(false);}
+    }catch(e){blocked.current=true;setMessage((e as Error).message);if((e as Error).message.includes('key is invalid'))setConfigured(false);onUpdated();}finally{analyzingReviews=false;running.current=false;if(mounted.current)setBusy(false);}
   }
   useEffect(()=>{if(configured&&analysisVersion&&!blocked.current&&records.some(r=>r.source==='gbp'&&r.kind==='review'&&r.reviewAnalysis?.version!==analysisVersion))void analyze();},[configured,analysisVersion,records]);
   async function save(){
@@ -32,6 +33,7 @@ export function ReviewAI({records,onUpdated}:{records:CommunityRecord[];onUpdate
   }
   const reviews=records.filter(r=>r.source==='gbp'&&r.kind==='review');
   const reviewed=reviews.filter(r=>r.reviewAnalysis&&(!analysisVersion||r.reviewAnalysis.version===analysisVersion)).length;
+  if(!controls)return null;
   return <div className="review-ai-panel">
     <div><strong><Sparkles size={17}/> AI criticism detector</strong><p>{configured?`${reviewed} of ${reviews.length} reviews checked with the current detector. New, edited and previously analyzed reviews are checked when needed; saved results remain available during the update.`:'AI is not active. Current results use rule-based detection. Connect a valid OpenAI API key to identify implicit criticism and translate every review, including five-star feedback.'}</p></div>
     <div><button className="secondary" onClick={()=>setOpen(true)}><Settings size={16}/> {configured?'AI settings':'Connect OpenAI'}</button>{configured&&<button className="secondary" disabled={busy} onClick={()=>void analyze()}>{busy?'Analyzing…':'Analyze pending reviews'}</button>}</div>

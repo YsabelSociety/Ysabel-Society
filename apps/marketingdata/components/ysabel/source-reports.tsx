@@ -1,4 +1,5 @@
 'use client';
+import { openDataCenter } from './data-center-navigation';
 import { useState } from 'react';
 import { ReportDownloadButton } from './reports';
 import { type ReportTable } from '@/lib/reporting';
@@ -35,11 +36,13 @@ export function SourceReports({
   tables,
   group,
   daily = [],
+  archive = true,
   title = 'Imported source reports',
 }: {
   tables: ReportTable[];
   group?: string;
   daily?: Daily[];
+  archive?: boolean;
   title?: string;
 }) {
   const [choice, setChoice] = useState(''),
@@ -54,11 +57,13 @@ export function SourceReports({
       (group === 'google' && t.source === 'gbp') ||
       (group === 'advertising' && t.source.endsWith('-ads')),
   );
+  const reportId = (table: ReportTable) => [table.source,table.key,table.period.start,table.period.end].join(':');
+  const reportTitle = (table: ReportTable) => `${table.title} · ${SOURCE_CHANNELS[table.source] || table.source} · ${table.period.start} – ${table.period.end}`;
   const selected =
-    available.find((t) => t.source + ':' + t.key === choice) || available[0];
+    available.find((t) => reportId(t) === choice) || available[0];
   if (group === 'website')
-    return <WebsiteReports tables={available} title={title} />;
-  if (group === 'google') return <GoogleBusinessReports tables={available} daily={daily} />;
+    return <WebsiteReports tables={available} title={title} archive={archive} />;
+  if (group === 'google') return <GoogleBusinessReports tables={available} daily={daily} archive={archive} />;
   if (!selected)
     return (
       <section className="surface padded">
@@ -68,8 +73,8 @@ export function SourceReports({
           selected dates and the connection coverage. Provider exports can
           supply additional available reports.
         </p>
-        <a className="text-link" href="/marketingdata/connections">
-          Open connection & import centre
+        <a className="text-link" href="/marketingdata/connections" onClick={event=>{event.preventDefault();openDataCenter('access');}}>
+          Open Data Center
         </a>
       </section>
     );
@@ -89,15 +94,13 @@ export function SourceReports({
       <div className="source-report-controls">
         <Picker
           label="Source report"
-          value={selected.title + ' · ' + SOURCE_CHANNELS[selected.source]}
-          options={available.map(
-            (t) => t.title + ' · ' + SOURCE_CHANNELS[t.source],
-          )}
+          value={reportTitle(selected)}
+          options={available.map(reportTitle)}
           onChange={(v) => {
             const t = available.find(
-              (t) => t.title + ' · ' + SOURCE_CHANNELS[t.source] === v,
+              (t) => reportTitle(t) === v,
             );
-            setChoice(t ? t.source + ':' + t.key : '');
+            setChoice(t ? reportId(t) : '');
             setPage(0);
           }}
         />

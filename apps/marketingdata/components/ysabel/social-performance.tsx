@@ -36,6 +36,8 @@ import {
   SOCIAL_PLATFORMS,
   performanceSeries,
   seriesTotal,
+  dailyValue,
+  profileViewCoverage,
   metricBasis,
   metricExplanation,
   selectContent,
@@ -150,6 +152,7 @@ export function MetricCard({
   const any = summaries.some(
     (s) => s.value !== null && !hidden.includes(s.channel),
   );
+  const tiktokProfile = metric === 'profileViews' && channels.includes('TikTok') ? profileViewCoverage(rows, 'TikTok', range) : null;
   const known = summaries.filter((s) => s.value !== null),
     sum = known.reduce((n, s) => n + s.value!, 0);
   return (
@@ -161,7 +164,7 @@ export function MetricCard({
       <div className="section-head">
         <div>
           <span className="metric-eyebrow">{channels.join(' · ')}</span>
-          {channels.length === 1 && <SourceBadge channel={channels[0]} rows={content ? undefined : rows.filter(r => r.channel === channels[0] && r.available?.includes(metric))} />}
+          {channels.length === 1 && <SourceBadge channel={channels[0]} metric={content ? undefined : metric} unavailable={summaries[0].value === null} rows={content ? undefined : rows.filter(r => r.channel === channels[0] && r.date >= range.start && r.date <= range.end && dailyValue(r, metric) !== null)} />}
           <h2>
             <DataIcon name={metric} />
             {label}
@@ -377,7 +380,7 @@ export function MetricCard({
             </strong>
             <p>
               {metric === 'profileViews' && channels.includes('TikTok')
-                ? 'Profile visits are not part of TikTok’s current connection. Import the profile-views column from a TikTok Studio daily report.'
+                ? 'TikTok tracks profile visits, but the connected Display API does not supply them. Use a TikTok Studio daily report or authorize approved Accounts API analytics access.'
                 : channels.includes('TikTok') &&
                     !content &&
                     metric !== 'followers'
@@ -388,6 +391,14 @@ export function MetricCard({
           </div>
         )}
       </div>
+      {tiktokProfile && <p className="metric-definition" role="status">
+        {tiktokProfile.days
+          ? 'TikTok profile visits: ' + tiktokProfile.days + ' reported day' + (tiktokProfile.days === 1 ? '' : 's') + ' in these dates. Missing days remain blank.'
+          : tiktokProfile.latest
+            ? 'Latest TikTok profile-visit report: ' + tiktokProfile.latest + '. No profile visits were supplied for the selected dates.'
+            : 'TikTok profile visits have not been supplied by this connection.'}
+        {' '}<a href="https://www.tiktok.com/tiktokstudio/analytics" target="_blank" rel="noreferrer">Open TikTok analytics ↗</a>
+      </p>}
       <p className="metric-definition">{metricExplanation(metric, basis)}</p>
       <details className="metric-values">
         <summary>View chart data</summary>

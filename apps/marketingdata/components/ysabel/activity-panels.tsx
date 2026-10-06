@@ -23,6 +23,7 @@ import {
 import {
   SOCIAL_PLATFORMS,
   type PerformanceBasis,
+  profileViewCoverage,
 } from '@/lib/social-performance';
 import { MetricCard, DeferredChart } from './social-performance';
 import { Picker } from './controls';
@@ -72,11 +73,11 @@ export function ProfileViews({
                 {channel}
               </span>
               <strong>{has ? number(value) : 'Unavailable'}</strong>
-              {has && <SourceBadge channel={channel} rows={current.filter(r => r.available?.includes('profileViews'))} />}
+              <SourceBadge channel={channel} metric="profileViews" unavailable={!has} rows={profileViewCoverage(current, channel).rows} />
               <small>
                 {!has
                   ? channel === 'TikTok'
-                    ? 'TikTok Studio report needed'
+                    ? 'Profile visits need TikTok analytics access'
                     : 'No profile-visit report for these dates'
                   : old && old > 0
                     ? (((value - old) / old) * 100).toFixed(1) +

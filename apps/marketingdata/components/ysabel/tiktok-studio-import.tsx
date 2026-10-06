@@ -21,7 +21,7 @@ export function TikTokStudioImport() {
     }
   }
   return (
-    <details className="surface tiktok-studio-import">
+    <details id="tiktok-studio-import" className="surface tiktok-studio-import">
       <summary>TikTok Studio · fill daily history & audience reports</summary>
       <p>
         Automatic sign-in refreshes public video counters and the current
@@ -40,7 +40,7 @@ export function TikTokStudioImport() {
         Choose the same period in Overview, Viewers and Followers. Download CSV,
         extract the ZIP files and select their CSV files together. Set the exact
         export dates below; month/day dates need the correct year. Reimports
-        update matching dates and retain the automatic connection.
+        update matching dates and retain the automatic connection. A separate Profile Views or Profile Visits daily CSV is also supported.
       </p>
       <div className="custom-dates">
         {(['start', 'end'] as const).map((key) => (

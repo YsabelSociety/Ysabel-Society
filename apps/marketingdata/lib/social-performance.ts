@@ -221,7 +221,7 @@ export function metricExplanation(
   basis: PerformanceBasis,
 ) {
   if (metric === 'profileViews')
-    return 'Visits to the account profile or Facebook Page on each date. TikTok profile visits require a TikTok Studio report; the current connection supplies public video totals only.';
+    return 'Visits to the account profile or Facebook Page on each date. TikTok records profile visits in its analytics, but the Display API does not expose them. A TikTok Studio daily report or an approved Accounts API analytics connection is required; video views are kept separate.';
   if (metric === 'followers')
     return 'Recorded follower snapshots. Missing dates stay blank; weekly and monthly points use the latest observation.';
   if (metric === 'users')
@@ -299,4 +299,15 @@ export function genderDistribution(
     }
     return point;
   });
+}
+
+export function profileViewCoverage(rows: Daily[], channel: string, range?: Range) {
+  const known = rows.filter(r => r.channel === channel && dailyValue(r, 'profileViews') !== null);
+  const selected = range ? known.filter(r => r.date >= range.start && r.date <= range.end) : known;
+  return {
+    rows: selected,
+    days: selected.length,
+    latest: known.map(r => r.date).sort().at(-1) || null,
+    total: selected.length ? selected.reduce((n, r) => n + dailyValue(r, 'profileViews')!, 0) : null,
+  };
 }

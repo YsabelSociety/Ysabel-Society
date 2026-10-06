@@ -20,10 +20,12 @@ function studioDate(value: string, range: Range) {
   if (
     /^\d{4}-\d{2}-\d{2}$/.test(value) &&
     value >= range.start &&
-    value <= range.end
+    value <= range.end &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value
   )
     return value;
-  const match = value.trim().match(/^([a-z]+)\s+(\d{1,2})$/i);
+  const match = String(value || '').trim().match(/^([a-z]+)\s+(\d{1,2})$/i);
   if (!match) throw new Error('INPUT:Unrecognized TikTok date: ' + value);
   const month = months.indexOf(match[1].toLowerCase()) + 1;
   const candidates = [];
@@ -73,60 +75,55 @@ export function parseTikTokStudio(
       name = file.name.replace(/\.csv$/i, '');
     if (!rows.length) continue;
     const headers = Object.keys(rows[0]);
-    const fields: Record<string, string> = headers.includes('Video Views')
-      ? {
-          'Video Views': 'views',
-          'Profile Views': 'profileViews',
-          Likes: 'likes',
-          Comments: 'comments',
-          Shares: 'shares',
-        }
-      : headers.includes('Total Viewers')
-        ? { 'Total Viewers': 'mediaViewers', 'New Viewers': 'newUsers' }
-        : headers.includes('Followers') && headers.includes('Date')
-          ? { Followers: 'followers' }
-          : {};
+    // Daily columns can be exported separately. Profile views do not require
+    // an accompanying Video Views column, and header casing is not significant.
+    const normalize = (value: string) => value.toLowerCase().replace(/[_-]/g, ' ').replace(/\s+/g, ' ').trim();
+    const aliases: Record<string, string> = {
+      'video views': 'views', 'profile views': 'profileViews',
+      'profile visits': 'profileViews', likes: 'likes', comments: 'comments',
+      shares: 'shares', 'total viewers': 'mediaViewers', 'new viewers': 'newUsers',
+      followers: 'followers',
+    };
+    const dateHeader = headers.find(h => normalize(h) === 'date');
+    const fields: Record<string, string> = dateHeader
+      ? Object.fromEntries(headers.filter(h => aliases[normalize(h)]).map(h => [h, aliases[normalize(h)]]))
+      : {};
+    if (new Set(Object.values(fields)).size !== Object.keys(fields).length)
+      throw new Error('INPUT:This TikTok report repeats the same metric in multiple columns.');
     if (Object.keys(fields).length) {
       const seen = new Set<string>();
       for (const row of rows) {
-        const date = studioDate(row.Date, range);
+        const date = studioDate(row[dateHeader!], range);
         if (seen.has(date))
           throw new Error('INPUT:Duplicate dates in ' + file.name);
         seen.add(date);
         const day = days.get(date) || emptyDaily(date, 'TikTok');
         for (const [from, to] of Object.entries(fields)) {
-          const raw = row[from];
-          if (['undefined', 'null', '--', ''].includes(raw?.trim())) continue;
-          // Studio can report negative net interactions after removals. Keep
-          // those supplied adjustments instead of silently replacing them by zero.
-          if (
-            ['likes', 'comments', 'shares'].includes(to) &&
-            Number.isFinite(Number(raw)) &&
-            Number(raw) < 0
-          ) {
-            (day as unknown as Record<string, unknown>)[to] = Number(raw);
+          const raw = row[from]?.trim();
+          if (!raw || ['undefined', 'null', '--', '—', 'n/a'].includes(raw.toLowerCase())) continue;
+          if (raw.includes(',') && !/^[+-]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(raw))
+            throw new Error('INPUT:Invalid TikTok number format in ' + file.name);
+          const value = Number(raw.replaceAll(',', ''));
+          // Keep provider-reported negative net interactions after removals.
+          if (['likes', 'comments', 'shares'].includes(to) && Number.isFinite(value) && value < 0) {
+            (day as unknown as Record<string, unknown>)[to] = value;
             day.available = [...new Set([...(day.available || []), to])];
             continue;
           }
-          if (finite(raw) === null)
+          if (finite(value) === null)
             throw new Error('INPUT:Invalid TikTok statistic in ' + file.name);
-          putMetric(day, to, raw);
+          putMetric(day, to, value);
         }
-        if (
-          headers.includes('Video Views') &&
-          ['Likes', 'Comments', 'Shares'].every(
-            (k) => row[k]?.trim() && Number.isFinite(Number(row[k])),
-          )
-        ) {
-          (day as unknown as Record<string, unknown>).engagements =
-            Number(row.Likes) + Number(row.Comments) + Number(row.Shares);
-          day.available = [
-            ...new Set([...(day.available || []), 'engagements']),
-          ];
+        if (['likes', 'comments', 'shares'].every(k => day.available?.includes(k))) {
+          day.engagements = Number((day as unknown as Record<string, unknown>).likes) +
+            Number((day as unknown as Record<string, unknown>).comments) +
+            Number((day as unknown as Record<string, unknown>).shares);
+          day.available = [...new Set([...(day.available || []), 'engagements'])];
         }
         day.sourceMetrics = {
           ...day.sourceMetrics,
           studioImport: true,
+          metricOrigins: Object.fromEntries((day.available || []).map(k => [k, 'file'])),
           studioPeriod: range,
           definition:
             'TikTok Studio daily report. Engagements sum likes, comments and shares, including provider-reported negative net adjustments. Undefined cells remain unavailable. Video views are daily activity, not lifetime content views.',

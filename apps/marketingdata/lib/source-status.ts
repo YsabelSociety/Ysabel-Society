@@ -59,3 +59,15 @@ export function googleScopes(source: string | null) {
     ];
   return ['https://www.googleapis.com/auth/analytics.readonly'];
 }
+
+// Track a metric's source separately from the account's general API connection.
+// A Display API follower refresh must never turn saved Studio profile views live.
+export function metricSource(row: import('./analytics').Daily, metric: string): 'file' | 'api' {
+  const explicit = (row.sourceMetrics?.metricOrigins as Record<string, unknown> | undefined)?.[metric];
+  if (explicit === 'api' || explicit === 'file') return explicit;
+  if (row.channel === 'TikTok' && row.sourceMetrics?.studioImport) {
+    if (metric === 'followers' && row.sourceMetrics?.followersObservedAt) return 'api';
+    return 'file';
+  }
+  return row.sourceMetrics?.origin === 'file' ? 'file' : 'api';
+}

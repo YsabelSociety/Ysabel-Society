@@ -398,6 +398,7 @@ export function MetricCard({
             ? 'Latest TikTok profile-visit report: ' + tiktokProfile.latest + '. No profile visits were supplied for the selected dates.'
             : 'TikTok profile visits have not been supplied by this connection.'}
         {' '}<a href="https://www.tiktok.com/tiktokstudio/analytics" target="_blank" rel="noreferrer">Open TikTok analytics ↗</a>
+                  <a href="/marketingdata/tiktok-business" className="secondary">Connect profile analytics</a>
       </p>}
       <p className="metric-definition">{metricExplanation(metric, basis)}</p>
       <details className="metric-values">

@@ -59,25 +59,19 @@ export function TikTokBusinessSetup() {
   }
   return (
     <div className="community-help">
-      <h2>TikTok messages & mentions</h2>
+      <h2>TikTok profile analytics</h2>
       <p>
-        Complete TikTok’s Business API approval, then authorize the Ysabel
-        Society account here.
+        Connect the approved Accounts API to synchronize Ysabel Society’s daily profile visits. Your existing video connection remains active.
       </p>
       <ol>
         <li>
-          Register in TikTok API for Business and submit the app for review.
-          Messaging requires TikTok’s separate data-security review after app
-          approval.
+          Complete TikTok’s Accounts API access application with business verification and a demonstration, then request Account User basic information and insights in your app review.
         </li>
         <li>
-          Upload the Ysabel logo and set the TikTok account holder redirect URL
-          shown below. Request Mentions separately.
+          Register the account sign-in callback shown below. The account authorization needs user.insights and user.info.username so the app can read profile visits and verify the connected account.
         </li>
         <li>
-          After approval, save the Business API app ID, secret and TikTok
-          account holder authorization URL. This is separate from the existing
-          TikTok analytics login.
+          After approval, save the Business API app ID, secret and official account holder authorization URL. Authorize the same Ysabel account, then sync profile visits here or refresh TikTok in Performance.
         </li>
       </ol>
       <div className="inline-actions">
@@ -92,9 +86,9 @@ export function TikTokBusinessSetup() {
         <a
           target="_blank"
           rel="noreferrer"
-          href="https://business-api.tiktok.com/portal/docs/access-to-business-messaging-api/v1.3"
+          href="https://business-api.tiktok.com/portal/docs/accounts-api-overview/v1.3"
         >
-          Messaging approval requirements
+          Accounts API approval requirements
         </a>
       </div>
       {info && (
@@ -108,8 +102,10 @@ export function TikTokBusinessSetup() {
         </label>
       )}
       <p role="status">
-        {info?.authorized
-          ? 'Business authorization saved. Live messages and mentions have not yet been verified or imported through this connection.'
+        {info?.analyticsAuthorized
+          ? 'Analytics authorization saved. Sync profile visits to verify provider data. Daily figures can take 24–48 hours to arrive.'
+          : info?.authorized
+          ? 'Business authorization saved, but user.insights and user.info.username are still required for profile visits.'
           : info?.configured
             ? 'App settings saved. Account authorization is still required.'
             : 'Business account authorization has not been completed.'}
@@ -164,13 +160,13 @@ export function TikTokBusinessSetup() {
       >
         {busy ? 'Please wait…' : 'Authorize TikTok Business account'}
       </button>
+      <button type="button" className="secondary" disabled={busy || !info?.analyticsAuthorized} onClick={() => void action('sync')}>
+        {busy ? 'Syncing…' : 'Sync profile visits'}
+      </button>
+      {info?.sync?.snapshot && <p role="status">{info.sync.snapshot.checks?.find((check: any) => check.key === 'profile-views')?.detail}</p>}
       {error && <p role="alert">{error}</p>}
       <p>
-        TikTok currently excludes Business Accounts and incoming messages from
-        the EEA, Switzerland and UK. US accounts need an additional review.
-        Authorization alone does not verify message access; automatic
-        business-message imports are not active yet. Existing video statistics
-        and file imports keep their current connection.
+        Profile visits use TikTok’s Accounts API and UTC reporting dates, with a maximum 60-day lookback. Earlier history stays saved in the app. Missing days remain unavailable until TikTok supplies them. Messaging and mentions have separate approval requirements.
       </p>
     </div>
   );

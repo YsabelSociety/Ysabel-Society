@@ -43,7 +43,7 @@ export default function DataCenter({tables,rows,statuses,range,ready,busy,sync,s
     {section==='refresh'&&<>
       <section className={styles.hero} aria-label="Daily data refresh">
         <div><span className={styles.eyebrow}>YOUR DAILY CHECK</span><h2>Every source.<br/>One place to refresh.</h2><p>Refresh connected sources and inspect their latest checks. The dashboard stays ready while updates run.</p><button className="primary" disabled={!ready||busy} aria-busy={busy} onClick={()=>void sync.syncCategory('all')}><RefreshCw size={16}/>{busy?'Refreshing sources…':'Refresh all connected data'}</button></div>
-        <div className={styles.summary}><div><CheckCircle2 size={18}/><strong>{verified}</strong><span>Verified automatic sources</span></div><div><Upload size={18}/><strong>{fileSources}</strong><span>Sources updated by file</span></div><div><FileClock size={18}/><strong>{tables.length}</strong><span>Available source reports</span></div></div>
+        <div className={styles.summary}><div><CheckCircle2 size={18}/><strong>{verified}</strong><span>Verified automatic sources</span></div><div><Upload size={18}/><strong>{fileSources}</strong><span>File-only sources</span></div><div><FileClock size={18}/><strong>{tables.length}</strong><span>Available source reports</span></div></div>
       </section>
       <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>SOURCE BY SOURCE</span><h2>A focused refresh.</h2></div><p>Provider availability and processing times still apply.</p></div>
       <div className={styles.sources}>{sources.map(({channel,scope})=>{
@@ -65,7 +65,7 @@ export default function DataCenter({tables,rows,statuses,range,ready,busy,sync,s
     </>}
     {section==='access'&&<>
       <section className={styles.accessIntro}><span className={styles.eyebrow}>CONNECTIONS & IMPORTS</span><h2>Keep the sources connected.</h2><p>Manage platform access, upload new exports, and check import history. Existing permissions and private access protection apply.</p></section>
-      <AdminGate title="Data Center connections & imports"><ConnectionsPage notify={notify}/><CommunityDataTools/><section className="surface padded"><Suspense fallback={<p role="status">Opening SevenRooms import tools…</p>}><SevenRoomsImports/></Suspense></section><details className="surface padded"><summary><Database size={16}/>Source coverage & definitions</summary><DataSourcesPage/></details></AdminGate>
+      <CommunityDataTools/><AdminGate title="Data Center connections & imports"><ConnectionsPage notify={notify}/><section className="surface padded"><Suspense fallback={<p role="status">Opening SevenRooms import tools…</p>}><SevenRoomsImports/></Suspense></section><details className="surface padded"><summary><Database size={16}/>Source coverage & definitions</summary><DataSourcesPage/></details></AdminGate>
     </>}
   </div>;
 }

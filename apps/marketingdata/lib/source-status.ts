@@ -1,3 +1,4 @@
+import type { Daily } from './analytics';
 export type SourceStatus = {
   channel: string;
   status: string;
@@ -70,4 +71,19 @@ export function metricSource(row: import('./analytics').Daily, metric: string): 
     return 'file';
   }
   return row.sourceMetrics?.origin === 'file' ? 'file' : 'api';
+}
+
+/** A connection check date is separate from the date actually reported by a metric. */
+export function suppliedMetricRows(rows: Daily[], metric?: string) {
+  return metric ? rows.filter(row => (!row.available || row.available.includes(metric)) &&
+    typeof row[metric as keyof Daily] === 'number' && Number.isFinite(row[metric as keyof Daily])) : rows;
+}
+export function latestMetricDate(rows: Daily[], metric?: string) {
+  return suppliedMetricRows(rows, metric).reduce<string | undefined>((latest, row) =>
+    !latest || row.date > latest ? row.date : latest, undefined);
+}
+export function reportingDateLabel(date: string) {
+  return new Date(date + 'T12:00:00Z').toLocaleDateString('en-GB', {
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+  });
 }

@@ -74,16 +74,20 @@ export function useSourceAnalytics(
                 return data;
               }).catch(() => ({ rows: [] }));
         const currentRequest = read(range);
+        let fullReportReady = false;
         // Render the small daily-metric response while media and report tables load.
         const summaryRequest = read(range, true).then(summary => {
-          if (abort.signal.aborted) return;
-          setResult(saved => saved?.key === key ? saved : {
+          if (abort.signal.aborted || fullReportReady) return;
+          // Fresh daily figures must replace old totals immediately while the
+          // larger media/report response is still loading. Preserve its details.
+          setResult(saved => saved?.key === key ? { ...saved, rows: summary.rows || [] } : {
             key, mode: summary.mode, detailsReady: false, rows: summary.rows || [], previous: [],
             coverage: [], sourceStatus: [], posts: [], monthlyPosts: [], tables: [],
             comparisonLimited: comparison !== 'No Comparison',
           });
         }).catch(() => {});
         const current = await currentRequest;
+        fullReportReady = true;
         const previous = { rows: [] as Daily[] };
         if (!abort.signal.aborted) {
           if (current.mode === 'live') onLive?.();

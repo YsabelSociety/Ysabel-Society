@@ -38,3 +38,15 @@ test('changing dates aborts old requests and never displays old content as new-p
  old.forEach(r=>r.resolve(h.report));await flush();assert.equal(h.render().ready,false);assert.deepEqual(h.render().posts,[]);
  const newer=h.requests.slice(2);newer.forEach(r=>r.resolve({...h.report,posts:[{id:'september'}]}));await flush();assert.equal(h.render().posts[0].id,'september');
 });
+
+test('background daily response updates numbers before media and retains existing details',async t=>{
+ const h=mount();t.after(h.unmount);h.requests.forEach(r=>r.resolve(r.url.includes('dailyOnly')?{mode:'live',rows:daily}:h.report));await flush();h.render();
+ h.refresh();h.render();const refresh=h.requests.slice(2);
+ refresh.find(r=>r.url.includes('dailyOnly')).resolve({mode:'live',rows:[{...daily[0],views:42}]});await flush();
+ const state=h.render();assert.equal(state.rows[0].views,42);assert.equal(state.detailsReady,true);assert.equal(state.posts[0].id,'story');assert.equal(state.refreshing,true);
+ refresh.find(r=>!r.url.includes('dailyOnly')).resolve({...h.report,rows:[{...daily[0],views:43}]});await flush();assert.equal(h.render().rows[0].views,43);
+});
+test('a late daily response cannot replace the newer completed full report',async t=>{
+ const h=mount();t.after(h.unmount);h.requests.find(r=>!r.url.includes('dailyOnly')).resolve({...h.report,rows:[{...daily[0],views:43}]});await flush();h.render();
+ h.requests.find(r=>r.url.includes('dailyOnly')).resolve({mode:'live',rows:[{...daily[0],views:42}]});await flush();assert.equal(h.render().rows[0].views,43);
+});

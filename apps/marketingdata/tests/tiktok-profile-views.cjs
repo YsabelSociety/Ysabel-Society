@@ -28,6 +28,13 @@ assert.equal(merged.profileViews,23);assert.equal(status.metricSource(merged,'pr
 const react=require('react'),server=require('react-dom/server');
 const badgePath=path.join(root,'components/ysabel/source-badge.tsx');const js=ts.transpileModule(fs.readFileSync(badgePath,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,exp={};new Function('require','exports',js)(id=>id==='@/lib/source-status'?status:realRequire(id),exp);
 const render=(rows,metric,unavailable=false)=>server.renderToStaticMarkup(react.createElement(exp.SourceStatusContext.Provider,{value:[{channel:'TikTok',method:'api',autoSync:true,status:'Connected',lastSync:'2026-10-06T18:31:05Z'}]},react.createElement(exp.SourceBadge,{channel:'TikTok',rows,metric,unavailable})));
-assert.match(render([merged],'profileViews'),/>IMPORTED<\/span>/);assert.doesNotMatch(render([merged],'profileViews'),/LIVE DATA/);
+assert.match(render([merged],'profileViews'),/>LIVE · WITHOUT API<\/span>/);assert.match(render([merged],'profileViews'),/not an automatic API feed/);assert.match(render([merged],'profileViews'),/through 1 Oct 2026/);assert.doesNotMatch(render([merged],'profileViews'),/LIVE DATA/);
 assert.match(render([merged],'followers'),/>LIVE DATA<\/span>/);assert.match(render([],'profileViews',true),/>NOT SUPPLIED<\/span>/);assert.doesNotMatch(render([],'profileViews',true),/LIVE DATA/);
 console.log('TikTok profile views: standalone/combined CSV, real zero vs missing day, monthly totals, date/number validation, historical coverage, demographics, negative net interactions, refresh preservation and metric-specific UI labels passed.');
+
+const followerOnly={...live,date:'2026-10-07',available:['followers']};
+assert.match(render([merged,followerOnly],'profileViews'),/>LIVE · WITHOUT API<\/span>/,'A later follower check must never relabel or redatestamp Studio profile views');
+assert.doesNotMatch(render([merged,followerOnly],'profileViews'),/through 7 Oct/);
+
+const studioFollower={...followerOnly,date:'2026-10-01',sourceMetrics:{origin:'file',studioImport:true,metricOrigins:{followers:'file'}}};
+assert.match(render([studioFollower,followerOnly],'followers'),/through 1 Oct 2026/);assert.doesNotMatch(render([studioFollower,followerOnly],'followers'),/through 7 Oct/,'Studio timestamp must never inherit a newer API follower check');

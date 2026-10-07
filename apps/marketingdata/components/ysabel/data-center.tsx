@@ -3,7 +3,7 @@ import { lazy, Suspense, useState } from 'react';
 import { RefreshCw, Database, FileClock, Plug, CheckCircle2, Upload, MessageCircle, CalendarDays } from 'lucide-react';
 import type { Daily, Range } from '@/lib/analytics';
 import type { ReportTable } from '@/lib/reporting';
-import type { SourceStatus } from '@/lib/source-status';
+import { latestMetricDate, reportingDateLabel, metricSource, suppliedMetricRows, type SourceStatus } from '@/lib/source-status';
 import type { RefreshScope } from '@/lib/refresh-scope';
 import type { RefreshJob } from '@/lib/refresh-types';
 import { SourceBadge } from './source-badge';
@@ -48,7 +48,9 @@ export default function DataCenter({tables,rows,statuses,range,ready,busy,sync,s
       <div className={styles.sectionHeading}><div><span className={styles.eyebrow}>SOURCE BY SOURCE</span><h2>A focused refresh.</h2></div><p>Provider availability and processing times still apply.</p></div>
       <div className={styles.sources}>{sources.map(({channel,scope})=>{
         const status=statuses.find(s=>s.channel===channel), imported=status?.method==='file';
-        return <article key={channel} className={styles.source}><div className={styles.sourceTop}><DataIcon name={channel}/><SourceBadge channel={channel}/></div><h3>{channel}</h3><p>{status?.lastSync?'Last checked '+new Date(status.lastSync).toLocaleString():'No verified refresh recorded yet.'}</p><small>{imported?'Saved imports stay available. Upload a new export to update them.':status?.autoSync?'Automatic refresh is enabled.':'Automatic refresh is paused or not yet connected.'}</small><button className="secondary" disabled={!ready||busy} onClick={()=>imported?onSectionChange('access'):void sync.syncCategory(scope)}>{imported?<Upload size={14}/>:<RefreshCw size={14}/>}<span>{imported?'Update import':'Refresh '+channel}</span></button></article>;
+        const latest=latestMetricDate(rows.filter(row=>row.channel===channel), channel==='Website'?'pageViews':channel==='Google Business'?'search':'views');
+        const studio=channel==='TikTok'&&suppliedMetricRows(rows.filter(row=>row.channel===channel),'views').some(row=>metricSource(row,'views')==='file');
+        return <article key={channel} className={styles.source}><div className={styles.sourceTop}><DataIcon name={channel}/><SourceBadge channel={channel}/></div><h3>{channel}</h3><p>{status?.lastSync?'Last checked '+new Date(status.lastSync).toLocaleString():'No verified refresh recorded yet.'}</p><p>{latest ? (studio?'Studio daily activity through ':'Daily activity through ')+reportingDateLabel(latest) : 'No daily activity supplied for the selected dates.'}</p><small>{imported?'Saved imports stay available. Upload a new export to update them.':channel==='TikTok'?'Public videos and followers refresh automatically. Studio daily analytics update with new exports.':status?.autoSync?'Automatic refresh is enabled.':'Automatic refresh is paused or not yet connected.'}</small><button className="secondary" disabled={!ready||busy} onClick={()=>imported?onSectionChange('access'):void sync.syncCategory(scope)}>{imported?<Upload size={14}/>:<RefreshCw size={14}/>}<span>{imported?'Update import':'Refresh '+channel}</span></button></article>;
       })}<article className={styles.source}><div className={styles.sourceTop}><MessageCircle size={24}/><span className={styles.smallLabel}>LAST 48 HOURS</span></div><h3>Instagram & Facebook Inbox</h3><p>Incoming and outgoing messages are checked together.</p><small>Messaging access is checked separately from account analytics.</small><button className="secondary" disabled={!ready||busy} onClick={()=>void sync.syncCategory('inbox')}><RefreshCw size={14}/>Refresh both inboxes</button></article></div>
       <SyncSettings {...sync}/>
       <HistoryImport/>

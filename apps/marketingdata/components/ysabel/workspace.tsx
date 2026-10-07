@@ -280,7 +280,13 @@ export default function Workspace({
     const update = () => setToday(calendarDate(data.settings.timezone));
     update();
     const timer = setInterval(update, 60000);
-    return () => clearInterval(timer);
+    window.addEventListener('focus', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('focus', update);
+      document.removeEventListener('visibilitychange', update);
+    };
   }, [data.settings.timezone]);
   const onLive = useCallback(() => {
     setLiveClock(true);
@@ -879,6 +885,7 @@ export default function Workspace({
                       previous={previous}
                       setPage={navigate}
                       posts={visiblePosts}
+                      websiteRealtime={source.websiteRealtime}
                       monthlyPosts={source.mode === 'live' ? source.monthlyPosts : data.posts}
                       onSelect={setPost}
                       onMetric={setMetric}
@@ -926,6 +933,7 @@ export default function Workspace({
                         (s) => s.channel === 'Website',
                       )}
                       realtime={source.websiteRealtime}
+                      range={range}
                     /></AnalyticsReady>
                   )}
                   {page === 'Website' && source.mode === 'live' && (

@@ -31,6 +31,7 @@ import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
 import { SourceBadge } from './source-badge';
+import type { WebsiteRealtime } from '@/lib/source-status';
 import { newestPublishedFirst } from '@/lib/content-order';
 import { AllPlatformViews } from './all-platform-views';
 export default function Overview({
@@ -46,6 +47,7 @@ export default function Overview({
   sceneEnabled = true,
   contentLoading = false,
   dailyPending = false,
+  websiteRealtime,
 }: {
   rows: Daily[];
   range: Range;
@@ -59,6 +61,7 @@ export default function Overview({
   sceneEnabled?: boolean;
   contentLoading?: boolean;
   dailyPending?: boolean;
+  websiteRealtime?: WebsiteRealtime;
 }) {
   const tiktokPosts = posts.filter(
     (p) =>
@@ -150,7 +153,7 @@ export default function Overview({
           );
         })}
       </div>
-      <ChannelTimeline rows={rows} posts={posts} range={range} />
+      <ChannelTimeline rows={rows} posts={posts} range={range} websiteRealtime={websiteRealtime} />
       <section className="content-highlights" aria-label="Content Intelligence highlights">
         <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together · newest published first · this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
         <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
@@ -211,7 +214,7 @@ export default function Overview({
                 {c}
                 <ArrowUpRight size={14} />
               </div>
-              {contentLoading ? <span role="status" className="muted">Loading source details…</span> : <SourceBadge channel={c} rows={cr} />}
+              {contentLoading ? <span role="status" className="muted">Loading source details…</span> : <SourceBadge channel={c} rows={cr} metric={c === 'TikTok' && tiktokContent ? undefined : i < 3 ? 'views' : i === 3 ? 'search' : 'sessions'} unavailable={!available} />}
               <strong>
                 {available
                   ? c === 'TikTok' && tiktokContent

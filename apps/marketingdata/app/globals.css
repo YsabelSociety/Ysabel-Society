@@ -8892,3 +8892,14 @@ h1 {
   font-size: 12px;
   font-weight: 500;
 }
+
+.source-feed-attribution { display:inline-flex; flex-direction:column; align-items:flex-start; gap:4px; max-width:100%; }
+.source-observation { font-size:10px!important; font-weight:400!important; line-height:1.4!important; letter-spacing:0!important; color:#687875!important; }
+.source-feed-badge[data-feed='studio'] { color:#27674e; background:rgba(223,242,233,.8); }
+.daily-report-freshness { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:10px 0 12px; font-size:11px; color:#637570; }
+
+.daily-total-label { display:block; font-size:10px; color:#697b75; margin-top:3px; }
+.daily-report-current { display:flex; gap:24px; margin:12px 0 4px; padding:12px 14px; border-radius:12px; background:linear-gradient(120deg,rgba(221,234,224,.55),rgba(237,239,230,.45)); }
+.daily-report-current>div { display:grid; gap:3px; }
+.daily-report-current span,.daily-report-current small { font-size:10px; color:#697b75; }
+.daily-report-current strong { font-size:22px; font-weight:550; letter-spacing:-.03em; color:#263e32; }

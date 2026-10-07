@@ -468,6 +468,7 @@ export function PerformancePage({
             live={live}
             status={websiteConnection}
             realtime={websiteRealtime}
+            range={range}
           />
           <AudienceMap tables={websiteTables} channels={['Website']} />
           {live && (
@@ -870,17 +871,20 @@ export function WebsitePage({
   live = false,
   status,
   realtime,
+  range,
 }: {
   rows: Daily[];
   previous: Daily[];
   live?: boolean;
   status?: SourceStatus;
   realtime?: WebsiteRealtime;
+  range?: Range;
 }) {
   const r = rows.filter((r) => r.channel === 'Website'),
     p = previous.filter((r) => r.channel === 'Website');
   const connectionPanel = live && realtime && (
     <Panel title="Activity right now" description="Website activity in the latest captured 30-minute window.">
+      <p className="footnote">Captured {new Date(realtime.observedAt).toLocaleString('en-GB', {timeZone:'Europe/Tirane',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</p>
       <StatRow items={[
         { label: 'Active users · 30 min', value: realtime.activeUsers == null ? '—' : number(realtime.activeUsers) },
         { label: 'Page views · 30 min', value: realtime.pageViews == null ? '—' : number(realtime.pageViews) },
@@ -938,7 +942,7 @@ export function WebsitePage({
           },
         ]}
       />
-      <WebsiteMetricGraphs rows={r} />
+      <WebsiteMetricGraphs rows={r} range={range} />
       {live ? (
         <Panel
           title="From discovery to intent"

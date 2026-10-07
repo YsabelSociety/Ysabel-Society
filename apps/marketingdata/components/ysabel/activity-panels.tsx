@@ -33,6 +33,8 @@ import { activitySeries } from '@/lib/activity-series';
 import { DataIcon } from './data-icons';
 import { SourceBadge } from './source-badge';
 import { GoogleDiscoveryCards } from './google-discovery-cards';
+import { reportingDateLabel, type WebsiteRealtime } from '@/lib/source-status';
+import { calendarDate } from '@/lib/sync-window';
 
 export function ProfileViews({
   rows,
@@ -152,10 +154,12 @@ export function ChannelTimeline({
   rows,
   posts,
   range,
+  websiteRealtime,
 }: {
   rows: Daily[];
   posts: Post[];
   range: Range;
+  websiteRealtime?: WebsiteRealtime;
 }) {
   return (
     <section className="channel-timeline-section">
@@ -188,6 +192,8 @@ export function ChannelTimeline({
           channel="Website"
           metric="pageViews"
           label="Website page views"
+          range={range}
+          realtime={websiteRealtime}
           color="#bc773c"
         />
         <GoogleDiscoveryCards rows={rows} range={range} />
@@ -217,17 +223,26 @@ function DailyMetricGraphContent({
   metric,
   label,
   color,
+  range,
+  realtime,
 }: {
   rows: Daily[];
   channel: string;
   metric: DailyKey;
   label: string;
   color: string;
+  range?: Range;
+  realtime?: WebsiteRealtime;
 }) {
   const animate = useMinimalMotion(),
     id = useId().replace(/:/g, '');
-  const data = activitySeries(rows, channel, metric);
+  const data = activitySeries(rows, channel, metric, range);
   const supplied = data.filter((d) => d.value !== null);
+  const latest = supplied.at(-1)?.date;
+  const today = calendarDate('Europe/Tirane');
+  const todayValue = data.find(point => point.date === today)?.value;
+  const observed = realtime && new Date(realtime.observedAt);
+  const recent = observed && Number.isFinite(+observed) && calendarDate('Europe/Tirane', observed) === today;
   return (
     <section
       className="surface padded daily-metric-graph"
@@ -243,6 +258,15 @@ function DailyMetricGraphContent({
           ? number(supplied.reduce((n, d) => n + Number(d.value), 0))
           : 'Unavailable'}
       </strong>
+      <small className="daily-total-label">Total in selected dates</small>
+      <div className="daily-report-freshness">
+        <SourceBadge channel={channel} metric={metric} rows={rows.filter(row => row.channel === channel)} unavailable={!supplied.length}/>
+        <span>{latest ? 'Through ' + reportingDateLabel(latest) + (latest === today ? ' · today so far' : '') : 'Awaiting daily report'}</span>
+      </div>
+      {channel === 'Website' && (!range || range.end === today) && <div className="daily-report-current">
+        <div><span>Today so far</span><strong>{todayValue == null ? '—' : number(todayValue)}</strong></div>
+        {metric === 'pageViews' && recent && realtime?.pageViews != null && <div><span>Page views · 30 min</span><strong>{number(realtime.pageViews)}</strong><small>Captured {observed!.toLocaleTimeString('en-GB', {timeZone:'Europe/Tirane',hour:'2-digit',minute:'2-digit'})}</small></div>}
+      </div>}
       <div className="website-report-chart">
         {supplied.length ? (
           <ResponsiveContainer width="100%" height={260}>
@@ -319,7 +343,7 @@ function DailyMetricGraphContent({
   );
 }
 
-export function WebsiteMetricGraphs({ rows }: { rows: Daily[] }) {
+export function WebsiteMetricGraphs({ rows, range }: { rows: Daily[]; range?: Range }) {
   const metrics: [DailyKey, string, string][] = [
     ['users', 'Active users', '#256ca9'],
     ['sessions', 'Sessions', '#7354ba'],
@@ -335,6 +359,7 @@ export function WebsiteMetricGraphs({ rows }: { rows: Daily[] }) {
             key={metric}
             rows={rows}
             channel="Website"
+            range={range}
             metric={metric}
             label={label}
             color={color}

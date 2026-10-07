@@ -71,7 +71,7 @@ export function ImportedPostDetail({ post, close }: { post: Post; close: () => v
   const published = recordedDate(post.publishedAt || post.date);
   const observed = recordedDate(post.observedAt);
   const isVideo = post.mediaType === 'video';
-  const caption = post.caption || post.title;
+  const caption = post.caption || '';
   const canExpandCaption = caption.length > 160 || caption.split('\n').length > 4;
   const scope = post.metricScope === 'period' ? 'Reported period' : 'Lifetime results';
   const format = post.format === 'Static' ? 'Photo' : post.format;

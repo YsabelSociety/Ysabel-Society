@@ -1,5 +1,5 @@
 import type * as Three from 'three';
-// Original Maison Ysabel geometry. Only venue materials are adapted for this dashboard.
+// Original Maison Ysabel geometry with physically lit architectural materials.
 const centerColors = { garden: { accent: '#8bb5a4' }, asian: { accent: '#d89695' }, italian: { accent: '#dec586' } };
 
 /** Photo reconstruction, in relative units. No building dimensions encode business metrics. */
@@ -10,16 +10,25 @@ export function buildYsabelArchitecture(T:typeof Three){
  const mat=(color:string,metalness=.1,roughness=.65,zone='base')=>{
   const m=new T.MeshStandardMaterial({color,metalness,roughness});m.userData={zone,base:new T.Color(color)};materials.push(m);return m;
  };
- // Fine mineral variation, generated as a material, not a photograph projected onto a box.
- const stoneCanvas=document.createElement('canvas');stoneCanvas.width=stoneCanvas.height=128;
- const ctx=stoneCanvas.getContext('2d')!,pixels=ctx.createImageData(128,128);
- for(let i=0;i<128*128;i++){const n=112+((i*73+(i>>7)*31)%23);pixels.data.set([n,n+2,n+3,255],i*4);}ctx.putImageData(pixels,0,0);
- const stoneTexture=new T.CanvasTexture(stoneCanvas);stoneTexture.wrapS=stoneTexture.wrapT=T.RepeatWrapping;stoneTexture.repeat.set(3,10);textures.push(stoneTexture);
- const stone=mat('#353c40',.1,.74);stone.map=stoneTexture;
- const edge=mat('#202b30',.65,.34),slab=mat('#657073',.2,.59),dark=mat('#121e25',.3,.45);
- const glass=mat('#5b8294',.76,.14),warmGlass=mat('#b4a78c',.55,.2);
- const silver=mat('#a3aba7',.85,.25),soil=mat('#252c24'),leaf=mat('#324d3a',.05,.9),trunk=mat('#66594a');
- const zoneStone=new Map(Object.entries(palette).map(([id,c])=>[id,mat(new T.Color(c).multiplyScalar(.3).getStyle(),.24,.6,id)]));
+ // Shared fine-grain mineral relief keeps the facade tactile without external texture downloads.
+ const stoneCanvas=document.createElement('canvas');stoneCanvas.width=stoneCanvas.height=256;
+ const ctx=stoneCanvas.getContext('2d')!,pixels=ctx.createImageData(256,256);
+ for(let i=0;i<256*256;i++){const x=i%256,y=i>>8,n=164+((i*73+y*31)%29)+Math.sin(x*.14+y*.035)*5;pixels.data.set([n,n,n,255],i*4);}ctx.putImageData(pixels,0,0);
+ const stoneTexture=new T.CanvasTexture(stoneCanvas);stoneTexture.wrapS=stoneTexture.wrapT=T.RepeatWrapping;stoneTexture.repeat.set(3,10);stoneTexture.anisotropy=4;textures.push(stoneTexture);
+ const stone=mat('#515d60',.08,.78);stone.bumpMap=stoneTexture;stone.bumpScale=.018;
+ const edge=mat('#384447',.72,.3),slab=mat('#959f9c',.18,.62),dark=mat('#172529',.12,.65);
+ // Glazing combines changing environmental reflections with quiet interior depth.
+ const paneCanvas=document.createElement('canvas');paneCanvas.width=128;paneCanvas.height=256;
+ const pane=paneCanvas.getContext('2d')!,paneLight=pane.createLinearGradient(0,0,128,256);
+ paneLight.addColorStop(0,'#d0dce0');paneLight.addColorStop(.45,'#7e969e');paneLight.addColorStop(1,'#344c56');
+ pane.fillStyle=paneLight;pane.fillRect(0,0,128,256);
+ pane.fillStyle='#e3ddd02b';pane.fillRect(12,25,36,155);pane.fillStyle='#152a3840';pane.fillRect(54,12,5,230);
+ pane.fillStyle='#dce5dd2b';for(let y=26;y<205;y+=17)pane.fillRect(12,y,100,2);
+ const paneTexture=new T.CanvasTexture(paneCanvas);paneTexture.colorSpace=T.SRGBColorSpace;paneTexture.anisotropy=4;textures.push(paneTexture);
+ const glazing=(color:string,warm=false)=>{const m=new T.MeshPhysicalMaterial({color,map:paneTexture,metalness:.28,roughness:.2,clearcoat:.9,clearcoatRoughness:.13,envMapIntensity:1.35});m.userData={zone:'base',base:new T.Color(color),nightWindow:warm};if(warm){m.emissive.set('#dfb675');m.emissiveIntensity=.1;}materials.push(m);return m;};
+ const glass=glazing('#b7cbd2'),warmGlass=glazing('#e1d5b8',true);
+ const silver=mat('#b8c0bb',.85,.24),soil=mat('#50574c',.05,.85),leaf=mat('#486142',.02,.94),trunk=mat('#6b5f50');
+ const zoneStone=new Map(Object.entries(palette).map(([id,c])=>{const m=mat(new T.Color(c).multiplyScalar(.74).getStyle(),.12,.68,id);m.bumpMap=stoneTexture;m.bumpScale=.012;return [id,m] as const;}));
  const boxGeometry=new T.BoxGeometry(1,1,1);
  const instances=new Map<string,{material:Three.Material;zone:string;values:number[][]}>();
  function box(w:number,h:number,d:number,x:number,y:number,z:number,m:Three.Material=stone,zone='base'){
@@ -74,7 +83,7 @@ export function buildYsabelArchitecture(T:typeof Three){
  function triangle(a:number[],b:number[],c:number[],zone:string,seed:number){
   if(!panels.has(zone))panels.set(zone,{position:[],color:[],lines:[]});const data=panels.get(zone)!;
   data.position.push(...a,...b,...c);data.lines.push(...a,...b,...b,...c,...c,...a);
-  const color=new T.Color('#ffffff').multiplyScalar(.78+((seed*17)%23)/100);
+  const color=new T.Color('#ffffff').multiplyScalar(.95+((seed*17)%11)/220);
   for(let i=0;i<3;i++)data.color.push(color.r,color.g,color.b);
  }
  function surface(fn:(u:number,v:number)=>number[],nu:number,nv:number,zone:(v:number)=>string){
@@ -100,17 +109,27 @@ export function buildYsabelArchitecture(T:typeof Three){
  surface(pavilion,20,12,()=> 'base');
  surface((u,v)=>[-4.18+u*8.36,20.98+1.35*Math.sin(u*Math.PI)*v,8.7],20,4,()=> 'base');
  for(const [id,data] of panels){
-  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(data.position,3));geometry.setAttribute('color',new T.Float32BufferAttribute(data.color,3));geometry.computeVertexNormals();
-  const color=id==='base'?'#91bcd1':new T.Color('#9abaca').lerp(new T.Color(palette[id]),.76).getStyle();
-  const m=new T.MeshPhysicalMaterial({color,vertexColors:true,metalness:.66,roughness:.18,clearcoat:1,clearcoatRoughness:.16,side:T.DoubleSide,envMapIntensity:1.1});m.userData={zone:id,base:new T.Color(color)};materials.push(m);
-  const mesh=new T.Mesh(geometry,m);mesh.userData.zone=id;groups.get(id)!.add(mesh);picks.push(mesh);
-  const lineGeometry=new T.BufferGeometry();lineGeometry.setAttribute('position',new T.Float32BufferAttribute(data.lines,3));groups.get(id)!.add(new T.LineSegments(lineGeometry,new T.LineBasicMaterial({color:'#162b35',transparent:true,opacity:.45})));
+  const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(data.position,3));geometry.setAttribute('color',new T.Float32BufferAttribute(data.color,3));
+  // Smooth the original curved surfaces; isolated triangle normals made the glass look faceted.
+  const normalSums=new Map<string,Three.Vector3>(),normalKeys:string[]=[],va=new T.Vector3(),vb=new T.Vector3(),vc=new T.Vector3();
+  const vertexKey=(x:number,y:number,z:number)=>`${x.toFixed(5)},${y.toFixed(5)},${z.toFixed(5)}`;
+  for(let i=0;i<data.position.length;i+=9){va.fromArray(data.position,i);vb.fromArray(data.position,i+3);vc.fromArray(data.position,i+6);const normal=vb.sub(va).cross(vc.sub(va));for(let j=0;j<9;j+=3){const key=vertexKey(data.position[i+j],data.position[i+j+1],data.position[i+j+2]);normalKeys.push(key);if(!normalSums.has(key))normalSums.set(key,new T.Vector3());normalSums.get(key)!.add(normal);}}
+  normalSums.forEach(n=>n.normalize());geometry.setAttribute('normal',new T.Float32BufferAttribute(normalKeys.flatMap(key=>normalSums.get(key)!.toArray()),3));
+  const color=id==='base'?'#9cb6bd':new T.Color('#c2d0ce').lerp(new T.Color(palette[id]),.36).getStyle();
+  const m=new T.MeshPhysicalMaterial({color,vertexColors:true,metalness:.32,roughness:.19,clearcoat:.95,clearcoatRoughness:.12,side:T.DoubleSide,envMapIntensity:1.3});m.userData={zone:id,base:new T.Color(color)};materials.push(m);
+  const mesh=new T.Mesh(geometry,m);mesh.userData.zone=id;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(id)!.add(mesh);picks.push(mesh);
+  // Actual slender metal mullions catch highlights, replacing the heavy dark wireframe.
+  const edges=new Map<string,number[]>();for(let i=0;i<data.lines.length;i+=6){const a=data.lines.slice(i,i+3),b=data.lines.slice(i+3,i+6),ka=vertexKey(...a as [number,number,number]),kb=vertexKey(...b as [number,number,number]);if(ka!==kb)edges.set([ka,kb].sort().join('|'),[...a,...b]);}
+  const frameGeometry=new T.CylinderGeometry(1,1,1,5,1,true),frameMaterial=mat('#8fa09f',.82,.3,id);
+  const frames=new T.InstancedMesh(frameGeometry,frameMaterial,edges.size),matrix=new T.Matrix4(),rotation=new T.Quaternion(),up=new T.Vector3(0,1,0);let frameIndex=0;
+  for(const values of edges.values()){va.fromArray(values,0);vb.fromArray(values,3);vc.subVectors(vb,va);const length=vc.length();rotation.setFromUnitVectors(up,vc.normalize());matrix.compose(va.add(vb).multiplyScalar(.5),rotation,new T.Vector3(.012,length,.012));frames.setMatrixAt(frameIndex++,matrix);}
+  frames.instanceMatrix.needsUpdate=true;groups.get(id)!.add(frames);
  }
  // Narrow colored seams identify venues without painting the entire hotel facade.
  for(const [y,id] of [[23.2,'italian'],[25.4,'asian'],[27.6,'garden']] as const){const seam=mat(palette[id],.6,.3,id);box(8.87,.055,6.67,0,y,-1.7,seam,id);}
  box(.028,1.9,.028,1.2,30.22,-1.9,silver,'garden');
  // Planters on real visible terrace edges; other buildings in the photos are intentionally excluded.
- const foliageGeometry=new T.IcosahedronGeometry(.26,1),foliage:Three.Matrix4[]=[];
+ const foliageGeometry=new T.IcosahedronGeometry(.26,2),foliage:Three.Matrix4[]=[];
  function plant(x:number,z:number,y:number,size=1){
   box(.5,.35,.5,x,y+.17,z,soil);box(.06,.55,.06,x,y+.57,z,trunk);
   for(let i=0;i<3;i++)foliage.push(new T.Matrix4().compose(new T.Vector3(x+(i===1?.17:i===2?-.17:0)*size,y+(.72+i*.14)*size,z),new T.Quaternion(),new T.Vector3(size,size*1.5,size)));
@@ -118,7 +137,7 @@ export function buildYsabelArchitecture(T:typeof Three){
  for(let i=0;i<8;i++)plant(-4.26,2.45+i*.83,20.91,.68);
  for(let i=0;i<5;i++)plant(-3.4+i*1.7,9.01,20.91,.63);
  for(let i=0;i<7;i++)plant(-5.55,-3.8+i*2,.22,1.25);
- const trees=new T.InstancedMesh(foliageGeometry,leaf,foliage.length);foliage.forEach((m,i)=>trees.setMatrixAt(i,m));trees.instanceMatrix.needsUpdate=true;groups.get('base')!.add(trees);
+ const trees=new T.InstancedMesh(foliageGeometry,leaf,foliage.length);foliage.forEach((m,i)=>trees.setMatrixAt(i,m));trees.instanceMatrix.needsUpdate=true;trees.castShadow=true;trees.receiveShadow=true;groups.get('base')!.add(trees);
  for(const {material:m,zone,values} of instances.values()){
   const mesh=new T.InstancedMesh(boxGeometry,m,values.length),matrix=new T.Matrix4();
   values.forEach(([w,h,d,x,y,z],i)=>{matrix.makeScale(w,h,d);matrix.setPosition(x,y,z);mesh.setMatrixAt(i,matrix);});mesh.instanceMatrix.needsUpdate=true;mesh.userData.zone=zone;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(zone)!.add(mesh);picks.push(mesh);

@@ -172,3 +172,24 @@
  .rating :global(.google-rating-highlight .secondary) {font-size:11px;min-height:36px;}
 }
 @media(prefers-reduced-motion:reduce) {.hero * {animation:none!important;transition:none!important;}}
+
+/* Prishtina's sky is a contained backdrop; venue and analytics palettes stay unchanged. */
+.cityClock {display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 17px 5px;color:#557067;position:relative;z-index:1;}
+.cityClock>span {display:flex;align-items:center;gap:5px;font-size:10px;font-weight:500;white-space:nowrap;}
+.cityClock time {display:grid;gap:2px;text-align:right;font-size:8px;color:#809087;}
+.cityClock time strong {font-size:12px;font-weight:450;letter-spacing:.035em;color:#3f5d50;font-variant-numeric:tabular-nums;}
+.viewport {--sky-top:#e5eef2;--sky-horizon:#f2f2e5;--sun-x:92%;--sun-y:74%;--sun-opacity:0;--night:0;border-radius:22px;isolation:isolate;overflow:hidden;}
+.citySky {position:absolute;inset:0;border-radius:inherit;background:linear-gradient(180deg,var(--sky-top),var(--sky-horizon) 76%,#eef2ed);transition:background 1s;pointer-events:none;}
+.citySky::after {content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 83%,#e8e8de44,transparent 58%);}
+.sun {position:absolute;left:var(--sun-x);top:var(--sun-y);width:22px;height:22px;border-radius:50%;transform:translate(-50%,-50%);opacity:var(--sun-opacity);background:radial-gradient(circle at 38% 35%,#fffdf0,#ffdcad 74%);box-shadow:0 0 24px 8px #ffe3b23d,0 0 70px 28px #ffdeb423;transition:opacity 1s;}
+.stars {position:absolute;inset:0;opacity:var(--night);background-image:radial-gradient(circle at 14% 23%,#e7eef9 0 .6px,transparent 1.2px),radial-gradient(circle at 65% 13%,#e7eef9 0 .7px,transparent 1.4px),radial-gradient(circle at 31% 39%,#e7eef9 0 .6px,transparent 1.2px),radial-gradient(circle at 83% 37%,#e7eef9 0 .6px,transparent 1.2px),radial-gradient(circle at 44% 8%,#e7eef9 0 .6px,transparent 1.2px),radial-gradient(circle at 75% 52%,#e7eef9 0 .6px,transparent 1.2px),radial-gradient(circle at 8% 55%,#e7eef9 0 .6px,transparent 1.2px);}
+.horizon {position:absolute;bottom:0;left:0;right:0;height:20%;background:linear-gradient(0deg,#eff3ed,#eff3ed00);}
+.daylightStatus {position:absolute;z-index:2;top:13px;left:13px;right:13px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px;pointer-events:none;color:#60776c;font-size:8px;letter-spacing:.015em;}
+.daylightStatus span:first-child {font-weight:500;}
+.daylightStatus span:last-child {font-variant-numeric:tabular-nums;opacity:.75;font-size:7px;}
+.viewport[data-night=true] .daylightStatus {color:#e3e9ee;}
+.viewport[data-night=true] .buildingCaption {background:#233947de;border:1px solid #e3ecf326;padding:7px 9px;border-radius:8px;}
+.viewport[data-night=true] .buildingCaption>span {color:#e1e9e6;}
+.viewport[data-night=true] .buildingCaption small {color:#bccbd0;}
+@media(max-width:1250px) {.cityClock {padding:10px 7px 6px;}.cityClock>span {font-size:9px;}.cityClock time strong {font-size:11px;}}
+@media(max-width:600px) {.cityClock {padding:9px 8px 10px;}.viewport {border-radius:17px;}.cityClock>span {font-size:10px;}.daylightStatus {top:10px;left:10px;right:10px;font-size:8px;}.daylightStatus span:last-child {font-size:7px;}}

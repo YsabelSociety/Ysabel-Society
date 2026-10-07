@@ -1,7 +1,7 @@
 // Bound backing-buffer memory even on high-DPR phones and large displays.
-export function canvasPixelRatio(width: number, height: number, dpr: number, touch = false) {
+export function canvasPixelRatio(width: number, height: number, dpr: number, touch = false, maxRatio = touch ? 1.25 : 1.75) {
   const pixels = Math.max(1, width * height);
-  return Math.min(Math.max(1, dpr || 1), touch ? 1.25 : 1.75,
+  return Math.min(Math.max(1, dpr || 1), maxRatio,
     Math.sqrt((touch ? 900000 : 1800000) / pixels));
 }
 

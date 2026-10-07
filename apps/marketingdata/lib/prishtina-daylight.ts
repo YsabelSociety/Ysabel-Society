@@ -29,11 +29,13 @@ export function getPrishtinaDaylight(date: Date) {
   const times = getTimes(date, latitude, longitude, 0, cityUtcOffset(date));
   const morning = date.getTime() < times.solarNoon.getTime();
   const progress = times.sunrise && times.sunset ? clamp((date.getTime() - times.sunrise.getTime()) / (times.sunset.getTime() - times.sunrise.getTime())) : .5;
+  const solarPeak = getPosition(times.solarNoon, latitude, longitude).altitude;
+  const solarHeight = clamp(altitude / Math.max(12, solarPeak));
   const daylight = smooth(-6, 18, altitude);
   const golden = (1 - smooth(3, 18, altitude)) * smooth(-6, 0, altitude);
   const night = 1 - smooth(-9, 0, altitude);
   const phase = altitude < -6 ? 'Night' : altitude < -.833 ? (morning ? 'Dawn' : 'Twilight') : altitude < 12 ? (morning ? 'Morning' : 'Sunset') : 'Daylight';
-  return { altitude, progress, daylight, golden, night, phase, sunOpacity: smooth(-3, 1, altitude), sunX: 92 - 84 * progress, sunY: 74 - 58 * Math.sin(Math.PI * progress), sunrise: times.sunrise, sunset: times.sunset, sunriseLabel: times.sunrise ? clockFormat.format(times.sunrise) : '—', sunsetLabel: times.sunset ? clockFormat.format(times.sunset) : '—' };
+  return { altitude, progress, daylight, golden, night, phase, sunOpacity: smooth(-3, 1, altitude), sunX: 92 - 84 * progress, sunY: 74 - 66 * solarHeight, sunrise: times.sunrise, sunset: times.sunset, sunriseLabel: times.sunrise ? clockFormat.format(times.sunrise) : '—', sunsetLabel: times.sunset ? clockFormat.format(times.sunset) : '—' };
 }
 
 const blend = (a: string, b: string, amount: number) => {
@@ -41,5 +43,5 @@ const blend = (a: string, b: string, amount: number) => {
   return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * amount).toString(16).padStart(2, '0')).join('');
 };
 export function getPrishtinaSky(daylight: number, golden: number) {
-  return { top: blend(blend('#203342', '#e5eef2', daylight), '#d8bcb0', golden * .55), horizon: blend(blend('#485363', '#f2f2e5', daylight), '#efcfb4', golden * .75) };
+  return { top: blend(blend('#182e45', '#83bceb', daylight), '#d8bcb0', golden * .55), horizon: blend(blend('#3b4d68', '#dcecf7', daylight), '#efcfb4', golden * .75) };
 }

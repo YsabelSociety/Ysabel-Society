@@ -40,7 +40,7 @@ export function GoogleRating({onOpen}:{onOpen:()=>void}) {
   document.addEventListener('visibilitychange',update);
   return ()=>{controller.abort();clearInterval(timer);window.removeEventListener('ysabel:sources-updated',update);window.removeEventListener('ysabel:community-updated',update);document.removeEventListener('visibilitychange',update);};
  },[]);
- if(!feed) return <section className="google-rating-highlight" aria-label="Google review rating">
+ if(!feed) return <section className="google-rating-highlight dashboard-linked-chart" aria-label="Google review rating" onClick={event => { if (!(event.target as HTMLElement).closest('button,a')) onOpen(); }}>
   <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>— <small>/ 5</small></h2><p role="status">{loading ? 'Loading Google rating…' : 'Google rating temporarily unavailable · retrying automatically'}</p></div>
   <button className="secondary" onClick={onOpen}>Explore reviews <ArrowUpRight size={17}/></button>
  </section>;
@@ -51,7 +51,7 @@ export function GoogleRating({onOpen}:{onOpen:()=>void}) {
  const checkedDate=new Date(snapshot.date+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'});
  const reference=previous?.rating ?? googleRatingMonthlyReferences[month];
  const delta=reference!==undefined?Math.round((snapshot.rating-reference)*10)/10:null;
- return <section className="google-rating-highlight" aria-label="Google review rating">
+ return <section className="google-rating-highlight dashboard-linked-chart" aria-label="Google review rating" onClick={event => { if (!(event.target as HTMLElement).closest('button,a')) onOpen(); }}>
 
   <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>{snapshot.rating.toFixed(1)} <small>/ 5</small></h2><RatingStars rating={snapshot.rating}/><p>{snapshot.reviewCount} Google reviews</p><SourceBadge channel="Google Business" imported={!feed} /></div>
   <div className="google-rating-comparison"><span className="rating-comparison-label">PREVIOUS MONTH · GOOGLE RATING</span>

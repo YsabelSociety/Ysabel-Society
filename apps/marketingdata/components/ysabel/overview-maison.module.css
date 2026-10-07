@@ -59,7 +59,7 @@
 .change {font-size:10px;color:#607d6c;display:flex;align-items:center;gap:5px;flex-wrap:wrap;}
 .change small {font-size:8px;color:#8a958e;}
 .supporting {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #dce6df8c;margin:0 -21px;padding:15px 15px;gap:8px;}
-.supporting>div {display:flex;flex-direction:column;gap:7px;min-width:0;}
+.supporting>button {display:flex;flex-direction:column;gap:7px;min-width:0;}
 .supporting svg {color:#8da296;}
 .supporting span {display:flex;flex-direction:column;gap:5px;}
 .supporting small {font-size:8px;color:#839287;white-space:nowrap;}
@@ -148,7 +148,7 @@
  .totalNumber {font-size:53px;grid-column:1;} .totalBody p {grid-column:1;font-size:9px;margin:5px 0 0;}
  .totalTrend {grid-column:2;grid-row:1/3;align-self:center;} .totalTrend :global(.platform-card-chart) {height:47px!important;}
  .change {font-size:9px;gap:3px;} .change small {font-size:7px;}
- .supporting {margin:0 -19px;padding:13px 16px;gap:7px;} .supporting>div {flex-direction:row;align-items:center;gap:6px;}
+ .supporting {margin:0 -19px;padding:13px 16px;gap:7px;} .supporting>button {flex-direction:row;align-items:center;gap:6px;}
  .supporting small {font-size:8px;} .supporting strong {font-size:18px;} .supporting svg {width:12px!important;height:12px!important;}
  .scene {order:1;width:100%;max-height:none;min-width:0;} .scene::before {inset:10% 0 14%;} .building {width:100%;}
  .buildingHeading {padding:14px 8px 0;} .buildingHeading span {font-size:8px;} .viewport {height:350px;min-height:350px;}
@@ -208,3 +208,8 @@
 .viewport[data-garden=true] .buildingCaption {background:#fffffff2;border:1px solid #e3e8df;padding:8px 10px;border-radius:8px;}
 .viewport[data-garden=true] .buildingCaption>span {color:#456155;}.viewport[data-garden=true] .buildingCaption small {color:#7b8c7e;}
 @media(max-width:600px) {.gardenLegend {font-size:8px;gap:10px;padding-bottom:10px;}.viewport[data-garden=true] .buildingCaption {left:8px;bottom:10px;padding:6px 8px;}.viewport[data-garden=true] .buildingCaption small {font-size:7px;}}
+
+.hero .supporting>button {border:0;background:transparent;padding:0;text-align:left;color:inherit;cursor:pointer;border-radius:6px;}
+.hero .supporting>button:hover {background:#ffffff65;}
+
+.totalCard {cursor:pointer;}

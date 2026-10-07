@@ -4,6 +4,8 @@ import { useSessionRetention } from './use-session-retention';
 import { ChartBoundary } from './social-performance';
 import { lazy, Suspense, memo, useState, useEffect, useLayoutEffect, useMemo, useCallback, useRef } from 'react';
 import { VisitedPanel } from './visited-panel';
+import { dashboardDestination, type DashboardJump } from '@/lib/dashboard-navigation';
+import { useDashboardNavigation } from './use-dashboard-navigation';
 import {
   LayoutDashboard,
   ChartNoAxesCombined,
@@ -170,8 +172,8 @@ const headings: Record<string, [string, string]> = {
     'Manage conversations, connections and preferences for Ysabel Society.',
   ],
   Overview: [
-    'A clearer view of Ysabel Society.',
-    'Here’s how Ysabel Society is performing.',
+    'Ysabel Society · Digital Overview',
+    'All your digital activity, in one connected view.',
   ],
   Performance: [
     'Every channel. One perspective.',
@@ -255,6 +257,8 @@ export default function Workspace({
   const data = useWorkspace();
   const unit = 'Ysabel Society';
   const [liveClock, setLiveClock] = useState(false);
+  const [dashboardJump, setDashboardJump] = useState<DashboardJump | null>(null);
+  const dashboardJumpId = useRef(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [dataCenterSection, setDataCenterSection] = useState<DataCenterSection>('refresh');
   const [today, setToday] = useState(() => calendarDate('Europe/Tirane'));
@@ -330,12 +334,19 @@ export default function Workspace({
   ), [analyticsData.posts, range]);
   const navigate = useCallback((name: string) => {
     if (!names.includes(name)) return;
+    setDashboardJump(null);
     if (name === 'Overview') setDate('This Month');
     setMobileMenuOpen(false);
     if (name === 'Connections' || name === 'Data Sources') { setDataCenterSection('access'); setPage('Data Center'); }
     else setPage(name);
     setCommand(false);
   }, []);
+  const openDashboardData = useCallback((channel: string, metric: string) => {
+    const target = dashboardDestination(channel, metric);
+    navigate(target.page);
+    setDashboardJump({ ...target, id: ++dashboardJumpId.current });
+  }, [navigate]);
+  useDashboardNavigation(dashboardJump, page);
   useEffect(() => {
     const open = (event: Event) => {
       const section = (event as CustomEvent).detail;
@@ -739,7 +750,7 @@ export default function Workspace({
                   </button>
                 </div>
               </header>
-              <div className="page-body">
+              <div className="page-body" data-dashboard-page={page}>
                 <div className="breadcrumb">
                   Workspace <ChevronRight size={12} />
                   <span>{page}</span>
@@ -884,6 +895,7 @@ export default function Workspace({
                       rows={rows}
                       previous={previous}
                       setPage={navigate}
+                      onOpenData={openDashboardData}
                       posts={visiblePosts}
                       websiteRealtime={source.websiteRealtime}
                       monthlyPosts={source.mode === 'live' ? source.monthlyPosts : data.posts}
@@ -891,6 +903,7 @@ export default function Workspace({
                       onMetric={setMetric}
                     /></VisitedPanel>
                   <VisitedPanel active={page === 'Performance'} retainCharts><AnalyticsReady ready={source.ready} error={source.error}><ChartBoundary><StablePerformance
+                      navigation={dashboardJump?.page === 'Performance' ? dashboardJump : null}
                       rows={rows}
                       previous={previous}
                       data={analyticsData}

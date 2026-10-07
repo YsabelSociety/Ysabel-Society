@@ -34,11 +34,13 @@ import { SourceBadge } from './source-badge';
 import type { WebsiteRealtime } from '@/lib/source-status';
 import { newestPublishedFirst } from '@/lib/content-order';
 import { AllPlatformViews } from './all-platform-views';
+import type { OpenDashboardData } from '@/lib/dashboard-navigation';
 export default function Overview({
   rows,
   range,
   previous,
   setPage,
+  onOpenData,
   posts,
   monthlyPosts = [],
   onSelect,
@@ -53,6 +55,7 @@ export default function Overview({
   range: Range;
   previous: Daily[];
   setPage: (p: string) => void;
+  onOpenData: OpenDashboardData;
   posts: Post[];
   monthlyPosts?: Post[];
   onSelect: (p: Post) => void;
@@ -85,11 +88,12 @@ export default function Overview({
         previous={previous}
         tiktokPosts={tiktokPosts}
         range={range}
-        onOpen={() => setPage('Performance')}
-        onReviews={() => setPage('Google Business')}
+        onOpen={() => onOpenData('All', 'views')}
+        onPlatformOpen={onOpenData}
+        onReviews={() => onOpenData('Google Business', 'reviews')}
       />
       {dailyPending ? <p role="status" className="muted">Loading current-period totals…</p> : <>
-      <ProfileViews rows={rows} previous={previous} />
+      <ProfileViews rows={rows} previous={previous} onOpen={onOpenData} />
       <div className="metrics-strip">
         {METRICS.filter((m) => m.key !== 'profileViews').map((m, i) => {
           const metricRows =
@@ -110,9 +114,10 @@ export default function Overview({
             available = metricAvailable(metricRows, m.key);
           return (
             <div
-              className={'metric-card metric-' + i}
+              className={'metric-card metric-' + i + ' dashboard-linked-chart'}
               data-metric={m.key}
               key={m.key}
+              onClick={event => { if (!(event.target as HTMLElement).closest('button,a,input,[role="combobox"]')) onOpenData(m.key === 'search' ? 'Google Business' : m.key === 'sessions' ? 'Website' : 'All', m.key); }}
             >
               <div className="metric-label">
                 <DataIcon name={m.key} badge />
@@ -121,12 +126,12 @@ export default function Overview({
               </div>
               <button
                 className="metric-value"
-                onClick={() => onMetric(m.key)}
+                onClick={() => onOpenData(m.key === 'search' ? 'Google Business' : m.key === 'sessions' ? 'Website' : 'All', m.key)}
                 aria-label={
                   m.label +
                   ': ' +
                   (available ? compact(value) : 'Unavailable') +
-                  '. Open metric details.'
+                  '. Open this data.'
                 }
               >
                 {available ? compact(value) : '—'}
@@ -153,7 +158,7 @@ export default function Overview({
           );
         })}
       </div>
-      <ChannelTimeline rows={rows} posts={posts} range={range} websiteRealtime={websiteRealtime} />
+      <ChannelTimeline rows={rows} posts={posts} range={range} websiteRealtime={websiteRealtime} onOpen={onOpenData} />
       <section className="content-highlights" aria-label="Content Intelligence highlights">
         <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together · newest published first · this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
         <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
@@ -165,7 +170,7 @@ export default function Overview({
         {contentLoading ? <p className="muted" role="status">Loading latest published posts…</p> : !highlights.length && <p className="muted">No social posts have been captured for the current month yet.</p>}
       </section>
 
-      <OverviewIntelligence rows={rows} tiktokContent={tiktokContent} tiktokViews={tiktokViews} live={live} sceneEnabled={sceneEnabled} setPage={setPage} />
+      <OverviewIntelligence rows={rows} tiktokContent={tiktokContent} tiktokViews={tiktokViews} live={live} sceneEnabled={sceneEnabled} setPage={setPage} onOpenData={onOpenData} />
       <div className="section-head standalone">
         <div>
           <h2>Channel performance</h2>
@@ -197,15 +202,7 @@ export default function Overview({
               className="channel-card surface"
               data-platform={c}
               key={c}
-              onClick={() =>
-                setPage(
-                  c === 'Website'
-                    ? 'Website'
-                    : c === 'Google Business'
-                      ? 'Google Business'
-                      : 'Performance',
-                )
-              }
+              onClick={() => onOpenData(c, i < 3 ? 'views' : i === 3 ? 'search' : 'sessions')}
             >
               <div className="channel-name">
                 <span className="channel-icon" style={{ color: COLORS[i] }}>
@@ -310,7 +307,7 @@ export default function Overview({
 }
 
 // Keep the five-second editorial cycle independent of the report/chart tree.
-function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEnabled, setPage }: { rows: Daily[]; tiktokContent: boolean; tiktokViews: number; live: boolean; sceneEnabled: boolean; setPage: (page: string) => void }) {
+function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEnabled, setPage, onOpenData }: { rows: Daily[]; tiktokContent: boolean; tiktokViews: number; live: boolean; sceneEnabled: boolean; setPage: (page: string) => void; onOpenData: OpenDashboardData }) {
   const [activeSignal, setActiveSignal] = useState(0);
   useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
   const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'—',detail:CHANNELS[idx]+' · '+(idx===4?'website visits':'content views')};});
@@ -338,7 +335,7 @@ function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEna
                 data-active={activeSignal === i}
                 onMouseEnter={() => setActiveSignal(i)}
                 onFocus={() => setActiveSignal(i)}
-                onClick={() => setPage('Insights')}
+                onClick={() => onOpenData(c, idx === 4 ? 'sessions' : 'views')}
               >
                 <span className="insight-kicker">
                   {['MOMENTUM', 'CHANNEL SPOTLIGHT', 'BEYOND SOCIAL'][i]}

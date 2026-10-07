@@ -22,7 +22,7 @@ import {
   Tooltip,
   Brush,
 } from 'recharts';
-import { RotateCcw, Maximize2 } from 'lucide-react';
+import { RotateCcw, Maximize2, ArrowUpRight } from 'lucide-react';
 import {
   CHANNELS,
   COLORS,
@@ -82,7 +82,7 @@ export class ChartBoundary extends Component<
     );
   }
 }
-export function DeferredChart({children, loading, title, tall = false}: {children: ReactNode; loading: boolean; title: string; tall?: boolean}) {
+export function DeferredChart({children, loading, title, tall = false, metric, channel}: {children: ReactNode; loading: boolean; title: string; tall?: boolean; metric?: string; channel?: string}) {
   const slot = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   useEffect(() => {
@@ -93,7 +93,7 @@ export function DeferredChart({children, loading, title, tall = false}: {childre
         })
       : undefined;
   }, []);
-  return <div ref={slot} className={'metric-slot' + (tall ? ' metric-slot-tall' : '')} aria-busy={loading}>
+  return <div ref={slot} className={'metric-slot' + (tall ? ' metric-slot-tall' : '')} aria-busy={loading} data-dashboard-metric={metric} data-dashboard-channel={channel} tabIndex={metric ? -1 : undefined}>
     {visible && !loading ? <ChartBoundary>{children}</ChartBoundary> :
       <section className="surface metric-placeholder"><h3>{title}</h3>
         {loading && <p role="status">Loading source data…</p>}<div />
@@ -108,6 +108,7 @@ export function MetricCard({
   channels,
   range,
   basis,
+  onOpen,
 }: {
   metric: SocialMetric;
   label: string;
@@ -116,6 +117,7 @@ export function MetricCard({
   channels: readonly string[];
   range: Range;
   basis: PerformanceBasis;
+  onOpen?: () => void;
 }) {
   const gradientId = useId().replace(/:/g, "");
   const animate = useMinimalMotion(),
@@ -160,7 +162,8 @@ export function MetricCard({
     sum = known.reduce((n, s) => n + s.value!, 0);
   return (
     <section
-      className={'surface social-metric-card ' + (full ? 'chart-full' : '')}
+      className={'surface social-metric-card ' + (full ? 'chart-full' : '') + (onOpen ? ' dashboard-linked-chart' : '')}
+      onClick={onOpen ? event => { if (!(event.target as HTMLElement).closest('button,a,input,select,[role="combobox"],.social-chart-plot')) onOpen(); } : undefined}
       data-metric={metric}
       data-platform={channels.length === 1 ? channels[0] : 'All'}
     >
@@ -170,7 +173,7 @@ export function MetricCard({
           {channels.length === 1 && <SourceBadge channel={channels[0]} metric={content ? undefined : metric} unavailable={summaries[0].value === null} rows={content ? undefined : rows.filter(r => r.channel === channels[0] && r.date >= range.start && r.date <= range.end && dailyValue(r, metric) !== null)} />}
           <h2>
             <DataIcon name={metric} />
-            {label}
+            {onOpen ? <button type="button" className="dashboard-chart-link" onClick={onOpen} aria-label={'Open ' + label + ' in Performance'}>{label}<ArrowUpRight size={16}/></button> : label}
           </h2>
           <strong className="metric-total">
             {known.length ? number(sum) : 'Unavailable'}
@@ -723,6 +726,8 @@ export const SocialPerformance = memo(function SocialPerformance({
             <DeferredChart
               key={metric.key + group.join(',') + basis + format}
               title={metric.label}
+              metric={metric.key}
+              channel={group.length === 1 ? group[0] : 'All'}
               loading={loading}
               tall
             >

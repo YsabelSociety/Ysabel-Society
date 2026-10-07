@@ -1,5 +1,7 @@
 'use client';
 import { useState, useId } from 'react';
+import { ArrowUpRight } from 'lucide-react';
+import type { OpenDashboardData } from '@/lib/dashboard-navigation';
 import {
   AreaChart,
   Area,
@@ -40,15 +42,21 @@ export function ProfileViews({
   rows,
   previous = [],
   channels = SOCIAL_PLATFORMS,
+  onOpen,
 }: {
   rows: Daily[];
   previous?: Daily[];
   channels?: readonly string[];
+  onOpen?: OpenDashboardData;
 }) {
+  const Card = onOpen ? 'button' : 'article';
   return (
     <section
       className="profile-views-first"
       aria-label="Profile views by platform"
+      data-dashboard-metric="profileViews"
+      data-dashboard-channel="All"
+      tabIndex={-1}
     >
       <div className="section-head">
         <div>
@@ -66,8 +74,14 @@ export function ProfileViews({
             ? total(prior, 'profileViews')
             : null;
           return (
-            <article
+            <Card
               key={channel}
+              type={onOpen ? 'button' : undefined}
+              onClick={onOpen ? () => onOpen(channel, 'profileViews') : undefined}
+              aria-label={onOpen ? 'Open ' + channel + ' profile views' : undefined}
+              data-dashboard-metric="profileViews"
+              data-dashboard-channel={channel}
+              tabIndex={onOpen ? undefined : -1}
               className="surface profile-views-card"
               data-platform={channel}
             >
@@ -99,7 +113,7 @@ export function ProfileViews({
                     .map((r) => r.profileViews!)}
                 />
               )}
-            </article>
+            </Card>
           );
         })}
       </div>
@@ -112,7 +126,9 @@ function PlatformTimeline({
   rows,
   posts,
   range,
+  onOpen,
 }: {
+  onOpen?: () => void;
   channel: string;
   rows: Daily[];
   posts: Post[];
@@ -145,6 +161,7 @@ function PlatformTimeline({
         channels={[channel]}
         range={range}
         basis={basis}
+        onOpen={onOpen}
       />
     </div>
   );
@@ -155,11 +172,13 @@ export function ChannelTimeline({
   posts,
   range,
   websiteRealtime,
+  onOpen,
 }: {
   rows: Daily[];
   posts: Post[];
   range: Range;
   websiteRealtime?: WebsiteRealtime;
+  onOpen?: OpenDashboardData;
 }) {
   return (
     <section className="channel-timeline-section">
@@ -182,6 +201,7 @@ export function ChannelTimeline({
               rows={rows}
               posts={posts}
               range={range}
+              onOpen={onOpen ? () => onOpen(channel, 'views') : undefined}
             />
           </DeferredChart>
         ))}
@@ -195,8 +215,9 @@ export function ChannelTimeline({
           range={range}
           realtime={websiteRealtime}
           color="#bc773c"
+          onOpen={onOpen ? () => onOpen('Website', 'pageViews') : undefined}
         />
-        <GoogleDiscoveryCards rows={rows} range={range} />
+        <GoogleDiscoveryCards rows={rows} range={range} onOpen={onOpen} />
       </div>
     </section>
   );
@@ -212,7 +233,7 @@ type DailyKey =
   | 'follows'
   | 'unfollows';
 export function DailyMetricGraph(props: Parameters<typeof DailyMetricGraphContent>[0]) {
-  return <DeferredChart title={props.label} loading={false}>
+  return <DeferredChart title={props.label} loading={false} metric={props.metric} channel={props.channel}>
     <DailyMetricGraphContent {...props} />
   </DeferredChart>;
 }
@@ -225,6 +246,7 @@ function DailyMetricGraphContent({
   color,
   range,
   realtime,
+  onOpen,
 }: {
   rows: Daily[];
   channel: string;
@@ -233,6 +255,7 @@ function DailyMetricGraphContent({
   color: string;
   range?: Range;
   realtime?: WebsiteRealtime;
+  onOpen?: () => void;
 }) {
   const animate = useMinimalMotion(),
     id = useId().replace(/:/g, '');
@@ -245,13 +268,14 @@ function DailyMetricGraphContent({
   const recent = observed && Number.isFinite(+observed) && calendarDate('Europe/Tirane', observed) === today;
   return (
     <section
-      className="surface padded daily-metric-graph"
+      className={"surface padded daily-metric-graph" + (onOpen ? " dashboard-linked-chart" : "")}
+      onClick={onOpen ? event => { if (!(event.target as HTMLElement).closest('button,a,input,select,[role="combobox"]')) onOpen(); } : undefined}
       style={{ '--report-color': color } as React.CSSProperties}
     >
       <span className="metric-eyebrow">{channel} · Daily activity</span>
       <h3>
         <DataIcon name={metric} />
-        {label}
+        {onOpen ? <button type="button" className="dashboard-chart-link" onClick={onOpen} aria-label={'Open ' + label + ' in Website'}>{label}<ArrowUpRight size={16}/></button> : label}
       </h3>
       <strong className="metric-total">
         {supplied.length

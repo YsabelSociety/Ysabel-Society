@@ -181,6 +181,9 @@ export function ReviewReports({
     <section
       className={`surface review-report-builder ${styles.builder}`}
       aria-label="Google guest reviews"
+      data-dashboard-metric="reviews"
+      data-dashboard-channel="Google Business"
+      tabIndex={-1}
     >
       <div className={`section-head ${styles.reportHeader}`}>
         <div>

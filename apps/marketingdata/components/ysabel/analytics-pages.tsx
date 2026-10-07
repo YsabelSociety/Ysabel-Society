@@ -2,7 +2,8 @@
 import { openDataCenter } from './data-center-navigation';
 import { useMinimalMotion } from './use-motion';
 import { StoryPerformance } from './story-performance';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import type { DashboardJump } from '@/lib/dashboard-navigation';
 import {
   websiteStatus,
   type SourceStatus,
@@ -395,6 +396,7 @@ export function PerformancePage({
   rows,
   previous,
   initialChannel = 'All',
+  navigation,
   data,
   unit,
   range,
@@ -407,6 +409,7 @@ export function PerformancePage({
   rows: Daily[];
   previous: Daily[];
   initialChannel?: string;
+  navigation?: DashboardJump | null;
   data: WorkspaceData;
   unit: string;
   range: Range;
@@ -420,6 +423,11 @@ export function PerformancePage({
     [section, setSection] = useState('Overview'),
     [note, setNote] = useState(''),
     [noteDate, setNoteDate] = useState(range.end);
+  useEffect(() => {
+    if (!navigation) return;
+    setChannel(navigation.channel);
+    setSection('Overview');
+  }, [navigation]);
   const r = useMemo(
       () => rows.filter((row) => channel === 'All' || row.channel === channel),
       [rows, channel],

@@ -8903,3 +8903,28 @@ h1 {
 .daily-report-current>div { display:grid; gap:3px; }
 .daily-report-current span,.daily-report-current small { font-size:10px; color:#697b75; }
 .daily-report-current strong { font-size:22px; font-weight:550; letter-spacing:-.03em; color:#263e32; }
+
+/* Homepage discovery cards share the same outer edges and equal Google rows. */
+.overview-discovery-grid {align-items:stretch;}
+.overview-google-discovery {grid-template-rows:repeat(2,minmax(0,1fr));}
+.overview-google-discovery>button {width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:border-color .2s,box-shadow .2s;}
+.overview-google-discovery>button:hover {border-color:#b5c8c3;box-shadow:0 8px 24px #334b4010;}
+.dashboard-card-arrow {margin-left:auto;opacity:.6;flex:none;}
+.dashboard-chart-link {display:inline-flex;align-items:center;gap:9px;background:transparent;border:0;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+.dashboard-chart-link svg {opacity:.55;flex:none;}
+.dashboard-chart-link:hover {color:#426e59;}
+.dashboard-chart-link:focus-visible,.overview-google-discovery>button:focus-visible,.profile-views-card:focus-visible {outline:2px solid #557e6a;outline-offset:3px;}
+button.profile-views-card {width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;}
+.dashboard-linked-chart {cursor:pointer;}
+[data-dashboard-metric] {scroll-margin-top:94px;}
+[data-dashboard-metric][tabindex="-1"]:focus {outline:none;}
+.overview-discovery-grid>.metric-slot>.daily-metric-graph {box-sizing:border-box;height:100%;display:flex;flex-direction:column;border-radius:24px;}
+.overview-discovery-grid .daily-metric-graph .website-report-chart {flex:none;height:280px;margin-top:auto;}
+.overview-discovery-grid .daily-metric-graph .metric-definition {margin-top:16px;margin-bottom:0;}
+@media(max-width:750px) {
+ .overview-google-discovery {grid-template-rows:none;}
+ .overview-discovery-grid>.metric-slot>.daily-metric-graph {height:auto;}
+ .overview-discovery-grid .daily-metric-graph .website-report-chart {height:280px;margin-top:12px;}
+}
+
+.overview-discovery-history {margin-top:auto;margin-bottom:10px;}

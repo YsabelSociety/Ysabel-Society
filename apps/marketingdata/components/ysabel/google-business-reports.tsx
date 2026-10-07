@@ -140,6 +140,9 @@ function MetricCard({
   return (
     <article
       className={styles.metric}
+      data-dashboard-metric={metric.key}
+      data-dashboard-channel="Google Business"
+      tabIndex={-1}
       style={{ '--gbp-color': metric.color } as React.CSSProperties}
     >
       <div className={styles.metricHeading}>

@@ -30,10 +30,9 @@ import { calendarDate } from '@/lib/sync-window';
 import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
-import { GoogleRating } from './google-rating';
-import { PlatformCardChart } from './platform-card-chart';
-import { SourceBadge } from './source-badge';
 import { newestPublishedFirst } from '@/lib/content-order';
+import { SourceBadge } from './source-badge';
+import { AllPlatformViews } from './all-platform-views';
 export default function Overview({
   rows,
   range,
@@ -121,12 +120,12 @@ export default function Overview({
                   '. Open metric details.'
                 }
               >
-                {available ? compact(value) : '—'}
+                {available ? compact(value) : 'â€”'}
               </button>
               <div className="metric-bottom">
                 <span className={delta >= 0 ? 'positive' : 'negative'}>
-                  {available && prior ? (delta >= 0 ? '↗' : '↘') : ''}{' '}
-                  {prior ? Math.abs(delta).toFixed(1) + '%' : '—'}
+                  {available && prior ? (delta >= 0 ? 'â†—' : 'â†˜') : ''}{' '}
+                  {prior ? Math.abs(delta).toFixed(1) + '%' : 'â€”'}
                 </span>
                 <span>
                   {!available
@@ -147,12 +146,12 @@ export default function Overview({
       </div>
       <ChannelTimeline rows={rows} posts={posts} range={range} />
       <section className="content-highlights" aria-label="Content Intelligence highlights">
-        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together · newest published first · this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
+        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together Â· newest published first Â· this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
         <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
           <div className="highlight-media"><Media post={post}/><span className="highlight-format">{post.format}</span></div><div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
-          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>
-          <div className="highlight-result"><strong>{postAvailable(post,'views') ? compact(post.views) : '—'}</strong><span>views</span><ArrowUpRight size={18}/></div>
-          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
+          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} Â· {post.date.slice(0,10)}</span>
+          <div className="highlight-result"><strong>{postAvailable(post,'views') ? compact(post.views) : 'â€”'}</strong><span>views</span><ArrowUpRight size={18}/></div>
+          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' Â· '+compact(post.saves)+' saves' : ''}</span>
         </button>)}</div>
         {!highlights.length && <p className="muted">No social posts have been imported for the current month yet.</p>}
       </section>
@@ -217,12 +216,12 @@ export default function Overview({
                           i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                         ),
                       )
-                  : '—'}
+                  : 'â€”'}
               </strong>
               <span>
                 {i < 3
                   ? c === 'TikTok' && tiktokContent
-                    ? 'Video views · lifetime'
+                    ? 'Video views Â· lifetime'
                     : 'Daily content views'
                   : i === 3
                     ? 'Google Search views'
@@ -237,8 +236,8 @@ export default function Overview({
                           cr,
                           i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                         ) >= prior
-                          ? '↗'
-                          : '↘'}{' '}
+                          ? 'â†—'
+                          : 'â†˜'}{' '}
                         {change(
                           total(
                             cr,
@@ -291,7 +290,7 @@ export default function Overview({
             onSelect={onSelect}
           />
           <p className="footnote">
-            Demo media · licensed hospitality photographs. These images do not
+            Demo media Â· licensed hospitality photographs. These images do not
             depict Ysabel Society or its team.
           </p>
         </>
@@ -304,7 +303,7 @@ export default function Overview({
 function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEnabled, setPage }: { rows: Daily[]; tiktokContent: boolean; tiktokViews: number; live: boolean; sceneEnabled: boolean; setPage: (page: string) => void }) {
   const [activeSignal, setActiveSignal] = useState(0);
   useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
-  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'—',detail:CHANNELS[idx]+' · '+(idx===4?'website visits':'content views')};});
+  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'â€”',detail:CHANNELS[idx]+' Â· '+(idx===4?'website visits':'content views')};});
   return (
       <div className="overview-intelligence">
         <section className="intelligence surface">
@@ -344,7 +343,7 @@ function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEna
                       ? compact(v)
                       : idx === 2 && tiktokContent
                         ? compact(tiktokViews)
-                        : '—'}
+                        : 'â€”'}
                   </strong>{' '}
                   {idx === 2 && tiktokContent
                     ? 'lifetime views on videos published in this period.'
@@ -363,116 +362,5 @@ function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEna
           </button>
         </section>
       </div>
-  );
-}
-
-type ViewSource = {
-  channel: (typeof CHANNELS)[number];
-  metric: 'views' | 'search' | 'pageViews';
-  label: string;
-};
-
-const VIEW_SOURCES: ViewSource[] = [
-  { channel: 'Instagram', metric: 'views', label: 'Content views' },
-  { channel: 'Facebook', metric: 'views', label: 'Content views' },
-  { channel: 'TikTok', metric: 'views', label: 'Video views' },
-  { channel: 'Google Business', metric: 'search', label: 'Search views' },
-  { channel: 'Website', metric: 'pageViews', label: 'Page views' },
-];
-
-function reported(rows: Daily[], metric: ViewSource['metric']) {
-  return rows.some(row =>
-    row.available
-      ? row.available.includes(metric)
-      : Number.isFinite(row[metric]) && Number(row[metric]) > 0,
-  );
-}
-
-function AllPlatformViews({
-  rows,
-  previous,
-  tiktokPosts,
-  range,
-  onOpen,
-  onReviews,
-}: {
-  rows: Daily[];
-  previous: Daily[];
-  tiktokPosts: Post[];
-  range: Range;
-  onOpen: () => void;
-  onReviews: () => void;
-}) {
-  const sources = VIEW_SOURCES.map(source => {
-    const currentRows = rows.filter(row => row.channel === source.channel);
-    const previousRows = previous.filter(row => row.channel === source.channel);
-    const hasDaily = reported(currentRows, source.metric);
-    const fallback = source.channel === 'TikTok' && !hasDaily
-      ? tiktokPosts.reduce((sum, post) => sum + Number(post.views || 0), 0)
-      : 0;
-    return {
-      ...source,
-      hasDaily,
-      available: hasDaily || fallback > 0,
-      value: hasDaily ? total(currentRows, source.metric) : fallback,
-      previous: reported(previousRows, source.metric)
-        ? total(previousRows, source.metric)
-        : null,
-    };
-  });
-  const combined = sources.filter(source => source.available).reduce((sum, source) => sum + source.value, 0);
-  const priorValues = sources.map(source => source.previous).filter((value): value is number => value !== null);
-  const prior = priorValues.reduce((sum, value) => sum + value, 0);
-  const delta = prior > 0 ? change(combined, prior) : null;
-  const dates = [...new Set([
-    ...rows.map(row => row.date),
-    ...tiktokPosts.map(post => post.date.slice(0, 10)),
-  ])].sort();
-  const trend = dates.map(date => sources.reduce((sum, source) => {
-    const dated = rows.filter(row => row.channel === source.channel && row.date === date);
-    if (reported(dated, source.metric)) return sum + total(dated, source.metric);
-    if (source.channel === 'TikTok' && source.metric === 'views')
-      return sum + tiktokPosts.filter(post => post.date.slice(0, 10) === date).reduce((value, post) => value + Number(post.views || 0), 0);
-    return sum;
-  }, 0));
-  const supporting = [
-    { name: 'Profile views', key: 'profileViews' as const },
-    { name: 'Reach', key: 'reach' as const },
-    { name: 'Engagements', key: 'engagements' as const },
-  ].map(item => ({ ...item, value: metricAvailable(rows, item.key) ? total(rows, item.key) : null }));
-  return (
-    <section className="all-views-hero" aria-label="All connected platform views">
-      <div className="all-views-summary">
-        <span className="metric-eyebrow">ALL CONNECTED CATEGORIES · {range.start} – {range.end}</span>
-        <h1>All-platform views</h1>
-        <button type="button" className="all-views-total" onClick={onOpen}>
-          {sources.some(source => source.available) ? compact(combined) : '—'}
-          <ArrowUpRight size={22} />
-        </button>
-        <p>Social content, Google Search discovery and website page views in one current-period view.</p>
-        {trend.some(Boolean) && <Spark values={trend} />}
-        <div className="all-views-supporting">
-          {supporting.map(item => <span key={item.key}><small>{item.name}</small><strong>{item.value === null ? '—' : compact(item.value)}</strong></span>)}
-          <span><small>Change</small><strong className={delta !== null && delta < 0 ? 'negative' : 'positive'}>{delta === null ? '—' : (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%'}</strong></span>
-        </div>
-      </div>
-      <div className="all-views-platforms">
-        {sources.map((source, index) => (
-          <button type="button" key={source.channel} data-platform={source.channel} onClick={onOpen}>
-            <span className="all-views-brand"><DataIcon name={source.channel} badge /><strong>{source.channel}</strong></span>
-            <SourceBadge channel={source.channel} rows={rows.filter(r => r.channel === source.channel)} />
-            <strong>{source.available ? compact(source.value) : '—'}</strong>
-            <small>{source.available ? source.label : 'Not supplied for this period'}</small>
-            <PlatformCardChart color={COLORS[index]} bars={source.channel === 'TikTok' || source.channel === 'Google Business'} lifetime={source.channel === 'TikTok' && !source.hasDaily} points={dates.map(date => {
-              const dated = rows.filter(row => row.channel === source.channel && row.date === date);
-              const published = tiktokPosts.filter(post => post.date.slice(0,10) === date);
-              return {date,value:source.hasDaily ? (reported(dated,source.metric) ? total(dated,source.metric) : null) : source.channel === 'TikTok' && published.length ? published.reduce((n,p)=>n+p.views,0) : null};
-            })}/>
-            <i style={{ background: COLORS[index] }} />
-          </button>
-        ))}
-      </div>
-      <GoogleRating onOpen={onReviews} />
-    </section>
   );
 }

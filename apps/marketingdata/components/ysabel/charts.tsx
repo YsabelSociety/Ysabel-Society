@@ -23,6 +23,7 @@ import {
 } from '@/lib/analytics';
 import { Picker } from './controls';
 import { Maximize2, ArrowUpRight } from 'lucide-react';
+import { CHART_METRICS, availableChartMetrics, selectedChartMetric } from '@/lib/chart-availability';
 import { sparkline } from '@/lib/sparkline';
 
 // One observer controls all decorative mini charts. Off-screen SVG animations
@@ -135,17 +136,18 @@ export function AnalyticsChart({
   const [zoom, setZoom] = useState(false);
   const [full, setFull] = useState(false);
   const id = useId().replace(/:/g, '');
+  const activeMetric = selectedChartMetric(rows,metric,outerMetric);
+  const availableMetrics = availableChartMetrics(rows);
   const data = series(
     rows.filter((r) => enabled.includes(r.channel)),
-    outerMetric ?? metric,
+    activeMetric,
     granularity,
   );
   const prev = series(
     previous.filter((r) => enabled.includes(r.channel)),
-    outerMetric ?? metric,
+    activeMetric,
     granularity,
   );
-  const activeMetric = outerMetric ?? metric;
   const supplied = metricAvailable(
     rows.filter((r) => enabled.includes(r.channel)),
     activeMetric,
@@ -189,16 +191,9 @@ export function AnalyticsChart({
           {!outerMetric && (
             <Picker
               label="Chart metric"
-              value={metric}
+              value={activeMetric}
               onChange={(v) => setMetric(v as Metric)}
-              options={[
-                'views',
-                'reach',
-                'engagements',
-                'followers',
-                'users',
-                'actions',
-              ]}
+              options={availableMetrics.length ? availableMetrics : CHART_METRICS}
             />
           )}
           <Picker

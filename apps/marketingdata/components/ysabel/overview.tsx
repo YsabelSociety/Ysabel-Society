@@ -44,6 +44,7 @@ export default function Overview({
   onMetric,
   live = false,
   sceneEnabled = true,
+  contentLoading = false,
 }: {
   rows: Daily[];
   range: Range;
@@ -55,6 +56,7 @@ export default function Overview({
   onMetric: (key: string) => void;
   live?: boolean;
   sceneEnabled?: boolean;
+  contentLoading?: boolean;
 }) {
   const tiktokPosts = posts.filter(
     (p) =>
@@ -73,6 +75,7 @@ export default function Overview({
   return (
     <>
       <AllPlatformViews
+        detailsPending={contentLoading}
         rows={rows}
         previous={previous}
         tiktokPosts={tiktokPosts}
@@ -153,7 +156,7 @@ export default function Overview({
           <div className="highlight-result"><strong>{postAvailable(post,'views') ? compact(post.views) : '—'}</strong><span>views</span><ArrowUpRight size={18}/></div>
           <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
         </button>)}</div>
-        {!highlights.length && <p className="muted">No social posts have been imported for the current month yet.</p>}
+        {contentLoading ? <p className="muted" role="status">Loading latest published posts…</p> : !highlights.length && <p className="muted">No social posts have been captured for the current month yet.</p>}
       </section>
 
       <OverviewIntelligence rows={rows} tiktokContent={tiktokContent} tiktokViews={tiktokViews} live={live} sceneEnabled={sceneEnabled} setPage={setPage} />

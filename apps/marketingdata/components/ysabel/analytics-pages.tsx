@@ -1145,7 +1145,7 @@ export function ComparisonsPage({
         <h2>{mode === 'Periods' ? 'Comparison period' : right}</h2>
       </div>
       <div className="comparison-rows">
-        {METRICS.map((m) => {
+        {METRICS.filter(m => metricAvailable(a,m.key)||metricAvailable(b,m.key)).map((m) => {
           const v = total(a, m.key),
             w = total(b, m.key);
           return (

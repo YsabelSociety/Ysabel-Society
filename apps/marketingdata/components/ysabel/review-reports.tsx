@@ -207,7 +207,7 @@ export function ReviewReports({
         <div><span>WITH WRITTEN FEEDBACK</span><strong>{loading ? '—' : selection.rows.filter(reviewHasComment).length.toLocaleString()}</strong><small>The original guest experience</small></div>
         <div data-concern="true"><span>WITH POINTS TO IMPROVE</span><strong>{loading ? '—' : selection.rows.filter(review => review.criticisms.length > 0).length.toLocaleString()}</strong><small>Identified across all star ratings</small></div>
       </div>
-      <ReviewRatingComparison comparison={ratingComparison} />
+      {ratingLoading ? <p className="footnote" role="status">Loading verified Google rating history…</p> : <ReviewRatingComparison comparison={ratingComparison} />}
       <div className={`community-toolbar ${styles.downloadGroups}`} role="group" aria-label="Review download groups">
         {[
           { label: 'All reviews · 1–5 stars', stars: [1, 2, 3, 4, 5] },

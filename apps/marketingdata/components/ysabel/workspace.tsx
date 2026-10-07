@@ -813,7 +813,7 @@ export default function Workspace({
                         </button>
                       )}
                     </div>
-                    <span className="freshness"><span className="small-dot" />{!source.ready ? (source.error ? 'Data unavailable · reconnecting' : 'Loading data…') : source.mode === 'live' ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined) : 'Preview data'}</span>
+                    <span className="freshness"><span className="small-dot" />{!source.ready ? (source.error ? 'Data unavailable · reconnecting' : 'Loading data…') : source.detailsPending ? 'Loading source details…' : source.mode === 'live' ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined) : 'Preview data'}</span>
                   </div>
                 )}
                 {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && date === 'Custom Range' && (
@@ -871,6 +871,7 @@ export default function Workspace({
                   )}
                   <VisitedPanel active={page === 'Overview'}><StableOverview
                       sceneEnabled={!intro.visible}
+                      contentLoading={source.detailsPending}
                       live={source.mode === 'live'}
                       range={range}
                       rows={rows}
@@ -885,7 +886,7 @@ export default function Workspace({
                       rows={rows}
                       previous={previous}
                       data={analyticsData}
-                      loading={source.loading}
+                      loading={source.detailsPending}
                       range={range}
                       unit={unit}
                       live={source.mode === 'live'}
@@ -901,6 +902,8 @@ export default function Workspace({
                       unit={unit}
                       range={range}
                       onSelect={setPost}
+                      loading={source.detailsPending}
+                      error={source.error}
                     />
                   )}
                   {page === 'Audience' && (
@@ -910,7 +913,7 @@ export default function Workspace({
                       previous={previous}
                       live={source.mode === 'live'}
                       tables={source.tables}
-                      loading={source.loading}
+                      loading={source.detailsPending}
                     />
                   )}
                   {page === 'Website' && (

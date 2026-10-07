@@ -241,11 +241,15 @@ export function ContentIntelligence({
   unit,
   range,
   onSelect,
+  loading = false,
+  error,
 }: {
   data: WorkspaceData;
   unit: string;
   range: Range;
   onSelect: (p: Post) => void;
+  loading?: boolean;
+  error?: string;
 }) {
   const [search, setSearch] = useState(''),
     [platform, setPlatform] = useState('All platforms'),
@@ -307,11 +311,12 @@ export function ContentIntelligence({
     return { key, label, description, supplied: supplied.length,
       value: supplied.reduce((sum, p) => sum + Number((p as unknown as Record<string, unknown>)[key] || 0), 0) };
   });
+  if (loading) return <div className="surface padded" role={error ? 'alert' : 'status'}>{error ? 'Content details could not be loaded. Reconnecting automatically…' : 'Loading published content and its results…'}</div>;
   return (
     <div className="view-enter content-intelligence">
       {data.posts.some((p) => p.origin) && (
         <p className="source-live-note">
-          Imported content · dates filter publication dates. Post metrics are
+          Published content · dates filter publication dates. Post metrics are
           lifetime totals observed at refresh, not activity restricted to the
           selected period. Missing fields remain unavailable.
         </p>
@@ -333,7 +338,7 @@ export function ContentIntelligence({
               <h2>{tab==='Stories'?'Published stories':'All published content'}</h2>
               <p>{filtered.length} posts across {new Set(filtered.map(p => p.platform)).size} platforms · newest published first · selected publication dates</p>
             </div>
-            <span className="pill">IMPORTED CONTENT</span>
+            <span className="pill">{filtered.some(p => p.origin === 'api') ? filtered.some(p => p.origin === 'file') ? 'LIVE DATA · IMPORTED' : 'LIVE DATA' : 'IMPORTED'}</span>
           </div>
           <section className="surface content-gallery-filters" aria-label="Content filters">
             <div className="content-filters">
@@ -423,7 +428,7 @@ export function ContentIntelligence({
               onSelect={onSelect}
             />
           ) : (
-            <Empty title="No imported content in this view" text="Sync connected accounts or change the publication dates. No sample media is displayed." />
+            <Empty title="No captured content in this view" text="Sync connected accounts or change the publication dates. No sample media is displayed." />
           )}
           <details className="surface table-surface content-statistics" onToggle={event => setDetailsOpen(event.currentTarget.open)}>
             <summary className="section-head">

@@ -22,6 +22,7 @@ export function useSourceAnalytics(
   const [result, setResult] = useState<{
     key: string;
     mode: 'demo' | 'live';
+    detailsReady: boolean;
     rows: Daily[];
     previous: Daily[];
     coverage: string[];
@@ -77,7 +78,7 @@ export function useSourceAnalytics(
         const summaryRequest = read(range, true).then(summary => {
           if (abort.signal.aborted) return;
           setResult(saved => saved?.key === key ? saved : {
-            key, mode: summary.mode, rows: summary.rows || [], previous: [],
+            key, mode: summary.mode, detailsReady: false, rows: summary.rows || [], previous: [],
             coverage: [], sourceStatus: [], posts: [], monthlyPosts: [], tables: [],
             comparisonLimited: comparison !== 'No Comparison',
           });
@@ -98,6 +99,7 @@ export function useSourceAnalytics(
           setResult(saved => ({
             key,
             mode: current.mode,
+            detailsReady: true,
             rows: current.rows,
             previous: saved?.key === key ? saved.previous : safePrevious,
             comparisonLimited: saved?.key === key ? saved.comparisonLimited :
@@ -168,6 +170,9 @@ export function useSourceAnalytics(
     tables: current?.tables ?? [],
     comparisonLimited: current?.comparisonLimited ?? false,
     ready: !!current,
+    detailsReady: !!current?.detailsReady,
+    // Fast totals are usable before content, demographics and source metadata arrive.
+    detailsPending: !current?.detailsReady,
     // A background import must not replace already-loaded charts with skeletons.
     // A new date/filter key still waits for its own correctly scoped result.
     loading: !current && loading,

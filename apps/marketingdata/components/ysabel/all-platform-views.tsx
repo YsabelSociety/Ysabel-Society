@@ -1,7 +1,7 @@
 "use client";
 import { ArrowUpRight, CalendarDays, TrendingUp, TrendingDown, UserRound, ScanEye, Heart } from 'lucide-react';
 import type { CSSProperties } from 'react';
-import { CHANNELS, compact, total, change, metricAvailable, type Daily, type Post, type Range } from '@/lib/analytics';
+import { CHANNELS, compact, total, change, metricAvailable, postAvailable, type Daily, type Post, type Range } from '@/lib/analytics';
 import { DataIcon } from './data-icons';
 import { GoogleRating } from './google-rating';
 import { PlatformCardChart } from './platform-card-chart';
@@ -38,6 +38,7 @@ export function AllPlatformViews({
   range,
   onOpen,
   onReviews,
+  detailsPending = false,
 }: {
   rows: Daily[];
   previous: Daily[];
@@ -45,6 +46,7 @@ export function AllPlatformViews({
   range: Range;
   onOpen: () => void;
   onReviews: () => void;
+  detailsPending?: boolean;
 }) {
   const sources = VIEW_SOURCES.map(source => {
     const currentRows = rows.filter(row => row.channel === source.channel);
@@ -56,7 +58,7 @@ export function AllPlatformViews({
     return {
       ...source,
       hasDaily,
-      available: hasDaily || fallback > 0,
+      available: hasDaily || (source.channel === 'TikTok' && tiktokPosts.some(post=>postAvailable(post,'views'))),
       value: hasDaily ? total(currentRows, source.metric) : fallback,
       previous: reported(previousRows, source.metric)
         ? total(previousRows, source.metric)
@@ -88,14 +90,14 @@ export function AllPlatformViews({
     <button type="button" className={styles.platform} key={source.channel} data-platform={source.channel} onClick={onOpen} style={{ '--platform': palette[index] } as CSSProperties}>
       <span className={styles.brand}><DataIcon name={source.channel} badge/><strong>{source.channel}</strong><ArrowUpRight size={14}/></span>
       <div className={styles.platformData}>
-        <span><strong title={source.available ? source.value.toLocaleString() : undefined}>{source.available ? compact(source.value) : '—'}</strong><small>{source.available ? source.channel === 'TikTok' && !source.hasDaily ? 'Lifetime video views' : source.label : 'Not supplied for this period'}</small></span>
+        <span><strong title={source.available ? source.value.toLocaleString() : undefined}>{source.available ? compact(source.value) : '—'}</strong><small>{source.available ? source.channel === 'TikTok' && !source.hasDaily ? 'Lifetime video views' : source.label : detailsPending ? 'Loading source details…' : 'Not supplied for this period'}</small></span>
         <PlatformCardChart color={palette[index]} bars={source.channel === 'TikTok' || source.channel === 'Google Business'} lifetime={source.channel === 'TikTok' && !source.hasDaily} points={dates.map(date => {
           const dated = rows.filter(row => row.channel === source.channel && row.date === date);
           const published = tiktokPosts.filter(post => post.date.slice(0,10) === date);
           return { date, value: source.hasDaily ? (reported(dated, source.metric) ? total(dated, source.metric) : null) : source.channel === 'TikTok' && published.length ? published.reduce((n,p) => n + p.views, 0) : null };
         })}/>
       </div>
-      <span className={styles.platformFooter}><SourceBadge channel={source.channel} metric={source.metric} unavailable={!source.available} rows={rows.filter(r => r.channel === source.channel)}/><span>{source.channel === 'TikTok' && !source.hasDaily && source.available ? 'Lifetime · published in period' : source.label}</span></span>
+      <span className={styles.platformFooter}>{detailsPending ? <span role="status">Loading source details…</span> : <SourceBadge channel={source.channel} metric={source.metric} unavailable={!source.available} rows={rows.filter(r => r.channel === source.channel)}/>}<span>{source.channel === 'TikTok' && !source.hasDaily && source.available ? 'Lifetime · published in period' : source.label}</span></span>
     </button>
   );
   return (

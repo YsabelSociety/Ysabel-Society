@@ -208,3 +208,5 @@
 .viewport[data-garden=true] .buildingCaption {background:#fffffff2;border:1px solid #e3e8df;padding:8px 10px;border-radius:8px;}
 .viewport[data-garden=true] .buildingCaption>span {color:#456155;}.viewport[data-garden=true] .buildingCaption small {color:#7b8c7e;}
 @media(max-width:600px) {.gardenLegend {font-size:8px;gap:10px;padding-bottom:10px;}.viewport[data-garden=true] .buildingCaption {left:8px;bottom:10px;padding:6px 8px;}.viewport[data-garden=true] .buildingCaption small {font-size:7px;}}
+
+.viewport[data-garden=true][data-whole=true] .citySky {opacity:.35;}

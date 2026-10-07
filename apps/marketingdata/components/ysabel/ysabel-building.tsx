@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from 'react';
-import { Layers3, Pause, Play, RotateCcw, Plus, Minus, Maximize2, Camera, SunMoon, MapPin } from 'lucide-react';
+import { Layers3, Pause, Play, RotateCcw, Plus, Minus, Maximize2, Camera, SunMoon, MapPin, Armchair } from 'lucide-react';
 import { canvasPixelRatio, releaseRenderer } from '@/lib/render-budget';
 import { cityDateFormat, cityTimeFormat, cityDayBounds, getPrishtinaDaylight, getPrishtinaSky } from '@/lib/prishtina-daylight';
 import styles from './overview-maison.module.css';
@@ -10,7 +10,7 @@ const venues = [
   { id: 'asian', name: 'Ysabel Asian', y: 26.3, color: '#d89695' },
   { id: 'italian', name: 'Ysabel Italian', y: 24.1, color: '#dec586' },
 ];
-type Runtime = { update(): void; preset(roof: boolean): void; zoom(factor: number): void; snapshot(): void };
+type Runtime = { update(): void; preset(roof: boolean): void; zoom(factor: number): void; snapshot(): void; garden(enabled: boolean, plan: boolean): void };
 
 // The second-by-second clock is isolated from the model and analytics React trees.
 function PrishtinaClock() {
@@ -38,12 +38,16 @@ export function YsabelBuilding() {
   const [separated, setSeparated] = useState(false);
   const [selected, setSelected] = useState('all');
   const [roof, setRoof] = useState(false);
+  const [gardenPreview, setGardenPreview] = useState(false);
+  const [gardenPlan, setGardenPlan] = useState(false);
+  const [gardenLoading, setGardenLoading] = useState(false);
+  const [gardenUnavailable, setGardenUnavailable] = useState(false);
   const [cyclePreview, setCyclePreview] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [initialLight] = useState(() => getPrishtinaDaylight(new Date()));
   const initialSky = getPrishtinaSky(initialLight.daylight, initialLight.golden);
-  const state = useRef({ paused, separated, selected, cyclePreview });
-  state.current = { paused, separated, selected, cyclePreview };
+  const state = useRef({ paused, separated, selected, cyclePreview, gardenPreview, gardenPlan });
+  state.current = { paused, separated, selected, cyclePreview, gardenPreview, gardenPlan };
 
   useEffect(() => {
     const el = host.current;
@@ -113,6 +117,11 @@ export function YsabelBuilding() {
         const { groups, materials, textures, picks } = buildYsabelArchitecture(T);
         groups.forEach(group => scene.add(group));
         const nightWindows = materials.filter(m => m.userData.nightWindow);
+        const gardenRoof = materials.filter((m): m is InstanceType<typeof T.MeshPhysicalMaterial> => m instanceof T.MeshPhysicalMaterial && m.userData.zone === 'garden');
+        const gardenFrames = materials.filter(m => m.userData.gardenRoofFrame);
+        let gardenInterior: ReturnType<typeof import('@/lib/ysabel-garden-interior').buildGardenInterior> | null = null;
+        let gardenLoad: Promise<void> | null = null, gardenMode = 'exterior';
+        let cameraTransition: { start: number; from: InstanceType<typeof T.Vector3>; to: InstanceType<typeof T.Vector3>; fromTarget: InstanceType<typeof T.Vector3>; target: InstanceType<typeof T.Vector3>; fromZoom: number; zoom: number } | null = null;
         const terraceLight = new T.PointLight('#ffe5b7', 0, 13, 2); terraceLight.position.set(0, 22, 6); scene.add(terraceLight);
         const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = shadowCanvas.height = 128;
         const ctx = shadowCanvas.getContext('2d')!;
@@ -171,6 +180,7 @@ export function YsabelBuilding() {
           scene.environmentIntensity = .3 + light.day * .55;
           renderer.toneMappingExposure = .96 + light.day * .09;
           terraceLight.intensity = light.night * 16;
+          if (gardenInterior?.group.visible) gardenInterior.updateLighting(light.night);
           nightWindows.forEach(m => { m.emissiveIntensity = .08 + light.night * .9; });
           const angle = Math.PI * light.progress;
           lightDirection.set(Math.cos(angle) * 34, 8 + Math.max(0, Math.sin(light.altitude * Math.PI / 180)) * 48, 24);
@@ -225,6 +235,14 @@ export function YsabelBuilding() {
           const delta = last ? Math.min(.1, (now - last) / 1000) : 0;
           last = now;
           paintLighting(now, delta);
+          if (cameraTransition) {
+            const t = reduced.matches ? 1 : T.MathUtils.clamp((now - cameraTransition.start) / 650, 0, 1), ease = t * t * (3 - 2 * t);
+            camera.position.lerpVectors(cameraTransition.from, cameraTransition.to, ease);
+            controls.target.lerpVectors(cameraTransition.fromTarget, cameraTransition.target, ease);
+            camera.zoom = T.MathUtils.lerp(cameraTransition.fromZoom, cameraTransition.zoom, ease);
+            camera.updateProjectionMatrix(); controls.update();
+            if (t === 1) cameraTransition = null;
+          }
           const changing = appearanceUntil > now;
           const finish = reduced.matches || !changing;
           if (appearanceUntil) {
@@ -245,12 +263,17 @@ export function YsabelBuilding() {
           }
           if (finish) appearanceUntil = 0;
           }
-          controls.autoRotate = motion();
+          controls.autoRotateSpeed = state.current.gardenPreview ? .14 : coarse.matches ? .38 : .34;
+          controls.autoRotate = motion() && !cameraTransition && !(state.current.gardenPreview && state.current.gardenPlan);
           if (controls.autoRotate) controls.update(delta);
           render();
-          if (changing || motion() || !lightingSettled) schedule(); else last = 0;
+          if (changing || controls.autoRotate || cameraTransition || !lightingSettled || (previewWasOn && motion())) schedule(); else last = 0;
         }
         const update = () => { appearanceUntil = performance.now() + 420; schedule(); };
+        const moveCamera = (position: InstanceType<typeof T.Vector3>, target: InstanceType<typeof T.Vector3>, zoom: number) => {
+          cameraTransition = { start: performance.now(), from: camera.position.clone(), to: position, fromTarget: controls.target.clone(), target, fromZoom: camera.zoom, zoom };
+          controls.autoRotate = false; update();
+        };
         const sunlightTimer = window.setInterval(() => { if (visible && !document.hidden && !state.current.cyclePreview) schedule(); }, 1000);
         const resize = () => {
           bounds = el.getBoundingClientRect();
@@ -273,12 +296,12 @@ export function YsabelBuilding() {
         let downX = 0, downY = 0;
         const down = (event: PointerEvent) => { downX = event.clientX; downY = event.clientY; };
         const up = (event: PointerEvent) => {
-          if (Math.hypot(event.clientX - downX, event.clientY - downY) < 6) {
+          if (!state.current.gardenPreview && Math.hypot(event.clientX - downX, event.clientY - downY) < 6) {
             const id = pick(event); if (id && id !== 'base') setSelected(old => old === id ? 'all' : id);
           }
         };
-        const changed = () => { if (!controls.autoRotate) render(); };
-        const start = () => { dragging = true; stop(); };
+        const changed = () => { if (!controls.autoRotate && !cameraTransition) render(); };
+        const start = () => { dragging = true; cameraTransition = null; stop(); };
         const end = () => { dragging = false; update(); };
         const visibility = () => { if (document.hidden) stop(); else update(); };
         const scroll = () => {
@@ -301,11 +324,43 @@ export function YsabelBuilding() {
             const link = document.createElement('a');
             link.download = 'ysabel-building.png'; link.href = renderer.domElement.toDataURL('image/png'); link.click();
           },
-          zoom: factor => { camera.zoom = T.MathUtils.clamp(camera.zoom * factor, .7, 2.6); camera.updateProjectionMatrix(); render(); },
+          zoom: factor => { cameraTransition = null; camera.zoom = T.MathUtils.clamp(camera.zoom * factor, .7, state.current.gardenPreview ? 4.2 : 2.6); camera.updateProjectionMatrix(); render(); },
           preset: isRoof => {
+            cameraTransition = null;
             camera.position.set(isRoof ? -17 : -18, isRoof ? 35 : 28, isRoof ? 27 : 52);
             controls.target.set(0, isRoof ? 25 : 15, 1.7); camera.zoom = isRoof ? 1.6 : 1;
             camera.updateProjectionMatrix(); controls.update(); update();
+          },
+          garden: async (enabled, plan) => {
+            const mode = enabled ? (plan ? 'plan' : 'interior') : 'exterior';
+            if (mode === gardenMode) return;
+            gardenMode = mode;
+            if (enabled && !gardenInterior) {
+              setGardenLoading(true); setGardenUnavailable(false);
+              try {
+                gardenLoad ??= import('@/lib/ysabel-garden-interior').then(({ buildGardenInterior }) => {
+                  if (disposed) return;
+                  gardenInterior = buildGardenInterior(T); groups.get('garden')!.add(gardenInterior.group); textures.push(...gardenInterior.textures);
+                });
+                await gardenLoad;
+              } catch {
+                gardenLoad = null; gardenMode = 'exterior';
+                if (!disposed) { setGardenPreview(false); setGardenUnavailable(true); }
+                return;
+              } finally { if (!disposed) setGardenLoading(false); }
+            }
+            if (disposed || gardenMode !== mode) return;
+            if (gardenInterior) gardenInterior.group.visible = enabled;
+            for (const [id, group] of groups) group.visible = !enabled || id === 'garden';
+            for (const m of gardenRoof) {
+              m.transparent = enabled; m.opacity = enabled ? (plan ? .015 : .065) : 1; m.depthWrite = !enabled; m.forceSinglePass = enabled;
+              m.metalness = enabled ? .06 : .32; m.roughness = enabled ? .42 : .19; m.envMapIntensity = enabled ? .12 : 1.3; m.clearcoat = enabled ? .12 : .95; m.needsUpdate = true;
+            }
+            for (const m of gardenFrames) { m.transparent = enabled; m.opacity = enabled ? (plan ? .055 : .14) : 1; m.depthWrite = !enabled; m.needsUpdate = true; }
+            groups.get('garden')!.children.forEach(object => { if (object.userData.gardenAntenna) object.visible = !enabled; });
+            ground.visible = shadow.visible = terraceLight.visible = !enabled; renderer.shadowMap.needsUpdate = true;
+            if (enabled) moveCamera(new T.Vector3(plan ? 0 : -16, plan ? 65 : 49, plan ? -1.53 : 26), new T.Vector3(0, 28.05, -1.65), plan ? 3.25 : 3.1);
+            else moveCamera(new T.Vector3(-18, 28, 52), new T.Vector3(0, 15, 1.7), 1);
           },
         };
         cleanup = () => {
@@ -336,28 +391,31 @@ export function YsabelBuilding() {
     intersection.observe(el);
     return () => { disposed = true; intersection.disconnect(); cleanup(); };
   }, []);
-  useEffect(() => { runtime.current?.update(); }, [paused, separated, selected, ready, cyclePreview]);
+  useEffect(() => { runtime.current?.update(); }, [paused, separated, selected, ready, cyclePreview, gardenPreview, gardenPlan]);
+  useEffect(() => { runtime.current?.garden(gardenPreview, gardenPlan); }, [gardenPreview, gardenPlan, ready]);
 
   return <div className={styles.building}>
     <div className={styles.buildingHeading}><span>MAISON YSABEL</span><span><Maximize2 size={12}/> 360°</span></div>
     <PrishtinaClock/>
-    <div className={styles.viewport} ref={stage} data-night={initialLight.night > .5} style={{ '--sky-top': initialSky.top, '--sky-horizon': initialSky.horizon, '--sun-x': `${initialLight.sunX}%`, '--sun-y': `${initialLight.sunY}%`, '--sun-opacity': initialLight.sunOpacity, '--night': initialLight.night } as React.CSSProperties}>
+    <div className={styles.viewport} ref={stage} data-garden={gardenPreview} data-night={initialLight.night > .5} style={{ '--sky-top': initialSky.top, '--sky-horizon': initialSky.horizon, '--sun-x': `${initialLight.sunX}%`, '--sun-y': `${initialLight.sunY}%`, '--sun-opacity': initialLight.sunOpacity, '--night': initialLight.night } as React.CSSProperties}>
       <div className={styles.citySky} aria-hidden="true"><div className={styles.stars}/><div className={styles.sun}/><div className={styles.moon}/><div className={styles.horizon}/></div>
       <div className={styles.daylightStatus}><span ref={phaseLabel}>{initialLight.phase} · local light</span><span ref={sunTimes}>Sunrise {initialLight.sunriseLabel} · Sunset {initialLight.sunsetLabel}</span></div>
       <img className={styles.buildingPoster} src="/marketingdata-ui/ysabel-building.webp" alt="Ysabel’s glass-fronted tower with its curved rooftop and terrace" hidden={ready && !failure}/>
-      <div ref={host} className={styles.canvas} role="img" aria-label="Interactive original Ysabel building. Garden on the rooftop, Asian in the middle, Italian below. The sky follows Prishtina daylight with a moon at night. Drag to rotate, or use the venue buttons." style={{ visibility: failure ? 'hidden' : 'visible' }}/>
-      {ready && !failure && <div className={styles.floorLabels} aria-hidden="true">{venues.map((venue, i) => <span key={venue.id} ref={el => { labelRefs.current[i] = el; }} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name}</span>)}</div>}
-      <div className={styles.buildingCaption}><span>{failure ? 'Architecture preview' : 'The house of Ysabel'}</span><small>{failure ? 'Explore the analytics alongside' : 'Drag to explore · select a floor'}</small></div>
+      <div ref={host} className={styles.canvas} role="img" aria-label={gardenPreview ? `Photo-inspired Ysabel Garden ${gardenPlan ? 'overhead plan' : '3D cutaway'} with the bar, lounge and window tables. Illustrative placement, not a measured floor plan. Drag to explore.` : "Interactive original Ysabel building. Garden on the rooftop, Asian in the middle, Italian below. The sky follows Prishtina daylight with a moon at night. Drag to rotate, or use the venue buttons."} style={{ visibility: failure ? 'hidden' : 'visible' }}/>
+      {ready && !failure && !gardenPreview && <div className={styles.floorLabels} aria-hidden="true">{venues.map((venue, i) => <span key={venue.id} ref={el => { labelRefs.current[i] = el; }} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name}</span>)}</div>}
+      <div className={styles.buildingCaption}><span>{failure ? 'Architecture preview' : gardenPreview ? 'Ysabel Garden' : 'The house of Ysabel'}</span><small>{failure ? 'Explore the analytics alongside' : gardenPreview ? 'Photo-inspired layout · illustrative placement' : 'Drag to explore · select a floor'}</small></div>
       <div className={styles.zoom}><button type="button" aria-label="Zoom in on building" disabled={!ready || failure} onClick={() => runtime.current?.zoom(1.15)}><Plus size={15}/></button><button type="button" aria-label="Zoom out of building" disabled={!ready || failure} onClick={() => runtime.current?.zoom(1 / 1.15)}><Minus size={15}/></button></div>
     </div>
-    <div className={styles.venues} aria-label="Building venues">{venues.map(venue => <button type="button" key={venue.id} aria-pressed={selected === venue.id} onClick={() => setSelected(selected === venue.id ? 'all' : venue.id)} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name.replace('Ysabel ', '')}</button>)}</div>
+    {gardenUnavailable && <p className={styles.gardenNotice} role="status">Garden preview could not open. Please try again.</p>}
+    {gardenPreview ? <div className={styles.gardenLegend} aria-label="Garden dining areas"><span><i style={{background:"#b99960"}}/>Bar & arches</span><span><i style={{background:"#a15c50"}}/>Lounge</span><span><i style={{background:"#4b777d"}}/>Window tables</span></div> : <div className={styles.venues} aria-label="Building venues">{venues.map(venue => <button type="button" key={venue.id} aria-pressed={selected === venue.id} onClick={() => setSelected(selected === venue.id ? 'all' : venue.id)} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name.replace('Ysabel ', '')}</button>)}</div>}
     <div className={styles.buildingControls}>
-      <button type="button" disabled={!ready || failure} aria-pressed={roof} onClick={() => { setRoof(!roof); runtime.current?.preset(!roof); }}><Maximize2 size={13}/>{roof ? 'Whole building' : 'Rooftop'}</button>
-      <button type="button" disabled={!ready || failure} aria-pressed={separated} onClick={() => setSeparated(!separated)}><Layers3 size={13}/>{separated ? 'Join floors' : 'Separate floors'}</button>
+      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview ? gardenPlan : roof} onClick={() => { if (gardenPreview) setGardenPlan(!gardenPlan); else { setRoof(!roof); runtime.current?.preset(!roof); } }}><Maximize2 size={13}/>{gardenPreview ? (gardenPlan ? '3D view' : 'Plan view') : roof ? 'Whole building' : 'Rooftop'}</button>
+      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview} onClick={() => { setGardenPreview(!gardenPreview); setGardenPlan(false); setRoof(false); setSeparated(false); setSelected('all'); }}><Armchair size={13}/>{gardenLoading ? 'Opening Garden…' : gardenPreview ? 'Exterior view' : 'Garden interior'}</button>
+      <button type="button" disabled={!ready || failure || gardenPreview} aria-pressed={separated} onClick={() => setSeparated(!separated)}><Layers3 size={13}/>{separated ? 'Join floors' : 'Separate floors'}</button>
       <button type="button" disabled={!ready || failure} aria-pressed={paused} onClick={() => setPaused(!paused)}>{paused ? <Play size={13}/> : <Pause size={13}/>}<span>{paused ? 'Play' : 'Pause'}</span></button>
       <button type="button" disabled={!ready || failure || reducedMotion} aria-pressed={cyclePreview} onClick={() => setCyclePreview(!cyclePreview)}><SunMoon size={13}/>{cyclePreview ? 'Live light' : 'Day cycle'}</button>
       <button type="button" disabled={!ready || failure} aria-label="Save building image" onClick={() => runtime.current?.snapshot()}><Camera size={13}/></button>
-      <button type="button" disabled={!ready || failure} aria-label="Reset building view" onClick={() => { setSelected('all'); setSeparated(false); setRoof(false); runtime.current?.preset(false); }}><RotateCcw size={13}/></button>
+      <button type="button" disabled={!ready || failure} aria-label="Reset building view" onClick={() => { setSelected('all'); setSeparated(false); setRoof(false); setGardenPreview(false); setGardenPlan(false); runtime.current?.preset(false); }}><RotateCcw size={13}/></button>
     </div>
   </div>;
 }

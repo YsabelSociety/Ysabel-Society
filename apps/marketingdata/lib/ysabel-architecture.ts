@@ -120,7 +120,7 @@ export function buildYsabelArchitecture(T:typeof Three){
   const mesh=new T.Mesh(geometry,m);mesh.userData.zone=id;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(id)!.add(mesh);picks.push(mesh);
   // Actual slender metal mullions catch highlights, replacing the heavy dark wireframe.
   const edges=new Map<string,number[]>();for(let i=0;i<data.lines.length;i+=6){const a=data.lines.slice(i,i+3),b=data.lines.slice(i+3,i+6),ka=vertexKey(...a as [number,number,number]),kb=vertexKey(...b as [number,number,number]);if(ka!==kb)edges.set([ka,kb].sort().join('|'),[...a,...b]);}
-  const frameGeometry=new T.CylinderGeometry(1,1,1,5,1,true),frameMaterial=mat('#8fa09f',.82,.3,id);
+  const frameGeometry=new T.CylinderGeometry(1,1,1,5,1,true),frameMaterial=mat('#8fa09f',.82,.3,id);frameMaterial.userData.gardenRoofFrame=id==='garden';
   const frames=new T.InstancedMesh(frameGeometry,frameMaterial,edges.size),matrix=new T.Matrix4(),rotation=new T.Quaternion(),up=new T.Vector3(0,1,0);let frameIndex=0;
   for(const values of edges.values()){va.fromArray(values,0);vb.fromArray(values,3);vc.subVectors(vb,va);const length=vc.length();rotation.setFromUnitVectors(up,vc.normalize());matrix.compose(va.add(vb).multiplyScalar(.5),rotation,new T.Vector3(.012,length,.012));frames.setMatrixAt(frameIndex++,matrix);}
   frames.instanceMatrix.needsUpdate=true;groups.get(id)!.add(frames);
@@ -140,7 +140,7 @@ export function buildYsabelArchitecture(T:typeof Three){
  const trees=new T.InstancedMesh(foliageGeometry,leaf,foliage.length);foliage.forEach((m,i)=>trees.setMatrixAt(i,m));trees.instanceMatrix.needsUpdate=true;trees.castShadow=true;trees.receiveShadow=true;groups.get('base')!.add(trees);
  for(const {material:m,zone,values} of instances.values()){
   const mesh=new T.InstancedMesh(boxGeometry,m,values.length),matrix=new T.Matrix4();
-  values.forEach(([w,h,d,x,y,z],i)=>{matrix.makeScale(w,h,d);matrix.setPosition(x,y,z);mesh.setMatrixAt(i,matrix);});mesh.instanceMatrix.needsUpdate=true;mesh.userData.zone=zone;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(zone)!.add(mesh);picks.push(mesh);
+  values.forEach(([w,h,d,x,y,z],i)=>{matrix.makeScale(w,h,d);matrix.setPosition(x,y,z);mesh.setMatrixAt(i,matrix);});mesh.instanceMatrix.needsUpdate=true;mesh.userData.zone=zone;mesh.userData.gardenAntenna=zone==='garden'&&m===silver;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(zone)!.add(mesh);picks.push(mesh);
  }
  return {groups,materials,textures,picks};
 }

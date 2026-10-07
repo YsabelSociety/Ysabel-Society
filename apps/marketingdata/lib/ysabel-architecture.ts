@@ -25,10 +25,9 @@ export function buildYsabelArchitecture(T:typeof Three){
  pane.fillStyle='#e3ddd02b';pane.fillRect(12,25,36,155);pane.fillStyle='#152a3840';pane.fillRect(54,12,5,230);
  pane.fillStyle='#dce5dd2b';for(let y=26;y<205;y+=17)pane.fillRect(12,y,100,2);
  const paneTexture=new T.CanvasTexture(paneCanvas);paneTexture.colorSpace=T.SRGBColorSpace;paneTexture.anisotropy=4;textures.push(paneTexture);
- const glazing=(color:string,warm=false)=>{const m=new T.MeshPhysicalMaterial({color,map:paneTexture,metalness:.28,roughness:.2,clearcoat:.9,clearcoatRoughness:.13,envMapIntensity:1.35});m.userData={zone:'base',base:new T.Color(color),nightWindow:warm,architectureRole:'window'};if(warm){m.emissive.set('#dfb675');m.emissiveIntensity=.1;}materials.push(m);return m;};
+ const glazing=(color:string,warm=false)=>{const m=new T.MeshPhysicalMaterial({color,map:paneTexture,metalness:.28,roughness:.2,clearcoat:.9,clearcoatRoughness:.13,envMapIntensity:1.35});m.userData={zone:'base',base:new T.Color(color),nightWindow:warm};if(warm){m.emissive.set('#dfb675');m.emissiveIntensity=.1;}materials.push(m);return m;};
  const glass=glazing('#b7cbd2'),warmGlass=glazing('#e1d5b8',true);
  const silver=mat('#b8c0bb',.85,.24),soil=mat('#50574c',.05,.85),leaf=mat('#486142',.02,.94),trunk=mat('#6b5f50');
- leaf.userData.architectureRole='foliage';
  const zoneStone=new Map(Object.entries(palette).map(([id,c])=>{const m=mat(new T.Color(c).multiplyScalar(.74).getStyle(),.12,.68,id);m.bumpMap=stoneTexture;m.bumpScale=.012;return [id,m] as const;}));
  const boxGeometry=new T.BoxGeometry(1,1,1);
  const instances=new Map<string,{material:Three.Material;zone:string;values:number[][]}>();
@@ -74,7 +73,6 @@ export function buildYsabelArchitecture(T:typeof Three){
  // Continuous rooftop terrace and the lower glazed pavilion are above the wing, not at ground level.
  box(9.28,.22,7.8,0,20.78,5.32,slab);
  const railGlass=new T.MeshPhysicalMaterial({color:'#a4c4cc',transparent:true,opacity:.36,metalness:.2,roughness:.12,depthWrite:false});
- railGlass.userData.architectureRole='railing';
  function railing(x:number,z:number,w:number,d:number,y:number){
   box(w,.43,d,x,y+.3,z,railGlass);box(w+.035,.025,d+.025,x,y+.53,z,silver);
   const count=Math.ceil(Math.max(w,d)/.72);for(let i=0;i<=count;i++)box(.025,.56,.025,x+(w>d?(i/count-.5)*w:0),y+.28,z+(d>w?(i/count-.5)*d:0),silver);
@@ -118,17 +116,17 @@ export function buildYsabelArchitecture(T:typeof Three){
   for(let i=0;i<data.position.length;i+=9){va.fromArray(data.position,i);vb.fromArray(data.position,i+3);vc.fromArray(data.position,i+6);const normal=vb.sub(va).cross(vc.sub(va));for(let j=0;j<9;j+=3){const key=vertexKey(data.position[i+j],data.position[i+j+1],data.position[i+j+2]);normalKeys.push(key);if(!normalSums.has(key))normalSums.set(key,new T.Vector3());normalSums.get(key)!.add(normal);}}
   normalSums.forEach(n=>n.normalize());geometry.setAttribute('normal',new T.Float32BufferAttribute(normalKeys.flatMap(key=>normalSums.get(key)!.toArray()),3));
   const color=id==='base'?'#9cb6bd':new T.Color('#c2d0ce').lerp(new T.Color(palette[id]),.36).getStyle();
-  const m=new T.MeshPhysicalMaterial({color,vertexColors:true,metalness:.32,roughness:.19,clearcoat:.95,clearcoatRoughness:.12,side:T.DoubleSide,envMapIntensity:1.3});m.userData={zone:id,base:new T.Color(color),architectureRole:'shell'};materials.push(m);
+  const m=new T.MeshPhysicalMaterial({color,vertexColors:true,metalness:.32,roughness:.19,clearcoat:.95,clearcoatRoughness:.12,side:T.DoubleSide,envMapIntensity:1.3});m.userData={zone:id,base:new T.Color(color)};materials.push(m);
   const mesh=new T.Mesh(geometry,m);mesh.userData.zone=id;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(id)!.add(mesh);picks.push(mesh);
   // Actual slender metal mullions catch highlights, replacing the heavy dark wireframe.
   const edges=new Map<string,number[]>();for(let i=0;i<data.lines.length;i+=6){const a=data.lines.slice(i,i+3),b=data.lines.slice(i+3,i+6),ka=vertexKey(...a as [number,number,number]),kb=vertexKey(...b as [number,number,number]);if(ka!==kb)edges.set([ka,kb].sort().join('|'),[...a,...b]);}
-  const frameGeometry=new T.CylinderGeometry(1,1,1,5,1,true),frameMaterial=mat('#8fa09f',.82,.3,id);frameMaterial.userData.gardenRoofFrame=id==='garden';frameMaterial.userData.architectureRole='frame';
+  const frameGeometry=new T.CylinderGeometry(1,1,1,5,1,true),frameMaterial=mat('#8fa09f',.82,.3,id);frameMaterial.userData.gardenRoofFrame=id==='garden';
   const frames=new T.InstancedMesh(frameGeometry,frameMaterial,edges.size),matrix=new T.Matrix4(),rotation=new T.Quaternion(),up=new T.Vector3(0,1,0);let frameIndex=0;
   for(const values of edges.values()){va.fromArray(values,0);vb.fromArray(values,3);vc.subVectors(vb,va);const length=vc.length();rotation.setFromUnitVectors(up,vc.normalize());matrix.compose(va.add(vb).multiplyScalar(.5),rotation,new T.Vector3(.012,length,.012));frames.setMatrixAt(frameIndex++,matrix);}
   frames.instanceMatrix.needsUpdate=true;groups.get(id)!.add(frames);
  }
  // Narrow colored seams identify venues without painting the entire hotel facade.
- for(const [y,id] of [[23.2,'italian'],[25.4,'asian'],[27.6,'garden']] as const){const seam=mat(palette[id],.6,.3,id);seam.userData.architectureRole='seam';box(8.87,.055,6.67,0,y,-1.7,seam,id);}
+ for(const [y,id] of [[23.2,'italian'],[25.4,'asian'],[27.6,'garden']] as const){const seam=mat(palette[id],.6,.3,id);box(8.87,.055,6.67,0,y,-1.7,seam,id);}
  box(.028,1.9,.028,1.2,30.22,-1.9,silver,'garden');
  // Planters on real visible terrace edges; other buildings in the photos are intentionally excluded.
  const foliageGeometry=new T.IcosahedronGeometry(.26,2),foliage:Three.Matrix4[]=[];

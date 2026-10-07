@@ -38,9 +38,9 @@ export function YsabelBuilding() {
   const [separated, setSeparated] = useState(false);
   const [selected, setSelected] = useState('all');
   const [roof, setRoof] = useState(false);
-  const [gardenPreview, setGardenPreview] = useState(false);
+  const [gardenPreview, setGardenPreview] = useState(true);
   const [gardenPlan, setGardenPlan] = useState(false);
-  const [gardenWhole, setGardenWhole] = useState(false);
+  const [gardenWhole, setGardenWhole] = useState(true);
   const [gardenLoading, setGardenLoading] = useState(false);
   const [gardenUnavailable, setGardenUnavailable] = useState(false);
   const [cyclePreview, setCyclePreview] = useState(false);
@@ -120,18 +120,11 @@ export function YsabelBuilding() {
         const nightWindows = materials.filter(m => m.userData.nightWindow);
         const gardenRoof = materials.filter((m): m is InstanceType<typeof T.MeshPhysicalMaterial> => m instanceof T.MeshPhysicalMaterial && m.userData.zone === 'garden');
         const gardenFrames = materials.filter(m => m.userData.gardenRoofFrame);
-        // Capture the original shell before adding the Garden furniture. Every mode can restore it exactly.
-        const shellMaterials = new Map<InstanceType<typeof T.MeshStandardMaterial>, { transparent: boolean; opacity: number; depthWrite: boolean; forceSinglePass: boolean; metalness: number; roughness: number; envMapIntensity: number; clearcoat?: number }>();
-        const shellShadows = new Map<InstanceType<typeof T.Mesh>, boolean>();
-        groups.forEach(group => group.traverse(object => {
-          if (!(object instanceof T.Mesh)) return;
-          shellShadows.set(object, object.castShadow);
-          for (const m of Array.isArray(object.material) ? object.material : [object.material]) {
-            if (!(m instanceof T.MeshStandardMaterial) || shellMaterials.has(m)) continue;
-            const saved = { transparent: m.transparent, opacity: m.opacity, depthWrite: m.depthWrite, forceSinglePass: m.forceSinglePass, metalness: m.metalness, roughness: m.roughness, envMapIntensity: m.envMapIntensity };
-            shellMaterials.set(m, m instanceof T.MeshPhysicalMaterial ? { ...saved, clearcoat: m.clearcoat } : saved);
-          }
-        }));
+        // Only Garden glazing changes. The original facade, mullions and other floors remain intact.
+        const gardenRoofShadows = new Map<InstanceType<typeof T.Mesh>, boolean>();
+        groups.get('garden')!.traverse(object => {
+          if (object instanceof T.Mesh && !Array.isArray(object.material) && gardenRoof.includes(object.material as InstanceType<typeof T.MeshPhysicalMaterial>)) gardenRoofShadows.set(object, object.castShadow);
+        });
         let gardenInterior: ReturnType<typeof import('@/lib/ysabel-garden-interior').buildGardenInterior> | null = null;
         let gardenLoad: Promise<void> | null = null, gardenMode = 'exterior';
         let cameraTransition: { start: number; from: InstanceType<typeof T.Vector3>; to: InstanceType<typeof T.Vector3>; fromTarget: InstanceType<typeof T.Vector3>; target: InstanceType<typeof T.Vector3>; fromZoom: number; zoom: number } | null = null;
@@ -276,7 +269,7 @@ export function YsabelBuilding() {
           }
           if (finish) appearanceUntil = 0;
           }
-          controls.autoRotateSpeed = state.current.gardenPreview ? .14 : coarse.matches ? .38 : .34;
+          controls.autoRotateSpeed = state.current.gardenPreview && !state.current.gardenWhole ? .14 : coarse.matches ? .38 : .34;
           controls.autoRotate = motion() && !cameraTransition && !(state.current.gardenPreview && state.current.gardenPlan);
           if (controls.autoRotate) controls.update(delta);
           render();
@@ -309,7 +302,7 @@ export function YsabelBuilding() {
         let downX = 0, downY = 0;
         const down = (event: PointerEvent) => { downX = event.clientX; downY = event.clientY; };
         const up = (event: PointerEvent) => {
-          if (!state.current.gardenPreview && Math.hypot(event.clientX - downX, event.clientY - downY) < 6) {
+          if ((!state.current.gardenPreview || state.current.gardenWhole) && Math.hypot(event.clientX - downX, event.clientY - downY) < 6) {
             const id = pick(event); if (id && id !== 'base') setSelected(old => old === id ? 'all' : id);
           }
         };
@@ -365,26 +358,17 @@ export function YsabelBuilding() {
             if (disposed || gardenMode !== mode) return;
             if (gardenInterior) gardenInterior.group.visible = enabled;
             for (const [id, group] of groups) group.visible = !enabled || whole || id === 'garden';
-            for (const [m, saved] of shellMaterials) {
-              Object.assign(m, saved);
-              if (enabled && whole) {
-                const role = m.userData.architectureRole;
-                m.transparent = true; m.depthWrite = false; m.forceSinglePass = true;
-                m.opacity = role === 'window' ? .16 : role === 'frame' ? .18 : role === 'foliage' ? .55 : role === 'seam' ? .45 : role === 'railing' ? .2 : role === 'shell' ? .08 : .075;
-                m.envMapIntensity = .22; m.metalness = Math.min(saved.metalness, .2); m.roughness = Math.max(saved.roughness, .4);
-                if (m instanceof T.MeshPhysicalMaterial) m.clearcoat = .1;
-              }
-              m.needsUpdate = true;
-            }
-            shellShadows.forEach((cast, mesh) => { mesh.castShadow = enabled ? false : cast; });
+            gardenRoofShadows.forEach((cast, mesh) => { mesh.castShadow = enabled ? false : cast; });
             for (const m of gardenRoof) {
-              m.transparent = enabled; m.opacity = enabled ? (plan ? .015 : .065) : 1; m.depthWrite = !enabled; m.forceSinglePass = enabled;
-              m.metalness = enabled ? .06 : .32; m.roughness = enabled ? .42 : .19; m.envMapIntensity = enabled ? .12 : 1.3; m.clearcoat = enabled ? .12 : .95; m.needsUpdate = true;
+              m.transparent = enabled; m.opacity = enabled ? (whole ? .45 : plan ? .015 : .065) : 1; m.depthWrite = !enabled; m.forceSinglePass = enabled;
+              m.metalness = enabled ? (whole ? .18 : .06) : .32; m.roughness = enabled ? (whole ? .22 : .42) : .19;
+              m.envMapIntensity = enabled ? (whole ? .7 : .12) : 1.3; m.clearcoat = enabled ? (whole ? .8 : .12) : .95; m.needsUpdate = true;
             }
-            for (const m of gardenFrames) { m.transparent = enabled; m.opacity = enabled ? (plan ? .055 : .14) : 1; m.depthWrite = !enabled; m.needsUpdate = true; }
-            groups.get('garden')!.children.forEach(object => { if (object.userData.gardenAntenna) object.visible = !enabled; });
-            ground.visible = shadow.visible = terraceLight.visible = !enabled; renderer.shadowMap.needsUpdate = true;
-            if (enabled && whole) moveCamera(new T.Vector3(-22, 35, 48), new T.Vector3(0, 15, 1.7), 1);
+            const cutaway = enabled && !whole;
+            for (const m of gardenFrames) { m.transparent = cutaway; m.opacity = cutaway ? (plan ? .055 : .14) : 1; m.depthWrite = !cutaway; m.needsUpdate = true; }
+            groups.get('garden')!.children.forEach(object => { if (object.userData.gardenAntenna) object.visible = !cutaway; });
+            ground.visible = shadow.visible = terraceLight.visible = !cutaway; renderer.shadowMap.needsUpdate = true;
+            if (enabled && whole) moveCamera(new T.Vector3(-18, 28, 52), new T.Vector3(0, 15, 1.7), 1);
             else if (enabled) moveCamera(new T.Vector3(plan ? 0 : -16, plan ? 65 : 49, plan ? -1.53 : 26), new T.Vector3(0, 28.05, -1.65), plan ? 3.25 : 3.1);
             else moveCamera(new T.Vector3(-18, 28, 52), new T.Vector3(0, 15, 1.7), 1);
           },
@@ -423,26 +407,26 @@ export function YsabelBuilding() {
   return <div className={styles.building}>
     <div className={styles.buildingHeading}><span>MAISON YSABEL</span><span><Maximize2 size={12}/> 360°</span></div>
     <PrishtinaClock/>
-    <div className={styles.viewport} ref={stage} data-garden={gardenPreview} data-whole={gardenPreview && gardenWhole} data-night={initialLight.night > .5} style={{ '--sky-top': initialSky.top, '--sky-horizon': initialSky.horizon, '--sun-x': `${initialLight.sunX}%`, '--sun-y': `${initialLight.sunY}%`, '--sun-opacity': initialLight.sunOpacity, '--night': initialLight.night } as React.CSSProperties}>
+    <div className={styles.viewport} ref={stage} data-garden={gardenPreview && !gardenWhole} data-night={initialLight.night > .5} style={{ '--sky-top': initialSky.top, '--sky-horizon': initialSky.horizon, '--sun-x': `${initialLight.sunX}%`, '--sun-y': `${initialLight.sunY}%`, '--sun-opacity': initialLight.sunOpacity, '--night': initialLight.night } as React.CSSProperties}>
       <div className={styles.citySky} aria-hidden="true"><div className={styles.stars}/><div className={styles.sun}/><div className={styles.moon}/><div className={styles.horizon}/></div>
       <div className={styles.daylightStatus}><span ref={phaseLabel}>{initialLight.phase} · local light</span><span ref={sunTimes}>Sunrise {initialLight.sunriseLabel} · Sunset {initialLight.sunsetLabel}</span></div>
       <img className={styles.buildingPoster} src="/marketingdata-ui/ysabel-building.webp" alt="Ysabel’s glass-fronted tower with its curved rooftop and terrace" hidden={ready && !failure}/>
-      <div ref={host} className={styles.canvas} role="img" aria-label={gardenPreview ? `Photo-inspired Ysabel Garden ${gardenWhole ? 'interior in the transparent whole building' : gardenPlan ? 'overhead plan' : '3D cutaway'} with the bar, lounge and window tables. Illustrative placement, not a measured floor plan. Drag to explore.` : "Interactive original Ysabel building. Garden on the rooftop, Asian in the middle, Italian below. The sky follows Prishtina daylight with a moon at night. Drag to rotate, or use the venue buttons."} style={{ visibility: failure ? 'hidden' : 'visible' }}/>
+      <div ref={host} className={styles.canvas} role="img" aria-label={gardenPreview ? `Photo-inspired Ysabel Garden ${gardenWhole ? 'interior behind lightly transparent rooftop glass in the original whole building' : gardenPlan ? 'overhead plan' : '3D cutaway'} with the bar, lounge and window tables. Illustrative placement, not a measured floor plan. Drag to explore.` : "Interactive original Ysabel building. Garden on the rooftop, Asian in the middle, Italian below. The sky follows Prishtina daylight with a moon at night. Drag to rotate, or use the venue buttons."} style={{ visibility: failure ? 'hidden' : 'visible' }}/>
       {ready && !failure && (!gardenPreview || gardenWhole) && <div className={styles.floorLabels} aria-hidden="true">{venues.map((venue, i) => <span key={venue.id} ref={el => { labelRefs.current[i] = el; }} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name}</span>)}</div>}
-      <div className={styles.buildingCaption}><span>{failure ? 'Architecture preview' : gardenPreview ? (gardenWhole ? 'Garden within the house' : 'Ysabel Garden') : 'The house of Ysabel'}</span><small>{failure ? 'Explore the analytics alongside' : gardenPreview ? 'Photo-inspired layout · illustrative placement' : 'Drag to explore · select a floor'}</small></div>
+      <div className={styles.buildingCaption}><span>{failure ? 'Architecture preview' : gardenPreview ? (gardenWhole ? 'The house of Ysabel' : 'Ysabel Garden') : 'The house of Ysabel'}</span><small>{failure ? 'Explore the analytics alongside' : gardenPreview ? 'Photo-inspired layout · illustrative placement' : 'Drag to explore · select a floor'}</small></div>
       <div className={styles.zoom}><button type="button" aria-label="Zoom in on building" disabled={!ready || failure} onClick={() => runtime.current?.zoom(1.15)}><Plus size={15}/></button><button type="button" aria-label="Zoom out of building" disabled={!ready || failure} onClick={() => runtime.current?.zoom(1 / 1.15)}><Minus size={15}/></button></div>
     </div>
     {gardenUnavailable && <p className={styles.gardenNotice} role="status">Garden preview could not open. Please try again.</p>}
-    {gardenPreview ? <div className={styles.gardenLegend} aria-label="Garden dining areas"><span><i style={{background:"#b99960"}}/>Bar & arches</span><span><i style={{background:"#a15c50"}}/>Lounge</span><span><i style={{background:"#4b777d"}}/>Window tables</span></div> : <div className={styles.venues} aria-label="Building venues">{venues.map(venue => <button type="button" key={venue.id} aria-pressed={selected === venue.id} onClick={() => setSelected(selected === venue.id ? 'all' : venue.id)} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name.replace('Ysabel ', '')}</button>)}</div>}
+    {gardenPreview && !gardenWhole ? <div className={styles.gardenLegend} aria-label="Garden dining areas"><span><i style={{background:"#b99960"}}/>Bar & arches</span><span><i style={{background:"#a15c50"}}/>Lounge</span><span><i style={{background:"#4b777d"}}/>Window tables</span></div> : <div className={styles.venues} aria-label="Building venues">{venues.map(venue => <button type="button" key={venue.id} aria-pressed={selected === venue.id} onClick={() => setSelected(selected === venue.id ? 'all' : venue.id)} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name.replace('Ysabel ', '')}</button>)}</div>}
     <div className={styles.buildingControls}>
-      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview ? gardenPlan : roof} onClick={() => { if (gardenPreview) { setGardenPlan(!gardenPlan); setGardenWhole(false); } else { setRoof(!roof); runtime.current?.preset(!roof); } }}><Maximize2 size={13}/>{gardenPreview ? (gardenPlan ? '3D view' : 'Plan view') : roof ? 'Whole building' : 'Rooftop'}</button>
-      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview} onClick={() => { setGardenPreview(!gardenPreview); setGardenPlan(false); setGardenWhole(false); setRoof(false); setSeparated(false); setSelected('all'); }}><Armchair size={13}/>{gardenLoading ? 'Opening Garden…' : gardenPreview ? 'Exterior view' : 'Garden interior'}</button>
-      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview && gardenWhole} onClick={() => { setGardenPreview(true); setGardenWhole(!gardenPreview || !gardenWhole); setGardenPlan(false); setRoof(false); setSeparated(false); setSelected('all'); }}><Building2 size={13}/>{gardenPreview ? 'Whole building' : 'Transparent building'}</button>
-      <button type="button" disabled={!ready || failure || gardenPreview} aria-pressed={separated} onClick={() => setSeparated(!separated)}><Layers3 size={13}/>{separated ? 'Join floors' : 'Separate floors'}</button>
+      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview && !gardenWhole ? gardenPlan : roof} onClick={() => { if (gardenPreview && !gardenWhole) setGardenPlan(!gardenPlan); else { setRoof(!roof); runtime.current?.preset(!roof); } }}><Maximize2 size={13}/>{gardenPreview && !gardenWhole ? (gardenPlan ? '3D view' : 'Plan view') : roof ? 'Whole building' : 'Rooftop'}</button>
+      <button type="button" disabled={!ready || failure || gardenLoading} aria-pressed={gardenPreview} onClick={() => { setGardenPreview(!gardenPreview); setGardenPlan(false); setGardenWhole(true); setRoof(false); setSeparated(false); setSelected('all'); }}><Armchair size={13}/>{gardenLoading ? 'Opening Garden…' : 'Garden interior'}</button>
+      {gardenPreview && <button type="button" disabled={!ready || failure || gardenLoading} onClick={() => { setGardenWhole(!gardenWhole); setGardenPlan(false); setRoof(false); setSeparated(false); setSelected('all'); }}><Building2 size={13}/>{gardenWhole ? 'Garden close-up' : 'Whole building'}</button>}
+      <button type="button" disabled={!ready || failure || (gardenPreview && !gardenWhole)} aria-pressed={separated} onClick={() => setSeparated(!separated)}><Layers3 size={13}/>{separated ? 'Join floors' : 'Separate floors'}</button>
       <button type="button" disabled={!ready || failure} aria-pressed={paused} onClick={() => setPaused(!paused)}>{paused ? <Play size={13}/> : <Pause size={13}/>}<span>{paused ? 'Play' : 'Pause'}</span></button>
       <button type="button" disabled={!ready || failure || reducedMotion} aria-pressed={cyclePreview} onClick={() => setCyclePreview(!cyclePreview)}><SunMoon size={13}/>{cyclePreview ? 'Live light' : 'Day cycle'}</button>
       <button type="button" disabled={!ready || failure} aria-label="Save building image" onClick={() => runtime.current?.snapshot()}><Camera size={13}/></button>
-      <button type="button" disabled={!ready || failure} aria-label="Reset building view" onClick={() => { setSelected('all'); setSeparated(false); setRoof(false); setGardenPreview(false); setGardenPlan(false); setGardenWhole(false); runtime.current?.preset(false); }}><RotateCcw size={13}/></button>
+      <button type="button" disabled={!ready || failure} aria-label="Reset building view" onClick={() => { setSelected('all'); setSeparated(false); setRoof(false); setGardenPreview(true); setGardenPlan(false); setGardenWhole(true); runtime.current?.preset(false); }}><RotateCcw size={13}/></button>
     </div>
   </div>;
 }

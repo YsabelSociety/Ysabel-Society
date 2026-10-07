@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { readWithRetry } from '@/lib/read-with-retry';
 import { appPath } from '@/lib/app-path';
 import { googleRatingHistory, type GoogleRatingObservation } from '@/lib/google-rating-snapshot';
 
@@ -18,10 +19,7 @@ export function useGoogleRatingHistory() {
       if (pending) return;
       pending = true;
       try {
-        const response = await fetch(appPath('/api/google-rating'), {
-          cache: 'no-store',
-          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]),
-        });
+        const response = await readWithRetry(appPath('/api/google-rating'), { signal: controller.signal, timeoutMs: 8000 });
         if (!response.ok) return;
         const { rating } = await response.json() as { rating: RatingFeed | null };
         if (!rating || !Array.isArray(rating.history)) return;

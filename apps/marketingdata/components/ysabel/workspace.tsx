@@ -645,7 +645,7 @@ export default function Workspace({
                   onClick={() => navigate('Data Center')}
                 >
                   <i />
-                  {source.mode === 'live'
+                  {!source.ready ? (source.error ? 'Data temporarily unavailable' : 'Loading data…') : source.mode === 'live'
                     ? source.sourceStatus.some(
                         (s) => s.status === 'Needs Attention',
                       )
@@ -653,7 +653,7 @@ export default function Workspace({
                       : 'Data Center'
                     : 'Demo workspace'}
                   <span>
-                    {source.mode === 'live'
+                    {!source.ready ? 'Reconnects automatically' : source.mode === 'live'
                       ? 'Check imports and access'
                       : 'Sample data · 5 Sep 2026'}
                   </span>
@@ -713,7 +713,7 @@ export default function Workspace({
                     onClick={() => navigate('Data Center')}
                   >
                     <i />
-                    {source.mode === 'live' ? 'Live sources' : 'Demo Data'}
+                    {!source.ready ? (source.error ? 'Reconnecting' : 'Loading data') : source.mode === 'live' ? 'Live sources' : 'Demo Data'}
                   </button>
                   <button
                     className="search-button"
@@ -813,7 +813,7 @@ export default function Workspace({
                         </button>
                       )}
                     </div>
-                    <span className="freshness"><span className="small-dot" />{source.loading ? 'Updating…' : source.mode === 'live' ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined) : 'Preview data'}</span>
+                    <span className="freshness"><span className="small-dot" />{!source.ready ? (source.error ? 'Data unavailable · reconnecting' : 'Loading data…') : source.mode === 'live' ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined) : 'Preview data'}</span>
                   </div>
                 )}
                 {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && date === 'Custom Range' && (

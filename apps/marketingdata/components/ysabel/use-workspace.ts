@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState, useCallback } from 'react';
+import { readWithRetry } from '@/lib/read-with-retry';
 import { POSTS, UNITS, type Post } from '@/lib/analytics';
 export type Note = { id: string; date: string; text: string; unit: string };
 export type SavedReport = {
@@ -29,9 +30,7 @@ export function useWorkspace() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const r = await fetch('/marketingdata/api/state', {
-        signal: AbortSignal.timeout(30000),
-      });
+      const r = await readWithRetry('/marketingdata/api/state');
       const data: any = await r.json();
       if (!r.ok) throw new Error(data.error);
       setPosts(data.posts);
@@ -50,6 +49,14 @@ export function useWorkspace() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (ready || !error) return;
+    const retry = () => { if (!document.hidden) void load(); };
+    const timer = window.setTimeout(retry, 30000);
+    window.addEventListener('online', retry);
+    document.addEventListener('visibilitychange', retry);
+    return () => { clearTimeout(timer); window.removeEventListener('online', retry); document.removeEventListener('visibilitychange', retry); };
+  }, [ready, error, load]);
   useEffect(() => {
     if (notice) {
       const timer = setTimeout(() => setNotice(''), 4500);

@@ -22,6 +22,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
     let activeForeground = false;
     let foregroundDeadline: ReturnType<typeof setTimeout> | undefined;
     let foregroundExit: ReturnType<typeof setTimeout> | undefined;
+    let recoveryTimer: ReturnType<typeof setTimeout> | undefined;
     const finishForeground = () => {
       if (!activeForeground) return;
       activeForeground = false;
@@ -89,7 +90,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
         );
       const result = (await response.json()) as RefreshJob & { error?: string };
       if (!response.ok)
-        throw new Error(result.error || 'Refresh could not complete.');
+        throw Object.assign(new Error(result.error || 'Refresh could not complete.'), { retryable: response.status === 429 || response.status >= 500 });
       return result;
     }
     async function refresh(force = false, showForeground = false, scope: RefreshScope = 'all') {
@@ -100,6 +101,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
       )
         return;
       active = true;
+      if (recoveryTimer) clearTimeout(recoveryTimer);
       if (showForeground) {
         if (foregroundExit) clearTimeout(foregroundExit);
         activeForeground = true;
@@ -149,6 +151,9 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
               ? error.message
               : 'Sync needs attention. Try again.',
           );
+        if (!controller.signal.aborted && (error as { retryable?: boolean })?.retryable !== false) {
+          recoveryTimer = setTimeout(() => void refresh(false, false, scope), 30000);
+        }
       } finally {
         active = false;
         if (!controller.signal.aborted) {
@@ -170,6 +175,7 @@ export function useAutoRefresh(ready: boolean, timezone = 'Europe/Tirane') {
       controller.abort();
       if (foregroundDeadline) clearTimeout(foregroundDeadline);
       if (foregroundExit) clearTimeout(foregroundExit);
+      if (recoveryTimer) clearTimeout(recoveryTimer);
       clearInterval(timer);
       document.removeEventListener('visibilitychange', visible);
       window.removeEventListener('ysabel:sync-now', manual);

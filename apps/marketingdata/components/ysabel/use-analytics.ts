@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
+import { readWithRetry } from '@/lib/read-with-retry';
 import {
   filterDaily,
   comparablePrevious,
@@ -52,9 +53,7 @@ export function useSourceAnalytics(
           const cacheKey = revision + '|' + q.toString();
           const cachedReport = reportCache.current.get(cacheKey);
           if (cachedReport && Date.now() - cachedReport.at < 30000) return cachedReport.data;
-          const response = await fetch('/marketingdata/api/analytics?' + q, {
-            signal: AbortSignal.any([abort.signal, AbortSignal.timeout(30000)]),
-          });
+          const response = await readWithRetry('/marketingdata/api/analytics?' + q, { signal: abort.signal });
           const data: any = await response.json();
           if (!response.ok) throw new Error(data.error);
           if (!abort.signal.aborted) {
@@ -143,6 +142,14 @@ export function useSourceAnalytics(
     void run();
     return () => abort.abort();
   }, [key, revision, onLive]);
+  useEffect(() => {
+    if (!error || loading) return;
+    const retry = () => { if (!document.hidden) setRevision(value => value + 1); };
+    const timer = window.setTimeout(retry, 30000);
+    window.addEventListener('online', retry);
+    document.addEventListener('visibilitychange', retry);
+    return () => { clearTimeout(timer); window.removeEventListener('online', retry); document.removeEventListener('visibilitychange', retry); };
+  }, [error, loading]);
   const current = result?.key === key ? result : null;
   const live = result?.mode === 'live';
   return {

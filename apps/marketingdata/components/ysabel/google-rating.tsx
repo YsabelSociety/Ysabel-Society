@@ -3,7 +3,8 @@ import { useId, useEffect, useState } from 'react';
 import { Star, ArrowUpRight } from 'lucide-react';
 import { SourceBadge } from './source-badge';
 import { calendarDate } from '@/lib/sync-window';
-import { googleRatingSnapshot as savedSnapshot, googleRatingHistory, googleRatingMonthlyReferences, googleRatingSourceUrl, previousMonthRating, type GoogleRatingObservation } from '@/lib/google-rating-snapshot';
+import { readWithRetry } from '@/lib/read-with-retry';
+import { googleRatingHistory, googleRatingMonthlyReferences, googleRatingSourceUrl, previousMonthRating, type GoogleRatingObservation } from '@/lib/google-rating-snapshot';
 type RatingFeed = GoogleRatingObservation & {observedAt:string;history:GoogleRatingObservation[]};
 
 function RatingStars({rating}:{rating:number}) {
@@ -19,17 +20,18 @@ function RatingStars({rating}:{rating:number}) {
 }
 export function GoogleRating({onOpen}:{onOpen:()=>void}) {
  const [feed,setFeed]=useState<RatingFeed|null>(null);
+ const [loading,setLoading]=useState(true);
  useEffect(()=>{
   const controller=new AbortController(); let pending=false;
   async function update() {
    if(pending || document.visibilityState==='hidden') return;
    pending=true;
    try {
-    const response=await fetch('/marketingdata/api/google-rating',{cache:'no-store',signal:controller.signal});
+    const response=await readWithRetry('/marketingdata/api/google-rating',{signal:controller.signal,timeoutMs:8000});
     if(!response.ok) return;
     const {rating}=await response.json() as {rating:RatingFeed|null};
     if(rating && Number.isFinite(rating.rating) && rating.rating>=1 && rating.rating<=5 && Number.isInteger(rating.reviewCount) && Array.isArray(rating.history)) setFeed(rating);
-   } catch {} finally {pending=false;}
+   } catch {} finally {pending=false;if(!controller.signal.aborted)setLoading(false);}
   }
   void update();
   const timer=window.setInterval(update,60000);
@@ -38,7 +40,11 @@ export function GoogleRating({onOpen}:{onOpen:()=>void}) {
   document.addEventListener('visibilitychange',update);
   return ()=>{controller.abort();clearInterval(timer);window.removeEventListener('ysabel:sources-updated',update);window.removeEventListener('ysabel:community-updated',update);document.removeEventListener('visibilitychange',update);};
  },[]);
- const snapshot=feed || savedSnapshot;
+ if(!feed) return <section className="google-rating-highlight" aria-label="Google review rating">
+  <div><span className="eyebrow"><Star size={17}/> GOOGLE BUSINESS · GUEST RATING</span><h2>— <small>/ 5</small></h2><p role="status">{loading ? 'Loading Google rating…' : 'Google rating temporarily unavailable · retrying automatically'}</p></div>
+  <button className="secondary" onClick={onOpen}>Explore reviews <ArrowUpRight size={17}/></button>
+ </section>;
+ const snapshot=feed;
  const history=feed ? [...googleRatingHistory.filter(r=>!feed.history.some(h=>h.date===r.date)),...feed.history] : googleRatingHistory;
  const {month,observation:previous}=previousMonthRating(calendarDate('Europe/Tirane'),history);
  const monthLabel=new Date(month+'-01T12:00:00Z').toLocaleDateString('en-GB',{month:'long',year:'numeric',timeZone:'UTC'});

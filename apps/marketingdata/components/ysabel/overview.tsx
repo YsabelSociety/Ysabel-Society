@@ -45,6 +45,7 @@ export default function Overview({
   live = false,
   sceneEnabled = true,
   contentLoading = false,
+  dailyPending = false,
 }: {
   rows: Daily[];
   range: Range;
@@ -57,6 +58,7 @@ export default function Overview({
   live?: boolean;
   sceneEnabled?: boolean;
   contentLoading?: boolean;
+  dailyPending?: boolean;
 }) {
   const tiktokPosts = posts.filter(
     (p) =>
@@ -83,6 +85,7 @@ export default function Overview({
         onOpen={() => setPage('Performance')}
         onReviews={() => setPage('Google Business')}
       />
+      {dailyPending ? <p role="status" className="muted">Loading current-period totals…</p> : <>
       <ProfileViews rows={rows} previous={previous} />
       <div className="metrics-strip">
         {METRICS.filter((m) => m.key !== 'profileViews').map((m, i) => {
@@ -208,7 +211,7 @@ export default function Overview({
                 {c}
                 <ArrowUpRight size={14} />
               </div>
-              <SourceBadge channel={c} rows={cr} />
+              {contentLoading ? <span role="status" className="muted">Loading source details…</span> : <SourceBadge channel={c} rows={cr} />}
               <strong>
                 {available
                   ? c === 'TikTok' && tiktokContent
@@ -264,7 +267,7 @@ export default function Overview({
                     />
                   </>
                 ) : (
-                  <span className="muted">Daily metrics not supplied</span>
+                  <span className="muted">{contentLoading ? 'Loading source details…' : 'Daily metrics not supplied'}</span>
                 )}
               </div>
             </button>
@@ -298,6 +301,7 @@ export default function Overview({
           </p>
         </>
       )}
+      </>}
     </>
   );
 }

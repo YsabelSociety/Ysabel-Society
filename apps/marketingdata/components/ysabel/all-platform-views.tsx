@@ -91,11 +91,11 @@ export function AllPlatformViews({
       <span className={styles.brand}><DataIcon name={source.channel} badge/><strong>{source.channel}</strong><ArrowUpRight size={14}/></span>
       <div className={styles.platformData}>
         <span><strong title={source.available ? source.value.toLocaleString() : undefined}>{source.available ? compact(source.value) : '—'}</strong><small>{source.available ? source.channel === 'TikTok' && !source.hasDaily ? 'Lifetime video views' : source.label : detailsPending ? 'Loading source details…' : 'Not supplied for this period'}</small></span>
-        <PlatformCardChart color={palette[index]} bars={source.channel === 'TikTok' || source.channel === 'Google Business'} lifetime={source.channel === 'TikTok' && !source.hasDaily} points={dates.map(date => {
+        {source.available && <PlatformCardChart color={palette[index]} bars={source.channel === 'TikTok' || source.channel === 'Google Business'} lifetime={source.channel === 'TikTok' && !source.hasDaily} points={dates.map(date => {
           const dated = rows.filter(row => row.channel === source.channel && row.date === date);
           const published = tiktokPosts.filter(post => post.date.slice(0,10) === date);
           return { date, value: source.hasDaily ? (reported(dated, source.metric) ? total(dated, source.metric) : null) : source.channel === 'TikTok' && published.length ? published.reduce((n,p) => n + p.views, 0) : null };
-        })}/>
+        })}/>}
       </div>
       <span className={styles.platformFooter}>{detailsPending ? <span role="status">Loading source details…</span> : <SourceBadge channel={source.channel} metric={source.metric} unavailable={!source.available} rows={rows.filter(r => r.channel === source.channel)}/>}<span>{source.channel === 'TikTok' && !source.hasDaily && source.available ? 'Lifetime · published in period' : source.label}</span></span>
     </button>

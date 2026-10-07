@@ -871,6 +871,7 @@ export default function Workspace({
                   )}
                   <VisitedPanel active={page === 'Overview'}><StableOverview
                       sceneEnabled={!intro.visible}
+                      dailyPending={!source.ready}
                       contentLoading={source.detailsPending}
                       live={source.mode === 'live'}
                       range={range}
@@ -882,7 +883,7 @@ export default function Workspace({
                       onSelect={setPost}
                       onMetric={setMetric}
                     /></VisitedPanel>
-                  <VisitedPanel active={page === 'Performance'} retainCharts><ChartBoundary><StablePerformance
+                  <VisitedPanel active={page === 'Performance'} retainCharts><AnalyticsReady ready={source.ready} error={source.error}><ChartBoundary><StablePerformance
                       rows={rows}
                       previous={previous}
                       data={analyticsData}
@@ -895,7 +896,7 @@ export default function Workspace({
                       )}
                       websiteRealtime={source.websiteRealtime}
                       tables={source.tables}
-                    /></ChartBoundary></VisitedPanel>
+                    /></ChartBoundary></AnalyticsReady></VisitedPanel>
                   {page === 'Content Intelligence' && (
                     <ContentIntelligence
                       data={analyticsData}
@@ -917,7 +918,7 @@ export default function Workspace({
                     />
                   )}
                   {page === 'Website' && (
-                    <WebsitePage
+                    <AnalyticsReady ready={source.ready} error={source.error}><WebsitePage
                       rows={rows}
                       previous={previous}
                       live={source.mode === 'live'}
@@ -925,15 +926,15 @@ export default function Workspace({
                         (s) => s.channel === 'Website',
                       )}
                       realtime={source.websiteRealtime}
-                    />
+                    /></AnalyticsReady>
                   )}
                   {page === 'Website' && source.mode === 'live' && (
-                    <SourceReports
+                    <AnalyticsReady ready={source.detailsReady} error={source.error}><SourceReports
                       tables={source.tables}
                       group="website"
                       archive={false}
                       title="Website activity details"
-                    />
+                    /></AnalyticsReady>
                   )}
                   {page === 'Google Business' && (
                     <>
@@ -943,13 +944,13 @@ export default function Workspace({
                         onLoadState={setCommunityLoad}
                       >
                         {source.mode === 'live' && (
-                          <SourceReports
+                          <AnalyticsReady ready={source.detailsReady} error={source.error}><SourceReports
                             tables={source.tables}
                             group="google"
                             archive={false}
                             daily={rows}
                             title="Google Business reports"
-                          />
+                          /></AnalyticsReady>
                         )}
                       </GoogleReviews>
                     </>
@@ -963,20 +964,20 @@ export default function Workspace({
                     />
                   )}
                   {page === 'Insights' && (
-                    <InsightsPage
+                    <AnalyticsReady ready={source.detailsReady} error={source.error}><InsightsPage
                       live={source.mode === 'live'}
                       rows={rows}
                       previous={previous}
                       posts={visiblePosts}
                       onNavigate={navigate}
-                    />
+                    /></AnalyticsReady>
                   )}
                   {page === 'Comparisons' && (
-                    <ComparisonsPage
+                    <AnalyticsReady ready={source.detailsReady} error={source.error}><ComparisonsPage
                       range={range}
                       rows={rows}
                       previous={previous}
-                    />
+                    /></AnalyticsReady>
                   )}
                   {page === 'Reports' && (
                     <ReportsPage data={data} range={range} unit={unit} />
@@ -1143,3 +1144,7 @@ function InfoSymbol() {
   return <span className="pill">NOTE</span>;
 }
 
+
+function AnalyticsReady({ready,error,children}:{ready:boolean;error?:string;children:import('react').ReactNode}) {
+  return ready ? <>{children}</> : <p role={error ? 'alert' : 'status'} className="muted">{error ? 'Source data could not be loaded. Reconnecting automatically…' : 'Loading source data…'}</p>;
+}

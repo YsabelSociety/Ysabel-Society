@@ -113,3 +113,5 @@
 @media(max-width:480px) {.hero .platform {padding:14px 12px 11px;}.platformData strong {font-size:28px;}.platformData :global(.platform-card-chart) {height:35px!important;}.brand>span:first-child {width:23px!important;height:23px!important;min-width:23px;}}
 
 @media(max-width:800px) {.buildingCaption {background:#f5f8f1ec;padding:7px 9px;border:1px solid #fff;border-radius:8px;}.buildingCaption small {font-size:8px;}}
+
+.floorLabels>span {transform:translate3d(-1000px,-1000px,0);}

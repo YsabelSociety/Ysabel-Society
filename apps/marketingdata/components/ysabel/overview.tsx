@@ -30,8 +30,8 @@ import { calendarDate } from '@/lib/sync-window';
 import { IntelligenceScene } from './intelligence-scene';
 import { ProfileViews, ChannelTimeline } from './activity-panels';
 import { DataIcon } from './data-icons';
-import { newestPublishedFirst } from '@/lib/content-order';
 import { SourceBadge } from './source-badge';
+import { newestPublishedFirst } from '@/lib/content-order';
 import { AllPlatformViews } from './all-platform-views';
 export default function Overview({
   rows,
@@ -120,12 +120,12 @@ export default function Overview({
                   '. Open metric details.'
                 }
               >
-                {available ? compact(value) : 'â€”'}
+                {available ? compact(value) : '—'}
               </button>
               <div className="metric-bottom">
                 <span className={delta >= 0 ? 'positive' : 'negative'}>
-                  {available && prior ? (delta >= 0 ? 'â†—' : 'â†˜') : ''}{' '}
-                  {prior ? Math.abs(delta).toFixed(1) + '%' : 'â€”'}
+                  {available && prior ? (delta >= 0 ? '↗' : '↘') : ''}{' '}
+                  {prior ? Math.abs(delta).toFixed(1) + '%' : '—'}
                 </span>
                 <span>
                   {!available
@@ -146,12 +146,12 @@ export default function Overview({
       </div>
       <ChannelTimeline rows={rows} posts={posts} range={range} />
       <section className="content-highlights" aria-label="Content Intelligence highlights">
-        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together Â· newest published first Â· this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
+        <div className="section-head"><div><span className="eyebrow">CONTENT INTELLIGENCE</span><h2>Latest published posts</h2><p>Instagram, Facebook and TikTok together · newest published first · this month</p></div><button type="button" className="text-link" onClick={() => setPage('Content Intelligence')}>Explore content <ArrowUpRight size={16}/></button></div>
         <div className="content-highlight-grid">{highlights.map((post,index) => <button type="button" className="content-highlight" key={post.id} data-platform={post.platform} onClick={() => onSelect(post)}>
           <div className="highlight-media"><Media post={post}/><span className="highlight-format">{post.format}</span></div><div className="highlight-top"><DataIcon name={post.platform} badge/><span>{post.platform}</span><span className="highlight-rank">0{index+1}</span></div>
-          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} Â· {post.date.slice(0,10)}</span>
-          <div className="highlight-result"><strong>{postAvailable(post,'views') ? compact(post.views) : 'â€”'}</strong><span>views</span><ArrowUpRight size={18}/></div>
-          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' Â· '+compact(post.saves)+' saves' : ''}</span>
+          <h3>{post.title || 'Published content'}</h3><span className="muted">{post.format} · {post.date.slice(0,10)}</span>
+          <div className="highlight-result"><strong>{postAvailable(post,'views') ? compact(post.views) : '—'}</strong><span>views</span><ArrowUpRight size={18}/></div>
+          <span className="highlight-detail">{postAvailable(post,'shares') ? compact(post.shares)+' shares' : 'View available metrics'}{postAvailable(post,'saves') ? ' · '+compact(post.saves)+' saves' : ''}</span>
         </button>)}</div>
         {!highlights.length && <p className="muted">No social posts have been imported for the current month yet.</p>}
       </section>
@@ -216,12 +216,12 @@ export default function Overview({
                           i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                         ),
                       )
-                  : 'â€”'}
+                  : '—'}
               </strong>
               <span>
                 {i < 3
                   ? c === 'TikTok' && tiktokContent
-                    ? 'Video views Â· lifetime'
+                    ? 'Video views · lifetime'
                     : 'Daily content views'
                   : i === 3
                     ? 'Google Search views'
@@ -236,8 +236,8 @@ export default function Overview({
                           cr,
                           i < 3 ? 'views' : i === 3 ? 'search' : 'sessions',
                         ) >= prior
-                          ? 'â†—'
-                          : 'â†˜'}{' '}
+                          ? '↗'
+                          : '↘'}{' '}
                         {change(
                           total(
                             cr,
@@ -290,7 +290,7 @@ export default function Overview({
             onSelect={onSelect}
           />
           <p className="footnote">
-            Demo media Â· licensed hospitality photographs. These images do not
+            Demo media · licensed hospitality photographs. These images do not
             depict Ysabel Society or its team.
           </p>
         </>
@@ -303,7 +303,7 @@ export default function Overview({
 function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEnabled, setPage }: { rows: Daily[]; tiktokContent: boolean; tiktokViews: number; live: boolean; sceneEnabled: boolean; setPage: (page: string) => void }) {
   const [activeSignal, setActiveSignal] = useState(0);
   useEffect(() => {const timer=setInterval(()=>{if(!document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches)setActiveSignal(i=>(i+1)%3);},5000);return()=>clearInterval(timer);},[]);
-  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'â€”',detail:CHANNELS[idx]+' Â· '+(idx===4?'website visits':'content views')};});
+  const signals = [0,2,4].map((idx,i)=>{const cr=rows.filter(r=>r.channel===CHANNELS[idx]);const key=idx===4?'sessions':'views';return {title:['Momentum','Channel spotlight','Beyond social'][i],value:metricAvailable(cr,key)?compact(total(cr,key)):idx===2&&tiktokContent?compact(tiktokViews):'—',detail:CHANNELS[idx]+' · '+(idx===4?'website visits':'content views')};});
   return (
       <div className="overview-intelligence">
         <section className="intelligence surface">
@@ -343,7 +343,7 @@ function OverviewIntelligence({ rows, tiktokContent, tiktokViews, live, sceneEna
                       ? compact(v)
                       : idx === 2 && tiktokContent
                         ? compact(tiktokViews)
-                        : 'â€”'}
+                        : '—'}
                   </strong>{' '}
                   {idx === 2 && tiktokContent
                     ? 'lifetime views on videos published in this period.'

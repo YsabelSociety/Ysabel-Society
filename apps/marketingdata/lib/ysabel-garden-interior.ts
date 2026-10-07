@@ -27,14 +27,22 @@ export function buildGardenInterior(T: typeof Three) {
   const foliageGeometry = new T.IcosahedronGeometry(1, 1), archGeometry = new T.TorusGeometry(.34, .022, 6, 32, Math.PI);
   type Batch = { geometry: Three.BufferGeometry; material: Three.Material; matrices: Three.Matrix4[] };
   const batches = new Map<string, Batch>(), matrix = new T.Matrix4(), q = new T.Quaternion(), euler = new T.Euler(), pos = new T.Vector3(), scale = new T.Vector3();
+  // Turn the complete bar in place; the floor and other furnishings retain their placement.
+  const barTurn = new T.Matrix4().makeTranslation(0, 0, -3.5)
+    .multiply(new T.Matrix4().makeRotationY(Math.PI))
+    .multiply(new T.Matrix4().makeTranslation(0, 0, 3.5));
+  let placement: Three.Matrix4 | null = null;
   const add = (geometry: Three.BufferGeometry, m: Three.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number, yaw = 0, pitch = 0, roll = 0) => {
     const key = geometry.uuid + m.uuid; if (!batches.has(key)) batches.set(key, { geometry, material: m, matrices: [] });
-    q.setFromEuler(euler.set(pitch, yaw, roll)); matrix.compose(pos.set(x, floorY + y, z), q, scale.set(sx, sy, sz)); batches.get(key)!.matrices.push(matrix.clone());
+    q.setFromEuler(euler.set(pitch, yaw, roll)); matrix.compose(pos.set(x, floorY + y, z), q, scale.set(sx, sy, sz));
+    if (placement) matrix.premultiply(placement);
+    batches.get(key)!.matrices.push(matrix.clone());
   };
   const box = (m: Three.Material, x: number, y: number, z: number, sx: number, sy: number, sz: number, yaw = 0) => add(boxGeometry, m, x, y, z, sx, sy, sz, yaw);
   const round = (m: Three.Material, x: number, y: number, z: number, radius: number, height: number) => add(roundGeometry, m, x, y, z, radius, height, radius);
   box(stone, 0, -.07, -1.7, 8.45, .14, 6.35);
   // Bar: champagne onyx front, brass rails, six arches and mirrored bottle shelves.
+  placement = barTurn;
   for (const y of [.34, .75]) { box(y === .75 ? marble : onyx, 0, y, -3.5, 5.3, y === .75 ? .06 : .68, .6); for (const x of [-2.65, 2.65]) round(y === .75 ? marble : onyx, x, y, -3.5, .3, y === .75 ? .06 : .68); }
   for (const y of [.16, .53]) box(brass, 0, y, -3.19, 5.3, .018, .018);
   const bottleMaterials = ['#435b43', '#967445', '#b1b6a1', '#765847'].map(c => material(c, .23, .2));
@@ -52,6 +60,7 @@ export function buildGardenInterior(T: typeof Three) {
     round(brass, x, .27, -2.83, .025, .5); round(dark, x, .025, -2.83, .16, .025);
     round(velvet, x, .54, -2.83, .17, .1); box(velvet, x, .72, -2.95, .32, .31, .045);
   }
+  placement = null;
   // Cream panelled feature wall and mirrors, with a slim border of trailing greenery.
   box(cream, -3.0, .54, -1.25, .1, 1.05, 2.05);
   for (const z of [-1.85, -.76]) {
@@ -106,7 +115,7 @@ export function buildGardenInterior(T: typeof Three) {
     const mesh = new T.InstancedMesh(batch.geometry, batch.material, batch.matrices.length); batch.matrices.forEach((m, i) => mesh.setMatrixAt(i, m)); mesh.instanceMatrix.needsUpdate = true; group.add(mesh);
   }
   const warmLight = new T.PointLight('#ffead0', 7, 11, 2); warmLight.position.set(0, floorY + 2.0, -1.4); group.add(warmLight);
-  const barLight = new T.PointLight('#ffe0a5', 3, 7, 2); barLight.position.set(0, floorY + 1.1, -3.0); group.add(barLight);
+  const barLight = new T.PointLight('#ffe0a5', 3, 7, 2); barLight.position.set(0, floorY + 1.1, -3.0).applyMatrix4(barTurn); group.add(barLight);
   let lastNight = -1;
   const updateLighting = (night: number) => { if (Math.abs(night - lastNight) < .001) return; warmLight.intensity = 4 + night * 8; barLight.intensity = 1 + night * 4; onyx.emissiveIntensity = .08 + night * .25; glow.emissiveIntensity = .25 + night * .6; lastNight = night; };
   updateLighting(0);

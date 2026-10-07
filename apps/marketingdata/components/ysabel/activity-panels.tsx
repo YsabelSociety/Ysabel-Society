@@ -32,6 +32,7 @@ import { useMinimalMotion } from './use-motion';
 import { activitySeries } from '@/lib/activity-series';
 import { DataIcon } from './data-icons';
 import { SourceBadge } from './source-badge';
+import { GoogleDiscoveryCards } from './google-discovery-cards';
 
 export function ProfileViews({
   rows,
@@ -161,10 +162,10 @@ export function ChannelTimeline({
       <div className="section-head">
         <div>
           <h2>Performance over time</h2>
-          <p>Instagram · Facebook · TikTok · Website</p>
+          <p>Instagram · Facebook · TikTok · Website · Google Search & Maps</p>
         </div>
       </div>
-      <div className="performance-chart-grid">
+      <div className="performance-chart-grid overview-social-chart-grid">
         {SOCIAL_PLATFORMS.map((channel) => (
           <DeferredChart
             key={channel}
@@ -180,6 +181,8 @@ export function ChannelTimeline({
             />
           </DeferredChart>
         ))}
+      </div>
+      <div className="overview-discovery-grid">
         <DailyMetricGraph
           rows={rows}
           channel="Website"
@@ -187,6 +190,7 @@ export function ChannelTimeline({
           label="Website page views"
           color="#bc773c"
         />
+        <GoogleDiscoveryCards rows={rows} range={range} />
       </div>
     </section>
   );

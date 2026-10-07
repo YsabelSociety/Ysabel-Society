@@ -78,7 +78,7 @@ export function PostPerformance({
           <h2>Individual post performance</h2>
           <p>
             Images, carousels, videos and reels · {rows.length.toLocaleString()}{' '}
-            imported posts in the selected dates and content type
+            captured posts in the selected dates and content type
           </p>
         </div>
       </div>
@@ -120,7 +120,7 @@ export function PostPerformance({
         />
       </div>
       <p className="metric-definition">
-        Lifetime totals observed at the last import. Select a post for every
+        Lifetime totals observed at the latest sync or import. Select a post for every
         supplied metric. A dash means unavailable; interactions sum the
         available likes, comments, shares and saves unless the provider supplies
         a total.

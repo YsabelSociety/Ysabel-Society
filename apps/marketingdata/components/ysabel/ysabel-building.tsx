@@ -91,6 +91,7 @@ export function YsabelBuilding() {
         const point = new T.Vector3(), ray = new T.Raycaster(), pointer = new T.Vector2();
         const anchors = venues.map(v => new T.Vector3(4.65, v.y, -.5));
         const labelPositions = new Float32Array(venues.length * 2).fill(-10000);
+        const labelSizes = new Float32Array(venues.length * 2);
         const canDraw = () => !disposed && !lost && visible && !document.hidden && performance.now() >= scrollUntil;
         const motion = () => !state.current.paused && !reduced.matches && !coarse.matches && !dragging && !currentRoof;
         const stop = () => { cancelAnimationFrame(frame); frame = 0; last = 0; controls.autoRotate = false; };
@@ -100,7 +101,9 @@ export function YsabelBuilding() {
           anchors.forEach((anchor, i) => {
             const label = labelRefs.current[i]; if (!label) return;
             point.copy(anchor); point.y += groups.get(venues[i].id)!.position.y; point.project(camera);
-            const x = (point.x + 1) / 2 * bounds.width, y = (1 - point.y) / 2 * bounds.height;
+            if (!labelSizes[i * 2]) { labelSizes[i * 2] = label.offsetWidth; labelSizes[i * 2 + 1] = label.offsetHeight; }
+            const x = Math.max(16, Math.min(bounds.width - labelSizes[i * 2] - 8, (point.x + 1) / 2 * bounds.width));
+            const y = Math.max(8, Math.min(bounds.height - labelSizes[i * 2 + 1] - 8, (1 - point.y) / 2 * bounds.height));
             if (Math.abs(labelPositions[i * 2] - x) > .2 || Math.abs(labelPositions[i * 2 + 1] - y) > .2) {
               label.style.transform = `translate3d(${x}px,${y}px,0)`;
               labelPositions[i * 2] = x; labelPositions[i * 2 + 1] = y;
@@ -141,6 +144,7 @@ export function YsabelBuilding() {
         const update = () => { appearanceUntil = performance.now() + 420; schedule(); };
         const resize = () => {
           bounds = el.getBoundingClientRect();
+          labelSizes.fill(0);
           if (!bounds.width || !bounds.height) return;
           renderer.setPixelRatio(canvasPixelRatio(bounds.width, bounds.height, devicePixelRatio, coarse.matches));
           renderer.setSize(bounds.width, bounds.height);

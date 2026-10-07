@@ -1,5 +1,4 @@
 import type * as Three from 'three';
-import { createYsabelDining } from './ysabel-dining';
 // Original Maison Ysabel geometry with physically lit architectural materials.
 const centerColors = { garden: { accent: '#8bb5a4' }, asian: { accent: '#d89695' }, italian: { accent: '#dec586' } };
 
@@ -28,7 +27,6 @@ export function buildYsabelArchitecture(T:typeof Three){
  const paneTexture=new T.CanvasTexture(paneCanvas);paneTexture.colorSpace=T.SRGBColorSpace;paneTexture.anisotropy=4;textures.push(paneTexture);
  const glazing=(color:string,warm=false)=>{const m=new T.MeshPhysicalMaterial({color,map:paneTexture,metalness:.28,roughness:.2,clearcoat:.9,clearcoatRoughness:.13,envMapIntensity:1.35});m.userData={zone:'base',base:new T.Color(color),nightWindow:warm};if(warm){m.emissive.set('#dfb675');m.emissiveIntensity=.1;}materials.push(m);return m;};
  const glass=glazing('#b7cbd2'),warmGlass=glazing('#e1d5b8',true);
- const restaurantWindows=new Map(Object.keys(palette).map(id=>{const m=glazing('#b7cbd2');m.userData.zone=id;m.userData.venueWindow=true;m.emissive.set('#ffe2b6');return [id,m] as const;}));
  const silver=mat('#b8c0bb',.85,.24),soil=mat('#50574c',.05,.85),leaf=mat('#486142',.02,.94),trunk=mat('#6b5f50');
  const zoneStone=new Map(Object.entries(palette).map(([id,c])=>{const m=mat(new T.Color(c).multiplyScalar(.74).getStyle(),.12,.68,id);m.bumpMap=stoneTexture;m.bumpScale=.012;return [id,m] as const;}));
  const boxGeometry=new T.BoxGeometry(1,1,1);
@@ -39,20 +37,17 @@ export function buildYsabelArchitecture(T:typeof Three){
  function zoneAt(y:number){return y>=27.6?'garden':y>=25.4?'asian':y>=23.2?'italian':'base';}
  // Tall primary volume, attached stepped wing, and continuous entrance podium.
  box(9.9,2.9,15.3,0,1.55,2,stone);box(10.6,.24,16,0,.12,2,slab);
- for(const [lo,hi,id] of [[3,23.2,'base'],[23.2,25.4,'italian'],[25.4,27.6,'asian']] as const){
-  // Leave an interior bay behind the curved glass, retaining the original colored side walls.
-  box(8.8,hi-lo,id==='base'?6.6:5.6,0,(lo+hi)/2,id==='base'?-1.7:-2.2,id==='base'?stone:zoneStone.get(id)!,id);
-  if(id!=='base')for(const side of [-1,1])box(.12,hi-lo,1,side*4.34,(lo+hi)/2,1.1,zoneStone.get(id)!,id);
- }
+ for(const [lo,hi,id] of [[3,23.2,'base'],[23.2,25.4,'italian'],[25.4,27.6,'asian']] as const)
+  box(8.8,hi-lo,6.6,0,(lo+hi)/2,-1.7,id==='base'?stone:zoneStone.get(id)!,id);
  box(8.8,17.7,7.4,0,11.85,5.3,stone);
  // Instanced glazing and stone ribs keep the complete facade inexpensive to draw.
  for(let floor=0;floor<21;floor++){
   const y=3.48+floor*1.12,id=zoneAt(y),facade=id==='base'?stone:zoneStone.get(id)!;
   for(let col=0;col<6;col++){
-   const z=-4.48+col*1.06,m=id==='base'?((floor*7+col*13)%19===0?warmGlass:glass):restaurantWindows.get(id)!;
+   const z=-4.48+col*1.06,m=(floor*7+col*13)%19===0?warmGlass:glass;
    for(const side of [-1,1]){box(.045,.81,.61,side*4.415,y,z,m,id);box(.07,.055,.64,side*4.445,y-.41,z,edge,id);}
   }
-  for(let col=0;col<8;col++){const x=-3.84+col*1.1;box(.61,.81,.045,x,y,-5.02,id==='base'?((floor+col*3)%23===0?warmGlass:glass):restaurantWindows.get(id)!,id);}
+  for(let col=0;col<8;col++){const x=-3.84+col*1.1;box(.61,.81,.045,x,y,-5.02,(floor+col*3)%23===0?warmGlass:glass,id);}
   // Occasional deeper horizontal stone bands, as in the supplied elevations.
   if(floor%4===0)box(8.9,.12,6.7,0,y-.52,-1.7,facade,id);
  }
@@ -121,7 +116,7 @@ export function buildYsabelArchitecture(T:typeof Three){
   for(let i=0;i<data.position.length;i+=9){va.fromArray(data.position,i);vb.fromArray(data.position,i+3);vc.fromArray(data.position,i+6);const normal=vb.sub(va).cross(vc.sub(va));for(let j=0;j<9;j+=3){const key=vertexKey(data.position[i+j],data.position[i+j+1],data.position[i+j+2]);normalKeys.push(key);if(!normalSums.has(key))normalSums.set(key,new T.Vector3());normalSums.get(key)!.add(normal);}}
   normalSums.forEach(n=>n.normalize());geometry.setAttribute('normal',new T.Float32BufferAttribute(normalKeys.flatMap(key=>normalSums.get(key)!.toArray()),3));
   const color=id==='base'?'#9cb6bd':new T.Color('#c2d0ce').lerp(new T.Color(palette[id]),.36).getStyle();
-  const m=new T.MeshPhysicalMaterial({color,vertexColors:true,metalness:.32,roughness:.19,clearcoat:.95,clearcoatRoughness:.12,side:T.DoubleSide,envMapIntensity:1.3});m.userData={zone:id,base:new T.Color(color),restaurantGlass:id!=='base'};if(id!=='base'){m.transparent=true;m.opacity=.94;m.depthWrite=false;m.forceSinglePass=true;m.emissive.set('#d7ae7a');}materials.push(m);
+  const m=new T.MeshPhysicalMaterial({color,vertexColors:true,metalness:.32,roughness:.19,clearcoat:.95,clearcoatRoughness:.12,side:T.DoubleSide,envMapIntensity:1.3});m.userData={zone:id,base:new T.Color(color)};materials.push(m);
   const mesh=new T.Mesh(geometry,m);mesh.userData.zone=id;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(id)!.add(mesh);picks.push(mesh);
   // Actual slender metal mullions catch highlights, replacing the heavy dark wireframe.
   const edges=new Map<string,number[]>();for(let i=0;i<data.lines.length;i+=6){const a=data.lines.slice(i,i+3),b=data.lines.slice(i+3,i+6),ka=vertexKey(...a as [number,number,number]),kb=vertexKey(...b as [number,number,number]);if(ka!==kb)edges.set([ka,kb].sort().join('|'),[...a,...b]);}
@@ -147,6 +142,5 @@ export function buildYsabelArchitecture(T:typeof Three){
   const mesh=new T.InstancedMesh(boxGeometry,m,values.length),matrix=new T.Matrix4();
   values.forEach(([w,h,d,x,y,z],i)=>{matrix.makeScale(w,h,d);matrix.setPosition(x,y,z);mesh.setMatrixAt(i,matrix);});mesh.instanceMatrix.needsUpdate=true;mesh.userData.zone=zone;mesh.castShadow=true;mesh.receiveShadow=true;groups.get(zone)!.add(mesh);picks.push(mesh);
  }
- const dining=createYsabelDining(T,groups);
- return {groups,materials,textures,picks,dining};
+ return {groups,materials,textures,picks};
 }

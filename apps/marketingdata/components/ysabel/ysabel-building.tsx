@@ -110,11 +110,9 @@ export function YsabelBuilding() {
         key.shadow.camera.near = 1; key.shadow.camera.far = 85; key.shadow.intensity = .5;
         scene.add(key, key.target);
         const rim = new T.DirectionalLight('#c4dce9', 1.1); rim.position.set(18, 27, -20); scene.add(rim);
-        const { groups, materials, textures, picks, dining } = buildYsabelArchitecture(T);
+        const { groups, materials, textures, picks } = buildYsabelArchitecture(T);
         groups.forEach(group => scene.add(group));
         const nightWindows = materials.filter(m => m.userData.nightWindow);
-        const restaurantWindows = materials.filter(m => m.userData.venueWindow);
-        const restaurantGlass = materials.filter(m => m.userData.restaurantGlass);
         const terraceLight = new T.PointLight('#ffe5b7', 0, 13, 2); terraceLight.position.set(0, 22, 6); scene.add(terraceLight);
         const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = shadowCanvas.height = 128;
         const ctx = shadowCanvas.getContext('2d')!;
@@ -133,7 +131,7 @@ export function YsabelBuilding() {
         let frame = 0, lost = false, dragging = false, last = 0, appearanceUntil = 0, scrollUntil = 0, scrollTimer = 0;
         let bounds = el.getBoundingClientRect();
         let solar = getPrishtinaDaylight(new Date()), solarSampleAt = 0, skyPaintAt = 0, shadowAt = 0;
-        let previewWasOn = false, previewSeconds = 0, lightingSettled = false, ambienceSeconds = 0;
+        let previewWasOn = false, previewSeconds = 0, lightingSettled = false;
         const light = { day: solar.daylight, gold: solar.golden, night: solar.night, progress: solar.progress, altitude: solar.altitude, sunY: solar.sunY };
         const colors = {
           coolSun: new T.Color('#c3d8ed'), daySun: new T.Color('#fff4e0'), goldSun: new T.Color('#ffcd96'),
@@ -164,7 +162,7 @@ export function YsabelBuilding() {
           light.altitude = T.MathUtils.lerp(light.altitude, solar.altitude, ease);
           light.sunY = T.MathUtils.lerp(light.sunY, solar.sunY, ease);
           lightingSettled = Math.abs(light.day - solar.daylight) + Math.abs(light.gold - solar.golden) + Math.abs(light.night - solar.night) + Math.abs(light.progress - solar.progress) < .002;
-          // Material base colors stay untouched: illumination, reflections and interior light change.
+          // Material base colors stay untouched: illumination, reflections and window light change.
           ambient.color.copy(colors.nightAmbient).lerp(colors.dayAmbient, light.day);
           ambient.intensity = .65 + light.day * .7;
           key.color.copy(colors.coolSun).lerp(colors.daySun, light.day).lerp(colors.goldSun, light.gold * .65);
@@ -174,8 +172,6 @@ export function YsabelBuilding() {
           renderer.toneMappingExposure = .96 + light.day * .09;
           terraceLight.intensity = light.night * 16;
           nightWindows.forEach(m => { m.emissiveIntensity = .08 + light.night * .9; });
-          restaurantWindows.forEach(m => { m.emissiveIntensity = .025 + light.night * .42; });
-          restaurantGlass.forEach(m => { m.opacity = .94 - light.night * .68; m.emissiveIntensity = light.night * .075; });
           const angle = Math.PI * light.progress;
           lightDirection.set(Math.cos(angle) * 34, 8 + Math.max(0, Math.sin(light.altitude * Math.PI / 180)) * 48, 24);
           key.position.copy(key.target.position).add(lightDirection);
@@ -229,8 +225,6 @@ export function YsabelBuilding() {
           const delta = last ? Math.min(.1, (now - last) / 1000) : 0;
           last = now;
           paintLighting(now, delta);
-          if (motion()) ambienceSeconds += delta;
-          dining.update(ambienceSeconds, light.night, motion(), state.current.selected);
           const changing = appearanceUntil > now;
           const finish = reduced.matches || !changing;
           if (appearanceUntil) {
@@ -348,12 +342,12 @@ export function YsabelBuilding() {
     <div className={styles.buildingHeading}><span>MAISON YSABEL</span><span><Maximize2 size={12}/> 360°</span></div>
     <PrishtinaClock/>
     <div className={styles.viewport} ref={stage} data-night={initialLight.night > .5} style={{ '--sky-top': initialSky.top, '--sky-horizon': initialSky.horizon, '--sun-x': `${initialLight.sunX}%`, '--sun-y': `${initialLight.sunY}%`, '--sun-opacity': initialLight.sunOpacity, '--night': initialLight.night } as React.CSSProperties}>
-      <div className={styles.citySky} aria-hidden="true"><div className={styles.stars}/><div className={styles.sun}/><div className={styles.horizon}/></div>
+      <div className={styles.citySky} aria-hidden="true"><div className={styles.stars}/><div className={styles.sun}/><div className={styles.moon}/><div className={styles.horizon}/></div>
       <div className={styles.daylightStatus}><span ref={phaseLabel}>{initialLight.phase} · local light</span><span ref={sunTimes}>Sunrise {initialLight.sunriseLabel} · Sunset {initialLight.sunsetLabel}</span></div>
       <img className={styles.buildingPoster} src="/marketingdata-ui/ysabel-building.webp" alt="Ysabel’s glass-fronted tower with its curved rooftop and terrace" hidden={ready && !failure}/>
-      <div ref={host} className={styles.canvas} role="img" aria-label="Interactive original Ysabel building. Garden on the rooftop, Asian in the middle, Italian below, with illustrated dining ambience at night. Drag to rotate, or use the venue buttons." style={{ visibility: failure ? 'hidden' : 'visible' }}/>
+      <div ref={host} className={styles.canvas} role="img" aria-label="Interactive original Ysabel building. Garden on the rooftop, Asian in the middle, Italian below. The sky follows Prishtina daylight with a moon at night. Drag to rotate, or use the venue buttons." style={{ visibility: failure ? 'hidden' : 'visible' }}/>
       {ready && !failure && <div className={styles.floorLabels} aria-hidden="true">{venues.map((venue, i) => <span key={venue.id} ref={el => { labelRefs.current[i] = el; }} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name}</span>)}</div>}
-      <div className={styles.buildingCaption}><span>{failure ? 'Architecture preview' : 'The house of Ysabel'}</span><small>{failure ? 'Explore the analytics alongside' : 'Drag to explore · illustrated dining ambience'}</small></div>
+      <div className={styles.buildingCaption}><span>{failure ? 'Architecture preview' : 'The house of Ysabel'}</span><small>{failure ? 'Explore the analytics alongside' : 'Drag to explore · select a floor'}</small></div>
       <div className={styles.zoom}><button type="button" aria-label="Zoom in on building" disabled={!ready || failure} onClick={() => runtime.current?.zoom(1.15)}><Plus size={15}/></button><button type="button" aria-label="Zoom out of building" disabled={!ready || failure} onClick={() => runtime.current?.zoom(1 / 1.15)}><Minus size={15}/></button></div>
     </div>
     <div className={styles.venues} aria-label="Building venues">{venues.map(venue => <button type="button" key={venue.id} aria-pressed={selected === venue.id} onClick={() => setSelected(selected === venue.id ? 'all' : venue.id)} style={{ '--venue': venue.color } as React.CSSProperties}><i/>{venue.name.replace('Ysabel ', '')}</button>)}</div>

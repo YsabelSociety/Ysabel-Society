@@ -39,7 +39,7 @@ export function TikTokStudioImport() {
       <p>
         Choose the same period in Overview, Viewers and Followers. Download CSV,
         extract the ZIP files and select their CSV files together. Set the exact
-        export dates below; month/day dates need the correct year. Reimports
+        dates from the CSV below; TikTok’s download can use different dates from its screen. Month/day dates need the correct year. Reimports
         update matching dates and retain the automatic connection. A separate Profile Views or Profile Visits daily CSV is also supported.
       </p>
       <div className="custom-dates">

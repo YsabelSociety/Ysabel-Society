@@ -39,6 +39,7 @@ import {
   seriesTotal,
   dailyValue,
   profileViewCoverage,
+  dailyMetricCoverage,
   metricBasis,
   metricExplanation,
   selectContent,
@@ -153,6 +154,7 @@ export function MetricCard({
   const any = summaries.some(
     (s) => s.value !== null && !hidden.includes(s.channel),
   );
+  const tiktokActivity = !content && !countMetric && metric !== 'followers' && metric !== 'profileViews' && channels.includes('TikTok') ? dailyMetricCoverage(rows, 'TikTok', metric, range) : null;
   const tiktokProfile = metric === 'profileViews' && channels.includes('TikTok') ? profileViewCoverage(rows, 'TikTok', range) : null;
   const known = summaries.filter((s) => s.value !== null),
     sum = known.reduce((n, s) => n + s.value!, 0);
@@ -177,9 +179,9 @@ export function MetricCard({
             {metric === 'followers'
               ? 'Latest recorded count'
               : countMetric
-                ? 'Imported publication count'
+                ? 'Published content count'
                 : content
-                  ? 'Imported content · lifetime totals'
+                  ? 'Published content · lifetime totals'
                   : 'Reported daily activity'}
             {known.length > 0 && known.length < channels.length
               ? ' · partial platform coverage'
@@ -392,6 +394,9 @@ export function MetricCard({
           </div>
         )}
       </div>
+      {tiktokActivity?.days ? <p className="metric-definition" role="status">
+        TikTok: {tiktokActivity.days} reported day{tiktokActivity.days === 1 ? '' : 's'} in these dates · latest available {tiktokActivity.rows.map(row => row.date).sort().at(-1)}. Missing days remain blank.
+      </p> : null}
       {tiktokProfile && <p className="metric-definition" role="status">
         {tiktokProfile.days
           ? 'TikTok profile visits: ' + tiktokProfile.days + ' reported day' + (tiktokProfile.days === 1 ? '' : 's') + ' in these dates. Missing days remain blank.'
@@ -678,8 +683,8 @@ export const SocialPerformance = memo(function SocialPerformance({
       <p className="performance-scope">
         {basis === 'Published content'
           ? 'Published content compares the lifetime performance of posts published in these dates. This lets Instagram, Facebook and TikTok share the same measurement basis.'
-          : 'Daily activity uses imported reports for each date. Missing observations remain gaps in the charts.'}{' '}
-        {selectedPosts.length} imported content items match the content filter.
+          : 'Daily activity uses source reports for each date. Missing observations remain gaps in the charts.'}{' '}
+        {selectedPosts.length} captured content items match the content filter.
         Followers and users keep their own daily observation basis.
       </p>
       <div className="stat-row performance-totals" aria-busy={loading}>
@@ -700,7 +705,7 @@ export const SocialPerformance = memo(function SocialPerformance({
               {s.metric === 'followers'
                 ? 'Latest recorded snapshot'
                 : metricBasis(s.metric, basis) === 'Published content'
-                  ? 'Lifetime · imported content'
+                  ? 'Lifetime · published content'
                   : 'Daily activity'}
               {s.partial ? ' · partial coverage' : ''}
             </small>

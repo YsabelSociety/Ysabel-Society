@@ -227,10 +227,10 @@ export function metricExplanation(
   if (metric === 'users')
     return 'Provider-reported daily users or unique media viewers. Repeat viewers across dates are not deduplicated. Reach is not substituted for users.';
   if (['posts', 'stories', 'reels', 'videos'].includes(metric))
-    return 'Counts of imported published content, grouped by publication date. Expired or unimported stories are not included. Posts exclude stories; reels and videos are subsets of posts.';
+    return 'Counts of captured published content, grouped by publication date. Expired or unimported stories are not included. Posts exclude stories; reels and videos are subsets of posts.';
   if (metricBasis(metric, basis) === 'Published content')
     return (
-      'Lifetime totals on imported content published in the selected dates, grouped by publication date. These are not activity totals for that day.' +
+      'Lifetime totals on content published in the selected dates, grouped by publication date. These are not activity totals for that day.' +
       (metric === 'reach'
         ? ' Reach is summed across posts and is not a deduplicated audience.'
         : metric === 'engagements'
@@ -301,13 +301,17 @@ export function genderDistribution(
   });
 }
 
-export function profileViewCoverage(rows: Daily[], channel: string, range?: Range) {
-  const known = rows.filter(r => r.channel === channel && dailyValue(r, 'profileViews') !== null);
+export function dailyMetricCoverage(rows: Daily[], channel: string, metric: SocialMetric, range?: Range) {
+  const known = rows.filter(r => r.channel === channel && dailyValue(r, metric) !== null);
   const selected = range ? known.filter(r => r.date >= range.start && r.date <= range.end) : known;
   return {
     rows: selected,
     days: selected.length,
     latest: known.map(r => r.date).sort().at(-1) || null,
-    total: selected.length ? selected.reduce((n, r) => n + dailyValue(r, 'profileViews')!, 0) : null,
+    total: selected.length ? selected.reduce((n, r) => n + dailyValue(r, metric)!, 0) : null,
   };
+}
+
+export function profileViewCoverage(rows: Daily[], channel: string, range?: Range) {
+  return dailyMetricCoverage(rows, channel, 'profileViews', range);
 }

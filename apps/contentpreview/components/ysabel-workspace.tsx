@@ -39,6 +39,7 @@ import EmailMarketing from '@/components/email-marketing';
 import ErezaPlanning from '@/components/ereza-planning';
 import UploadStatus, { UploadBadge, UploadRetry } from '@/components/upload-status';
 import MediaFileDrop from '@/components/media-file-drop';
+import SlideSequence from '@/components/slide-sequence';
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
@@ -961,84 +962,40 @@ function GridPreview(props: FeedGridProps) {
   return <div className="grid-only"><div className="grid-only-title"><span>September direction</span><small>3 columns · {FEED_SIZE} positions</small></div><FeedGrid {...props} scale="large" /></div>;
 }
 
-function CarouselEditor({ asset, assets, onChange, onAddSlides }: {
+function CarouselEditor({ asset, assets, onChange, onAddSlides, selectedId, onSelect }: {
   asset: Asset; assets: Asset[]; onChange: (asset: Asset) => void; onAddSlides: () => void;
+  selectedId: string; onSelect: (id: string) => void;
 }) {
   const slideIds = asset.slides || [];
-  const slideAssets = slideIds.map((id) => assets.find((item) => item.id === id)).filter(Boolean) as Asset[];
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dropIndex, setDropIndex] = useState<number | null>(null);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [librarySelection, setLibrarySelection] = useState<string[]>([]);
-  const pointer = useRef<{ pointerId: number; index: number; startX: number; startY: number; active: boolean } | null>(null);
   const remainingCapacity = Math.max(0, 39 - slideIds.length);
-  const availableLibraryAssets = assets.filter((item) => item.id !== asset.id && !slideIds.includes(item.id) && !item.archived);
-
-  const reorder = (from: number, to: number) => {
-    if (from === to || from < 0 || to < 0 || from >= slideIds.length || to >= slideIds.length) return;
-    const next = [...slideIds];
-    const [moved] = next.splice(from, 1);
-    next.splice(to, 0, moved);
-    onChange({ ...asset, format: 'Carousel', slides: next });
-  };
-
+  const byId = new Map(assets.map(item => [item.id, item]));
+  const availableLibraryAssets = assets.filter(item => item.id !== asset.id && !slideIds.includes(item.id) && !item.archived);
   const toggleLibraryAsset = (id: string) => {
-    setLibrarySelection((current) => current.includes(id)
-      ? current.filter((item) => item !== id)
+    setLibrarySelection(current => current.includes(id) ? current.filter(item => item !== id)
       : current.length < remainingCapacity ? [...current, id] : current);
   };
-
   const addLibrarySlides = () => {
     if (!librarySelection.length) return;
     onChange({ ...asset, format: 'Carousel', slides: [...slideIds, ...librarySelection].slice(0, 39) });
     setLibrarySelection([]); setLibraryOpen(false);
   };
-
-  useEffect(() => {
-    const targetAt = (x: number, y: number) => {
-      const element = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-carousel-slide-index]');
-      return element ? Number(element.dataset.carouselSlideIndex) : null;
-    };
-    const move = (event: PointerEvent) => {
-      const current = pointer.current;
-      if (!current || current.pointerId !== event.pointerId) return;
-      if (!current.active && Math.hypot(event.clientX - current.startX, event.clientY - current.startY) < 7) return;
-      current.active = true; event.preventDefault(); setDragIndex(current.index); setDropIndex(targetAt(event.clientX, event.clientY));
-    };
-    const end = (event: PointerEvent) => {
-      const current = pointer.current;
-      if (!current || current.pointerId !== event.pointerId) return;
-      const target = targetAt(event.clientX, event.clientY);
-      if (current.active && target !== null) reorder(current.index, target);
-      pointer.current = null; setDragIndex(null); setDropIndex(null);
-    };
-    window.addEventListener('pointermove', move, { passive: false });
-    window.addEventListener('pointerup', end);
-    window.addEventListener('pointercancel', end);
-    return () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end); };
-  }, [slideIds, asset]);
-
   return <div className="carousel-editor">
-    <div className="carousel-editor-heading"><span>Slides</span><strong>{1 + slideIds.length} / 40</strong></div>
-    <div className="carousel-editor-strip">
-      <span className="carousel-editor-cover" title="Cover image"><AssetVisual asset={asset} /><i>01 · Cover</i></span>
-      {slideAssets.map((slide, index) => <span
-        key={slide.id + '-' + index} draggable data-carousel-slide-index={index}
-        className={'carousel-editor-slide ' + (dragIndex === index ? 'dragging ' : '') + (dropIndex === index ? 'drop-target' : '')}
-        title="Drag to change the slide order"
-        onDragStart={() => { setDragIndex(index); setDropIndex(index); }}
-        onDragOver={(event) => { event.preventDefault(); setDropIndex(index); }}
-        onDrop={(event) => { event.preventDefault(); if (dragIndex !== null) reorder(dragIndex, index); setDragIndex(null); setDropIndex(null); }}
-        onDragEnd={() => { setDragIndex(null); setDropIndex(null); }}
-        onPointerDown={(event) => { if (event.pointerType === 'mouse' || (event.target as HTMLElement).closest('button')) return; pointer.current = { pointerId: event.pointerId, index, startX: event.clientX, startY: event.clientY, active: false }; }}
-      ><AssetVisual asset={slide} /><i>{String(index + 2).padStart(2, '0')}</i><button type="button" aria-label={'Remove ' + slide.name + ' from carousel'} onClick={() => onChange({ ...asset, slides: slideIds.filter((_, itemIndex) => itemIndex !== index) })}><X /></button></span>)}
-      {slideIds.length < 39 && <button type="button" className="carousel-add-tile" onClick={() => { setLibrarySelection([]); setLibraryOpen(true); }}><Images /><span>Library</span></button>}
+    <div className="carousel-editor-heading">
+      <div><span className="panel-kicker">The sequence</span><h3>Your post, slide by slide <small>{1 + slideIds.length} / 40</small></h3></div>
+      <div className="carousel-add-actions">
+        <Button type="button" variant="outline" onClick={() => { setLibrarySelection([]); setLibraryOpen(true); }} disabled={!remainingCapacity}><Images />Media Library</Button>
+        <Button type="button" variant="outline" onClick={onAddSlides} disabled={!remainingCapacity}><Upload />Upload files</Button>
+      </div>
     </div>
-    <div className="carousel-add-actions">
-      <Button type="button" variant="outline" onClick={() => { setLibrarySelection([]); setLibraryOpen(true); }} disabled={slideIds.length >= 39}><Images />Media Library</Button>
-      <Button type="button" variant="outline" onClick={onAddSlides} disabled={slideIds.length >= 39}><Upload />Upload files</Button>
-    </div>
-    <p>Select several library assets or upload several files together. They become slides in this post in one action.</p>
+    <SlideSequence
+      items={[{ id: asset.id, name: asset.name }, ...slideIds.map(id => ({ id, name: byId.get(id)?.name || 'Media unavailable' }))]}
+      selectedId={selectedId} onSelect={onSelect}
+      onReorder={ids => onChange({ ...asset, format: 'Carousel', slides: ids.slice(1) })}
+      onRemove={id => onChange({ ...asset, slides: slideIds.filter(slideId => slideId !== id) })}
+      renderMedia={id => { const slide = id === asset.id ? asset : byId.get(id); return slide ? <AssetVisual asset={slide} defer /> : <span>Media unavailable</span>; }}
+    />
     <Dialog open={libraryOpen} onOpenChange={(open) => { setLibraryOpen(open); if (!open) setLibrarySelection([]); }}>
       <DialogContent className="carousel-library-dialog">
         <DialogHeader><DialogTitle>Add slides from Media Library</DialogTitle><DialogDescription>Select multiple existing assets, then add them together to this post.</DialogDescription></DialogHeader>
@@ -1056,46 +1013,68 @@ function CarouselEditor({ asset, assets, onChange, onAddSlides }: {
   </div>;
 }
 
-function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplicate, onReplace, onAddSlides }: {
+export function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplicate, onReplace, onAddSlides }: {
   asset: Asset | null; assets: Asset[]; onChange: (asset: Asset) => void; onClose: () => void; onRemove: () => void;
   onDuplicate: () => void; onReplace: () => void; onAddSlides: () => void;
 }) {
+  const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
+  useEffect(() => { setSelectedSlideId(null); }, [asset?.id]);
   if (!asset) return null;
+  const sequence = [asset, ...(asset.slides || []).map(id => assets.find(item => item.id === id)).filter(Boolean) as Asset[]];
+  const selectedSlide = sequence.find(item => item.id === selectedSlideId) || asset;
+  const selectedIndex = sequence.indexOf(selectedSlide);
   const update = (field: keyof Asset, value: Asset[keyof Asset]) => onChange({ ...asset, [field]: value });
+  const crop = (field: keyof Asset, value: number) => onChange({ ...selectedSlide, [field]: value });
   return (
-    <Sheet open={Boolean(asset)} onOpenChange={(open) => !open && onClose()}>
+    <Sheet open={Boolean(asset)} onOpenChange={open => !open && onClose()}>
       <SheetContent className="inspector-sheet" showCloseButton>
         <SheetHeader className="inspector-header">
-          <p className="panel-kicker">Content details</p><SheetTitle>{asset.name}</SheetTitle>
-          <SheetDescription>{asset.fileName} · {asset.fileSize ? Math.max(0.1, asset.fileSize / 1024 / 1024).toFixed(1) + ' MB' : 'Seed media'}</SheetDescription>
+          <p className="panel-kicker">Post studio</p><SheetTitle>{asset.name}</SheetTitle>
+          <SheetDescription>Arrange your story. Select a slide to see it larger. Changes save automatically.</SheetDescription>
         </SheetHeader>
         <div className="inspector-scroll">
-          <div className="inspector-preview"><CarouselVisual key={asset.id} asset={asset} assets={assets} contain /></div>
-          <label>Internal content name<Input value={asset.name} onChange={(e) => update('name', e.target.value)} /></label>
-          <div className="inspector-two">
-            <label>Format<Select value={asset.format} onValueChange={(value) => update('format', String(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{formats.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
-            <label>Category<Select value={asset.category} onValueChange={(value) => update('category', String(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categories.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
+          <CarouselEditor key={asset.id} asset={asset} assets={assets} onChange={onChange} onAddSlides={onAddSlides} selectedId={selectedSlide.id} onSelect={setSelectedSlideId} />
+          <div className="inspector-layout">
+            <section className="inspector-stage" aria-label="Selected slide preview">
+              <div className="inspector-preview-meta"><span>Slide {String(selectedIndex + 1).padStart(2, '0')} <small>/ {sequence.length}</small></span><div><Button variant="ghost" size="icon-sm" aria-label="Preview previous slide" disabled={selectedIndex === 0} onClick={() => setSelectedSlideId(sequence[selectedIndex - 1].id)}><ChevronLeft /></Button><Button variant="ghost" size="icon-sm" aria-label="Preview next slide" disabled={selectedIndex === sequence.length - 1} onClick={() => setSelectedSlideId(sequence[selectedIndex + 1].id)}><ChevronRight /></Button></div></div>
+              <div className="inspector-preview"><AssetVisual key={selectedSlide.id} asset={selectedSlide} contain playback={selectedSlideId ? 'active' : 'manual'} /></div>
+              <p className="inspector-file-info">{selectedSlide.fileName} · {selectedSlide.fileSize ? Math.max(0.1, selectedSlide.fileSize / 1024 / 1024).toFixed(1) + ' MB' : 'Preview'}</p>
+              <details className="inspector-optional inspector-framing" key={selectedSlide.id}>
+                <summary><SlidersHorizontal />Adjust this slide’s framing<ChevronDown /></summary>
+                <div className="crop-section">
+                  <div className="crop-heading"><span>Framing</span><button onClick={() => onChange({ ...selectedSlide, cropZoom: 100, cropX: 50, cropY: 50 })}><RotateCcw />Reset</button></div>
+                  <label>Zoom <strong>{selectedSlide.cropZoom}%</strong><Slider min={100} max={180} value={[selectedSlide.cropZoom]} onValueChange={value => crop('cropZoom', Number(Array.isArray(value) ? value[0] : value))} /></label>
+                  <label>Horizontal <strong>{selectedSlide.cropX}</strong><Slider min={0} max={100} value={[selectedSlide.cropX]} onValueChange={value => crop('cropX', Number(Array.isArray(value) ? value[0] : value))} /></label>
+                  <label>Vertical <strong>{selectedSlide.cropY}</strong><Slider min={0} max={100} value={[selectedSlide.cropY]} onValueChange={value => crop('cropY', Number(Array.isArray(value) ? value[0] : value))} /></label>
+                </div>
+              </details>
+            </section>
+            <section className="inspector-details" aria-label="Post details">
+              <div className="inspector-section-title"><span className="panel-kicker">The details</span><h3>Words & direction</h3></div>
+              <label>Internal content name<Input value={asset.name} onChange={e => update('name', e.target.value)} /></label>
+              <div className="inspector-two">
+                <label>Format<Select value={asset.format} onValueChange={value => update('format', String(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{formats.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
+                <label>Category<Select value={asset.category} onValueChange={value => update('category', String(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{categories.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
+              </div>
+              <label>Caption<Textarea value={asset.caption} onChange={e => update('caption', e.target.value)} placeholder="Write the future caption…" /></label>
+              <details className="inspector-optional">
+                <summary><NotebookPen />Scheduling & internal notes<ChevronDown /></summary>
+                <div className="inspector-optional-body">
+                  <div className="inspector-two">
+                    <label>Status<Select value={asset.status} onValueChange={value => update('status', String(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{statuses.map(x => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
+                    <label>Planned date<Input type="date" value={asset.plannedDate || ''} onChange={e => update('plannedDate', e.target.value)} /></label>
+                  </div>
+                  <label>Internal notes<Textarea value={asset.notes} onChange={e => update('notes', e.target.value)} placeholder="Art direction notes…" /></label>
+                </div>
+              </details>
+              <div className="inspector-actions"><Button variant="outline" onClick={onReplace}><Upload />Replace cover</Button><Button variant="outline" onClick={onDuplicate}><Copy />Duplicate post</Button><Button variant="ghost" onClick={onRemove}><Trash2 />Remove from feed</Button></div>
+            </section>
           </div>
-          <div className="inspector-two">
-            <label>Status<Select value={asset.status} onValueChange={(value) => update('status', String(value))}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{statuses.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
-            <label>Planned date<Input type="date" value={asset.plannedDate || ''} onChange={(e) => update('plannedDate', e.target.value)} /></label>
-          </div>
-          <CarouselEditor asset={asset} assets={assets} onChange={onChange} onAddSlides={onAddSlides} />
-          <label>Caption<Textarea value={asset.caption} onChange={(e) => update('caption', e.target.value)} placeholder="Write the future caption…" /></label>
-          <label>Internal notes<Textarea value={asset.notes} onChange={(e) => update('notes', e.target.value)} placeholder="Art direction notes…" /></label>
-          <div className="crop-section">
-            <div className="crop-heading"><span>Framing</span><button onClick={() => onChange({ ...asset, cropZoom: 100, cropX: 50, cropY: 50 })}><RotateCcw />Reset</button></div>
-            <label>Zoom <strong>{asset.cropZoom}%</strong><Slider min={100} max={180} value={[asset.cropZoom]} onValueChange={(value) => update('cropZoom', Number(Array.isArray(value) ? value[0] : value))} /></label>
-            <label>Horizontal <strong>{asset.cropX}</strong><Slider min={0} max={100} value={[asset.cropX]} onValueChange={(value) => update('cropX', Number(Array.isArray(value) ? value[0] : value))} /></label>
-            <label>Vertical <strong>{asset.cropY}</strong><Slider min={0} max={100} value={[asset.cropY]} onValueChange={(value) => update('cropY', Number(Array.isArray(value) ? value[0] : value))} /></label>
-          </div>
-          <div className="inspector-actions"><Button variant="outline" onClick={onReplace}><Upload />Replace</Button><Button variant="outline" onClick={onDuplicate}><Copy />Duplicate</Button><Button variant="destructive" onClick={onRemove}><Trash2 />Remove from feed</Button></div>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
-
 export default function YsabelWorkspace() {
   const [authState, setAuthState] = useState<'checking' | 'login' | 'ready'>('checking');
   const [connectionError, setConnectionError] = useState('');

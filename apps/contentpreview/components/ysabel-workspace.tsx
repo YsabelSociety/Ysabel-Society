@@ -41,6 +41,7 @@ import UploadStatus, { UploadBadge, UploadRetry } from '@/components/upload-stat
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
+import { bindSlideVideoPlayback, currentGridVideo, type SlideVideoPlayback } from '@/lib/slide-video-playback';
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
 type Section = 'feed' | 'media' | 'occasions' | 'notes' | 'captions' | 'email' | 'ereza' | 'archive' | 'settings';
@@ -596,8 +597,9 @@ function BrandAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   return <span className={'brand-avatar brand-avatar--' + size}><img src="/contentpreview-app/ysabel-instagram-profile.jpg" alt="Ysabel Society official Instagram profile" /></span>;
 }
 
-const AssetVisual = memo(function AssetVisual({ asset, contain = false, original = false, defer = false }: { asset: Asset; contain?: boolean; original?: boolean; defer?: boolean }) {
+const AssetVisual = memo(function AssetVisual({ asset, contain = false, original = false, defer = false, playback = 'manual' }: { asset: Asset; contain?: boolean; original?: boolean; defer?: boolean; playback?: SlideVideoPlayback }) {
   const { ref, visible } = useMediaVisibility(defer);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const isVideo = isVideoAsset(asset);
   const isBrand = asset.id.includes('mark') || asset.id.includes('wordmark');
   const [videoSource, setVideoSource] = useState(asset.url);
@@ -608,6 +610,10 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
     setVideoPoster(mediaVariantUrl(asset.url, 'thumbnail') || undefined);
     setVideoRecovering(false);
   }, [asset.url]);
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && isVideo && visible) return bindSlideVideoPlayback(video, playback);
+  }, [isVideo, visible, videoSource, playback]);
   const style = original ? {
     objectPosition: 'center',
     transform: 'none',
@@ -618,8 +624,8 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
   if (isVideo) return (
     <span ref={ref} className={'video-visual' + (videoRecovering ? ' is-converting' : '')}>
       {visible && <video
-        data-grid-video src={videoSource} poster={videoPoster} muted loop playsInline controls={contain}
-        preload={contain ? 'metadata' : 'none'}
+        ref={videoRef} data-grid-video data-slide-playback={playback} src={videoSource} poster={videoPoster} muted loop playsInline controls={contain}
+        preload={playback === 'active' ? 'auto' : contain ? 'metadata' : 'none'}
         className={'asset-media' + (original ? ' asset-media--original' : '')} style={style}
         onError={() => {
           if (videoRecovering || videoSource !== asset.url || asset.id.startsWith('local-') || !asset.url.startsWith('/contentpreview/api/media/')) return;
@@ -647,25 +653,32 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
   const drag = useRef<{ pointerId: number; startX: number; startScroll: number; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [active, setActive] = useState(0);
+  const [hasNavigated, setHasNavigated] = useState(false);
   const byId = useMemo(() => new Map(assets.map((item) => [item.id, item])), [assets]);
   const slides = useMemo(() => [asset, ...(asset.slides || []).map((id) => byId.get(id)).filter(Boolean) as Asset[]], [asset, byId]);
 
   useEffect(() => { if (active >= slides.length) setActive(Math.max(0, slides.length - 1)); }, [active, slides.length]);
+
+  const activate = (index: number) => {
+    const next = Math.max(0, Math.min(slides.length - 1, index));
+    if (next !== active) { setActive(next); setHasNavigated(true); }
+  };
 
   const settle = () => {
     const node = frame.current;
     if (!node?.clientWidth) return;
     const index = Math.max(0, Math.min(slides.length - 1, Math.round(node.scrollLeft / node.clientWidth)));
     node.scrollTo({ left: index * node.clientWidth, behavior: 'smooth' });
-    setActive(index);
+    activate(index);
   };
 
   const goTo = (index: number) => {
     const node = frame.current;
-    if (!node) return;
+    if (!node?.clientWidth) return;
     const next = Math.max(0, Math.min(slides.length - 1, index));
     node.scrollTo({ left: next * node.clientWidth, behavior: 'smooth' });
-    setActive(next);
+    // onScroll activates the slide actually in view, not the target while the
+    // old slide is still passing through a smooth-scroll transition.
   };
 
   if (asset.format !== 'Carousel' || slides.length < 2) return <AssetVisual asset={asset} contain={contain} defer={defer} />;
@@ -675,7 +688,7 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
         className="carousel-track" ref={frame}
         onDragStart={(event) => event.preventDefault()}
         onPointerDown={(event) => {
-          if ((event.target as HTMLElement).closest('video')) return;
+          if ((event.target as HTMLElement).closest('video[controls]')) return;
           // Native touch scrolling preserves inertia and vertical page scrolling.
           if (event.pointerType !== 'mouse') return;
           if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -697,10 +710,10 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
           window.setTimeout(() => { suppressClick.current = false; }, 0);
         }}
         onPointerCancel={(event) => { drag.current = null; event.currentTarget.style.scrollSnapType = ''; settle(); }}
-        onScroll={(event) => { if (event.currentTarget.clientWidth) setActive(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth)); }}
+        onScroll={(event) => { if (event.currentTarget.clientWidth) activate(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth)); }}
         onClick={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}
       >
-        {slides.map((slide, index) => <span className="carousel-slide" key={slide.id + '-' + index}>{Math.abs(index - active) <= 1 && <AssetVisual asset={slide} contain={contain && index === active} defer={defer || index !== active} />}</span>)}
+        {slides.map((slide, index) => <span className="carousel-slide" key={slide.id + '-' + index}>{Math.abs(index - active) <= 1 && <AssetVisual asset={slide} contain={contain && index === active} defer={defer || index !== active} playback={index !== active ? 'inactive' : hasNavigated ? 'active' : 'manual'} />}</span>)}
       </span>
       {contain && <>
         <button className="carousel-control carousel-control--previous" type="button" aria-label="Previous slide" disabled={active === 0} onClick={(event) => { event.stopPropagation(); goTo(active - 1); }}><ChevronLeft /></button>
@@ -713,18 +726,35 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
 });
 
 function InlineVideoControl() {
+  const control = useRef<HTMLButtonElement>(null);
+  const [available, setAvailable] = useState(false);
   const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    const root = control.current?.parentElement;
+    if (!root) return;
+    const sync = () => {
+      const video = currentGridVideo(root);
+      setAvailable(Boolean(video)); setPlaying(Boolean(video && !video.paused));
+    };
+    const observer = new MutationObserver(sync);
+    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-slide-playback'] });
+    const events = ['play', 'pause', 'ended', 'emptied'];
+    events.forEach(event => root.addEventListener(event, sync, true));
+    sync();
+    return () => { observer.disconnect(); events.forEach(event => root.removeEventListener(event, sync, true)); };
+  }, []);
   return (
     <button
+      ref={control} style={available ? undefined : { display: 'none' }}
       className="tile-video-control" type="button" aria-label={playing ? 'Pause video in grid' : 'Play video in grid'}
       title={playing ? 'Pause video' : 'Play video'}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.preventDefault(); event.stopPropagation();
-        const video = event.currentTarget.parentElement?.querySelector<HTMLVideoElement>('video[data-grid-video]');
+        const video = currentGridVideo(event.currentTarget.parentElement);
         if (!video) return;
-        if (video.paused) void video.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
-        else { video.pause(); setPlaying(false); }
+        if (video.paused) void video.play().catch(() => undefined);
+        else video.pause();
       }}
     >{playing ? <Pause /> : <Play fill="currentColor" />}</button>
   );
@@ -851,7 +881,7 @@ function FeedGrid({
               {similar && <span className="similarity-note">Similar composition</span>}
               {edit && asset && <span className="crop-drag-hint"><Move />{frameIndex === index ? 'Drag image to frame' : 'Drag to move post'}</span>}
             </button>
-            {asset && isVideoAsset(asset) && <InlineVideoControl />}
+            {asset && (isVideoAsset(asset) || isCarousel) && <InlineVideoControl />}
             {edit && asset && !isCarousel && !isVideoAsset(asset) && <button className="tile-frame-toggle" type="button" aria-label={frameIndex === index ? 'Finish framing photo' : 'Adjust photo framing'} aria-pressed={frameIndex === index} onClick={() => setFrameIndex(frameIndex === index ? null : index)}>{frameIndex === index ? 'Done' : 'Frame'}</button>}
             {edit && asset && <button className="tile-drag-handle" type="button" draggable aria-label={'Drag post at position ' + (index + 1) + ' to swap it'} title="Drag directly to swap" onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(index)); onDragStart({ type: 'grid', index }); }} onDragEnd={onDragEnd} onPointerDown={(event) => { event.stopPropagation(); if (event.pointerType === 'touch') { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onPointerStart({ type: 'grid', index }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); } }}><Grid3X3 /></button>}
             {edit && asset && <button className="tile-delete" type="button" aria-label={'Remove position ' + (index + 1)} title="Remove from feed" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onDelete(index); }}><Trash2 /></button>}

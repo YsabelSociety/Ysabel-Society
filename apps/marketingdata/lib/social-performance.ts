@@ -1,5 +1,6 @@
 import { type Daily, type Post, type Range } from './analytics';
 import { type ReportTable } from './reporting';
+import { metricSource } from './source-status';
 
 export const SOCIAL_PLATFORMS = ['Instagram', 'Facebook', 'TikTok'] as const;
 export type SocialPlatform = (typeof SOCIAL_PLATFORMS)[number];
@@ -115,9 +116,43 @@ export function postValue(post: Post, metric: SocialMetric): number | null {
   return read(post, metric);
 }
 export function dailyValue(row: Daily, metric: SocialMetric): number | null {
+  if (metric === 'reach' && row.channel === 'TikTok')
+    return read(row, 'reachedAudience') ?? read(row, 'reach');
   if (metric === 'users')
     return read(row, 'users') ?? read(row, 'mediaViewers');
   return read(row, metric);
+}
+// A supplied zero is data; connection status alone is not metric coverage.
+export function suppliedSocialChannels(rows: Daily[], posts: Post[], channels: readonly string[], range: Range, metric: SocialMetric, basis: PerformanceBasis) {
+  const content = metricBasis(metric, basis) === 'Published content';
+  const selected = content ? selectContent(posts, channels, range) : [];
+  return channels.filter(channel => {
+    if (!content) return rows.some(row => row.channel === channel && row.date >= range.start && row.date <= range.end && dailyValue(row, metric) !== null);
+    const captured = selected.filter(post => post.platform === channel);
+    if (['stories', 'reels', 'videos'].includes(metric))
+      return captured.some(post => contentKind(post).toLowerCase() === metric);
+    return captured.some(post => postValue(post, metric) !== null);
+  });
+}
+export function availablePerformanceBasis(rows: Daily[], channels: readonly string[], range: Range, metric: SocialMetric, choice: string): PerformanceBasis {
+  if (choice !== 'Latest available') return choice as PerformanceBasis;
+  if (['followers', 'users', 'profileViews'].includes(metric)) return 'Daily activity';
+  return rows.some(row => channels.includes(row.channel) && row.date >= range.start && row.date <= range.end && dailyValue(row, metric) !== null)
+    ? 'Daily activity' : 'Published content';
+}
+export function socialSourceRows(rows: Daily[], metric: SocialMetric): Daily[] {
+  if (metric !== 'reach') return rows;
+  return rows.map(row => row.channel === 'TikTok' && read(row, 'reachedAudience') !== null
+    ? { ...row, reach: read(row, 'reachedAudience')!, available: [...new Set([...(row.available || []), 'reach'])],
+        sourceMetrics: { ...row.sourceMetrics, metricOrigins: { ...(row.sourceMetrics?.metricOrigins as Record<string, unknown> | undefined), reach: metricSource(row, 'reachedAudience') } } }
+    : row);
+}
+export function socialContentSourceRows(posts: Post[], metric: SocialMetric): Daily[] {
+  return posts.filter(post => postValue(post, metric) !== null).map(post => ({
+    date: post.date, channel: post.platform, available: [metric], [metric]: postValue(post, metric),
+    sourceMetrics: { ...post.sourceMetrics, origin: post.origin,
+      metricOrigins: { [metric]: metricSource({ channel: post.platform, sourceMetrics: { ...post.sourceMetrics, origin: post.origin } } as unknown as Daily, metric) } },
+  } as unknown as Daily));
 }
 export function metricBasis(metric: SocialMetric, basis: PerformanceBasis) {
   return metric === 'followers' ||
@@ -221,7 +256,7 @@ export function metricExplanation(
   basis: PerformanceBasis,
 ) {
   if (metric === 'profileViews')
-    return 'Visits to the account profile or Facebook Page on each date. TikTok records profile visits in its analytics, but the Display API does not expose them. A TikTok Studio daily report or an approved Accounts API analytics connection is required; video views are kept separate.';
+    return 'Visits to the account profile or Facebook Page on each reported date. Profile visits and video views are separate measures.';
   if (metric === 'followers')
     return 'Recorded follower snapshots. Missing dates stay blank; weekly and monthly points use the latest observation.';
   if (metric === 'users')
@@ -237,7 +272,7 @@ export function metricExplanation(
           ? ' Uses reported engagements, or the available likes, comments, shares and saves; missing actions are omitted.'
           : '')
     );
-  return 'Activity reported for each day. Missing platform reports remain blank. Platform definitions may differ.';
+  return 'Activity reported for each day. Missing platform reports remain blank. Platform definitions may differ.' + (metric === 'reach' ? ' Daily reached-audience counts can include the same people on different dates; their sum is not a unique period audience.' : '');
 }
 export function latestAudienceTables(
   tables: ReportTable[],
@@ -255,12 +290,13 @@ export function latestAudienceTables(
         table.columns.includes('percentage'));
     const matching =
       normalizedExport ||
+      (platform === 'TikTok' && table.key === 'audience-tiktok-accounts-' + (dimension === 'gender' ? 'genders' : 'countries')) ||
       (dimension === 'gender'
         ? table.key === 'audience-gender'
         : table.key === 'audience-country' ||
           table.key === 'audience-page_follows_country' ||
           table.key === 'website-countries');
-    if (!matching) continue;
+    if (!matching || !table.rows.length) continue;
     const previous = chosen.get(platform);
     if (
       !previous ||

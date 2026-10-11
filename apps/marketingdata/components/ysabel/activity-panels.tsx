@@ -50,6 +50,7 @@ export function ProfileViews({
   onOpen?: OpenDashboardData;
 }) {
   const Card = onOpen ? 'button' : 'article';
+  if (!channels.some(channel => metricAvailable(rows.filter(row => row.channel === channel), 'profileViews'))) return null;
   return (
     <section
       className="profile-views-first"
@@ -73,6 +74,7 @@ export function ProfileViews({
           const old = metricAvailable(prior, 'profileViews')
             ? total(prior, 'profileViews')
             : null;
+          if (!has) return null;
           return (
             <Card
               key={channel}
@@ -233,6 +235,7 @@ type DailyKey =
   | 'follows'
   | 'unfollows';
 export function DailyMetricGraph(props: Parameters<typeof DailyMetricGraphContent>[0]) {
+  if (['TikTok', 'Facebook', 'Instagram'].includes(props.channel) && !activitySeries(props.rows, props.channel, props.metric, props.range).some(point => point.value !== null)) return null;
   return <DeferredChart title={props.label} loading={false} metric={props.metric} channel={props.channel}>
     <DailyMetricGraphContent {...props} />
   </DeferredChart>;
@@ -414,7 +417,7 @@ export function AudienceHistory({
         </div>
       </div>
       <div className="performance-chart-grid">
-        {channels.map((channel) => (
+        {channels.filter(channel => metricAvailable(rows.filter(row => row.channel === channel && row.date >= range.start && row.date <= range.end), 'followers')).map((channel) => (
           <DeferredChart
             key={channel}
             title={channel + ' followers'}

@@ -17,6 +17,11 @@ export type ReportTable = {
   observedAt?: string;
   truncated?: boolean;
 };
+export function reportSourceKind(table: ReportTable): 'api' | 'file' | 'unknown' {
+  if (table.key === 'file' || table.key.startsWith('audience-file-') || /TikTok Studio|imported|exported file/i.test(table.scope)) return 'file';
+  if (table.key.startsWith('audience-tiktok-accounts-') || /API|Graph|Google Analytics/i.test(table.scope) || (['instagram', 'facebook'].includes(table.source) && table.key.startsWith('audience-'))) return 'api';
+  return 'unknown';
+}
 export type DataCheck = {
   key: string;
   label: string;

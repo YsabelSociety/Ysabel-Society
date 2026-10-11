@@ -466,10 +466,10 @@ export function PerformancePage({
       </div>
       {(channel === 'Instagram' || channel === 'Facebook') && <Tabs value={section} onValueChange={v=>setSection(String(v))}>
         <TabsList className="page-tabs" aria-label={channel + ' performance sections'}>
-          {['Overview','Stories'].map(s=><TabsTrigger key={s} value={s}>{s}</TabsTrigger>)}
+          {['Overview', ...(channel === 'Instagram' || data.posts.some(post => post.platform === channel && post.format === 'Story') ? ['Stories'] : [])].map(s=><TabsTrigger key={s} value={s}>{s}</TabsTrigger>)}
         </TabsList>
       </Tabs>}
-      {(channel === 'Instagram' || channel === 'Facebook') && section === 'Stories' ? <StoryPerformance key={channel} platform={channel} /> : channel === 'Website' ? (
+      {(channel === 'Instagram' || channel === 'Facebook') && section === 'Stories' && (channel === 'Instagram' || data.posts.some(post => post.platform === channel && post.format === 'Story')) ? <StoryPerformance key={channel} platform={channel} /> : channel === 'Website' ? (
         <>
           <WebsitePage
             rows={r}

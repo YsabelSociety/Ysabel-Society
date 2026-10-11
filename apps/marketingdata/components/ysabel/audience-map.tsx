@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Minus, RotateCcw, Globe } from 'lucide-react';
 import { number, CHANNELS, COLORS } from '@/lib/analytics';
 import { latestAudienceTables } from '@/lib/social-performance';
-import type { ReportTable } from '@/lib/reporting';
+import { type ReportTable, reportSourceKind } from '@/lib/reporting';
 
 type Country = {
   code: string;
@@ -37,6 +37,8 @@ export function AudienceMap({
   channels: readonly string[];
 }) {
   const reports = latestAudienceTables(tables, channels, 'country');
+  const suppliedChannels = channels.filter(c => reports.has(c));
+  if (!suppliedChannels.length) return null;
   // Percentages from one audience must never be added to another platform's counts.
   if (
     channels.length > 1 &&
@@ -44,12 +46,12 @@ export function AudienceMap({
   )
     return (
       <div className="performance-map-grid">
-        {channels.map((c) => (
+        {suppliedChannels.map((c) => (
           <AudienceMapView key={c} tables={tables} channels={[c]} />
         ))}
       </div>
     );
-  return <AudienceMapView tables={tables} channels={channels} />;
+  return <AudienceMapView tables={tables} channels={suppliedChannels} />;
 }
 function AudienceMapView({
   tables,
@@ -480,7 +482,7 @@ function AudienceMapView({
       </div>
       {[...reports.entries()].map(([channel, report]) => (
         <p className="metric-definition" key={channel}>
-          {channel}: {report.scope} Imported period {report.period.start} –{' '}
+          {channel}: {report.scope} {reportSourceKind(report) === 'file' ? 'Imported snapshot' : 'Reported period'} {report.period.start} –{' '}
           {report.period.end}
           {report.observedAt
             ? ' · refreshed ' + new Date(report.observedAt).toLocaleDateString()

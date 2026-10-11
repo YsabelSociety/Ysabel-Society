@@ -45,6 +45,10 @@ import {
   selectContent,
   genderDistribution,
   latestAudienceTables,
+  suppliedSocialChannels,
+  availablePerformanceBasis,
+  socialSourceRows,
+  socialContentSourceRows,
   type SocialMetric,
   type PerformanceBasis,
 } from '@/lib/social-performance';
@@ -152,7 +156,8 @@ export function MetricCard({
   const summaries = channels.map((channel) => ({
     channel,
     value: seriesTotal(points, channel, metric),
-  }));
+  })).filter(s => s.value !== null);
+  const sourceRows = content ? socialContentSourceRows(selectContent(posts, channels, range), metric) : socialSourceRows(rows, metric);
   const any = summaries.some(
     (s) => s.value !== null && !hidden.includes(s.channel),
   );
@@ -160,6 +165,7 @@ export function MetricCard({
   const tiktokProfile = metric === 'profileViews' && channels.includes('TikTok') ? profileViewCoverage(rows, 'TikTok', range) : null;
   const known = summaries.filter((s) => s.value !== null),
     sum = known.reduce((n, s) => n + s.value!, 0);
+  if (!known.length) return null;
   return (
     <section
       className={'surface social-metric-card ' + (full ? 'chart-full' : '') + (onOpen ? ' dashboard-linked-chart' : '')}
@@ -170,7 +176,7 @@ export function MetricCard({
       <div className="section-head">
         <div>
           <span className="metric-eyebrow">{channels.join(' · ')}</span>
-          {channels.length === 1 && <SourceBadge channel={channels[0]} metric={content ? undefined : metric} unavailable={summaries[0].value === null} rows={content ? undefined : rows.filter(r => r.channel === channels[0] && r.date >= range.start && r.date <= range.end && dailyValue(r, metric) !== null)} />}
+          {channels.length === 1 && <SourceBadge channel={channels[0]} metric={metric} rows={sourceRows.filter(r => r.channel === channels[0] && r.date >= range.start && r.date <= range.end)} />}
           <h2>
             <DataIcon name={metric} />
             {onOpen ? <button type="button" className="dashboard-chart-link" onClick={onOpen} aria-label={'Open ' + label + ' in Performance'}>{label}<ArrowUpRight size={16}/></button> : label}
@@ -201,7 +207,7 @@ export function MetricCard({
       </div>
       <div className="metric-card-controls">
         <div className="metric-mini-series">
-          {channels.map((c) => (
+          {summaries.map(({channel: c}) => (
             <span
               key={c}
               style={{
@@ -333,7 +339,7 @@ export function MetricCard({
                   )
                 }
               />
-              {channels
+              {summaries.map(s => s.channel)
                 .filter((c) => !hidden.includes(c))
                 .map((c) =>
                   content ? (
@@ -379,21 +385,7 @@ export function MetricCard({
           </ResponsiveContainer>
         ) : (
           <div className="chart-no-data">
-            <strong>
-              {known.length
-                ? 'Select a platform in the legend'
-                : 'No ' + label.toLowerCase() + ' report supplied'}
-            </strong>
-            <p>
-              {metric === 'profileViews' && channels.includes('TikTok')
-                ? 'TikTok tracks profile visits, but the connected Display API does not supply them. Use a TikTok Studio daily report or authorize approved Accounts API analytics access.'
-                : channels.includes('TikTok') &&
-                    !content &&
-                    metric !== 'followers'
-                  ? 'TikTok’s current connection supplies public-video lifetime counters. Select Published content for its video results.'
-                  : 'This metric needs a supported platform report or an imported export.'}
-            </p>
-            <a href="/marketingdata/connections" onClick={event=>{event.preventDefault();openDataCenter('access');}}>View source access</a>
+            <strong>Select a platform in the legend</strong>
           </div>
         )}
       </div>
@@ -407,7 +399,6 @@ export function MetricCard({
             ? 'Latest TikTok profile-visit report: ' + tiktokProfile.latest + '. No profile visits were supplied for the selected dates.'
             : 'TikTok profile visits have not been supplied by this connection.'}
         {' '}<a href="https://www.tiktok.com/tiktokstudio/analytics" target="_blank" rel="noreferrer">Open TikTok analytics ↗</a>
-                  <a href="/marketingdata/tiktok-business" className="secondary">Connect profile analytics</a>
       </p>}
       <p className="metric-definition">{metricExplanation(metric, basis)}</p>
       <details className="metric-values">
@@ -423,7 +414,7 @@ export function MetricCard({
             <thead>
               <tr>
                 <th>Date</th>
-                {channels.map((c) => (
+                {summaries.map(s => s.channel).map((c) => (
                   <th key={c}>{c}</th>
                 ))}
               </tr>
@@ -434,7 +425,7 @@ export function MetricCard({
                 .map((p) => (
                   <tr key={p.date}>
                     <th>{p.date}</th>
-                    {channels.map((c) => (
+                    {summaries.map(s => s.channel).map((c) => (
                       <td key={c}>
                         {typeof p[c] === 'number'
                           ? number(p[c] as number)
@@ -467,7 +458,7 @@ export function AudienceBreakdown({
   return (
     <>
       <div className="performance-chart-grid">
-        {values.map((group) => (
+        {values.filter(group => channels.some(c => typeof group[c] === 'number')).map((group) => (
           <DeferredChart
             key={String(group.label)}
             title={String(group.label)}
@@ -488,7 +479,7 @@ export function AudienceBreakdown({
                 </div>
               </div>
               <div className="gender-bars">
-                {channels.map((c) => (
+                {channels.filter(c => typeof group[c] === 'number').map((c) => (
                   <div key={c} className="gender-value">
                     <span>
                       <i
@@ -557,7 +548,7 @@ export function AudienceBreakdown({
         ))}
       </div>
       <div className={separate ? 'performance-map-grid' : ''}>
-        {(separate ? channels.map((c) => [c]) : [channels]).map((group) => (
+        {(separate ? channels.map((c) => [c]) : [channels]).filter(group => latestAudienceTables(tables, group, 'country').size > 0).map((group) => (
           <DeferredChart
             key={group.join(',')}
             title="Audience around the world"
@@ -600,18 +591,9 @@ export const SocialPerformance = memo(function SocialPerformance({
     () => selectContent(posts, channels, range, format),
     [posts, channels, range, format],
   );
-  const basis: PerformanceBasis =
-    basisChoice === 'Latest available'
-      ? channels.every((c) =>
-          rows.some(
-            (r) =>
-              r.channel === c &&
-              (!r.available || r.available.includes('views')),
-          ),
-        )
-        ? 'Daily activity'
-        : 'Published content'
-      : (basisChoice as PerformanceBasis);
+  const basisFor = (metric: SocialMetric, group: readonly string[] = channels) =>
+    availablePerformanceBasis(rows, group, range, metric, basisChoice);
+  const basis = basisFor('views');
   const groups =
     layout === 'Separate platforms' ? channels.map((c) => [c]) : [channels];
   const summaries = [
@@ -628,13 +610,15 @@ export const SocialPerformance = memo(function SocialPerformance({
         channels,
         range,
         metric,
-        basis,
+        basisFor(metric),
       );
     const values = channels
       .map((c) => seriesTotal(points, c, metric))
       .filter((v): v is number => v !== null);
     return {
       metric,
+      basis: basisFor(metric),
+      supplied: values.length > 0,
       value: values.length
         ? number(values.reduce((a, b) => a + b, 0))
         : 'Unavailable',
@@ -646,7 +630,7 @@ export const SocialPerformance = memo(function SocialPerformance({
         return v.length ? v.reduce((a, b) => a + b, 0) : null;
       }),
     };
-  });
+  }).filter(summary => loading || summary.supplied);
   return (
     <div className="social-performance" data-platform={channels.length === 1 ? channels[0] : "All"}>
       <div className="performance-controls surface">
@@ -679,7 +663,7 @@ export const SocialPerformance = memo(function SocialPerformance({
             label="Content type"
             value={format}
             onChange={setFormat}
-            options={['All content', 'Posts', 'Stories', 'Reels', 'Videos']}
+            options={['All content', ...['Posts', 'Stories', 'Reels', 'Videos'].filter(kind => selectContent(posts, channels, range, kind).length > 0)]}
           />
         </div>
       </div>
@@ -688,7 +672,7 @@ export const SocialPerformance = memo(function SocialPerformance({
           ? 'Published content compares the lifetime performance of posts published in these dates. This lets Instagram, Facebook and TikTok share the same measurement basis.'
           : 'Daily activity uses source reports for each date. Missing observations remain gaps in the charts.'}{' '}
         {selectedPosts.length} captured content items match the content filter.
-        Followers and users keep their own daily observation basis.
+        Each card identifies daily activity or post lifetime totals; these measures are kept separate.
       </p>
       <div className="stat-row performance-totals" aria-busy={loading}>
         {summaries.map((s) => (
@@ -700,14 +684,14 @@ export const SocialPerformance = memo(function SocialPerformance({
                 ? 'Total content views'
                 : s.metric === 'followers'
                   ? 'Followers'
-                  : SOCIAL_METRICS.find((m) => m.key === s.metric)?.label}
+                  : s.metric === 'reach' && channels.length === 1 && channels[0] === 'TikTok' && s.basis === 'Daily activity' ? 'Daily reached audience' : SOCIAL_METRICS.find((m) => m.key === s.metric)?.label}
             </span>
             <strong>{loading ? 'Loading…' : s.value}</strong>
             <small>{channels.join(' · ')}</small>
             <small>
               {s.metric === 'followers'
                 ? 'Latest recorded snapshot'
-                : metricBasis(s.metric, basis) === 'Published content'
+                : metricBasis(s.metric, s.basis) === 'Published content'
                   ? 'Lifetime · published content'
                   : 'Daily activity'}
               {s.partial ? ' · partial coverage' : ''}
@@ -722,7 +706,7 @@ export const SocialPerformance = memo(function SocialPerformance({
       />
       <div className="performance-chart-grid">
         {SOCIAL_METRICS.flatMap((metric) =>
-          groups.map((group) => (
+          groups.filter(group => loading || suppliedSocialChannels(rows, selectedPosts, group, range, metric.key, basisFor(metric.key, group)).length > 0).map((group) => (
             <DeferredChart
               key={metric.key + group.join(',') + basis + format}
               title={metric.label}
@@ -733,12 +717,12 @@ export const SocialPerformance = memo(function SocialPerformance({
             >
               <MetricCard
                 metric={metric.key}
-                label={metric.label}
+                label={metric.key === 'reach' && group.length === 1 && group[0] === 'TikTok' && basisFor(metric.key, group) === 'Daily activity' ? 'Daily reached audience' : metric.label}
                 rows={rows}
                 posts={selectedPosts}
                 channels={group}
                 range={range}
-                basis={basis}
+                basis={basisFor(metric.key, group)}
               />
             </DeferredChart>
           )),

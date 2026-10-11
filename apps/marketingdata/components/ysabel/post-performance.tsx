@@ -66,6 +66,7 @@ export function PostPerformance({
     [posts, platform, search, sort],
   );
   const current = Math.min(page, Math.max(0, Math.ceil(rows.length / 12) - 1));
+  const visibleMetrics = metrics.filter(([key]) => rows.some(post => postValue(post, key) !== null));
   return (
     <section
       className="surface padded post-performance"
@@ -133,7 +134,7 @@ export function PostPerformance({
             <thead>
               <tr>
                 <th>Published content</th>
-                {metrics.map(([k, l]) => (
+                {visibleMetrics.map(([k, l]) => (
                   <th key={k}>{l}</th>
                 ))}
                 <th>Details</th>
@@ -169,7 +170,7 @@ export function PostPerformance({
                       </span>
                     </button>
                   </td>
-                  {metrics.map(([key]) => {
+                  {visibleMetrics.map(([key]) => {
                     const value = postValue(p, key);
                     return (
                       <td key={key}>{value === null ? '—' : number(value)}</td>

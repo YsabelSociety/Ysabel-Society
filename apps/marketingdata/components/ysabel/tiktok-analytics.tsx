@@ -37,7 +37,8 @@ function supplied(row: Daily, key: string): number | null {
 }
 function TrendPanel({ rows, range, measures, title, detail }: { rows: Daily[]; range: Range; measures: Measure[]; title: string; detail: string }) {
   const [key, setKey] = useState(measures[0].key);
-  const selected = measures.find(m => m.key === key) || measures[0];
+  const available = measures.filter(m => rows.some(row => supplied(row, m.key) !== null));
+  const selected = available.find(m => m.key === key) || available[0] || measures[0];
   const id = useId().replace(/:/g, ''), motion = useMinimalMotion();
   const points = useMemo(() => {
     const byDate = new Map(rows.map(row => [row.date, row]));
@@ -49,12 +50,13 @@ function TrendPanel({ rows, range, measures, title, detail }: { rows: Daily[]; r
     return days;
   }, [rows, range.start, range.end, selected.key]);
   const observed = rows.filter(row => supplied(row, selected.key) !== null).sort((a,b) => a.date.localeCompare(b.date));
+  if (!available.length) return null;
   return <section className="tt-intelligence-panel">
     <div className="tt-panel-heading"><div><span className="tt-eyebrow">TIKTOK / ACCOUNT ANALYTICS</span><h2>{title}</h2><p>{detail}</p></div>
       <SourceBadge channel="TikTok" rows={observed} metric={selected.key} unavailable={!observed.length} />
     </div>
     <div className="tt-metric-choices" role="group" aria-label={title + ' metric'}>
-      {measures.map(measure => {
+      {available.map(measure => {
         const matched = rows.filter(row => supplied(row, measure.key) !== null).sort((a,b) => a.date.localeCompare(b.date));
         const value = matched.length ? measure.snapshot ? supplied(matched.at(-1)!, measure.key)! : matched.reduce((sum,row) => sum + supplied(row, measure.key)!, 0) : null;
         const Icon = measure.icon;
@@ -102,8 +104,9 @@ function Audience({ rows, tables, range }: { rows: Daily[]; tables: ReportTable[
   return <div className="tt-audience">
     <TrendPanel rows={rows} range={range} measures={growth} title="Your follower community" detail="Follow daily growth, then understand the people who follow Ysabel."/>
     <div className="tt-demographics-grid">{dimensions.map(dimension => {
-      const table = tables.filter(table => table.source === 'tiktok' && table.key === 'audience-tiktok-accounts-' + dimension.key)
+      const table = tables.filter(table => table.source === 'tiktok' && table.key === 'audience-tiktok-accounts-' + dimension.key && table.rows.length > 0)
         .sort((a,b) => String(b.observedAt || b.period.end).localeCompare(String(a.observedAt || a.period.end)))[0];
+      if (!table) return null;
       return <section className="tt-demographic-card" key={dimension.key}>
         <div className="tt-panel-heading"><h3>{dimension.title}</h3><SourceBadge channel="TikTok" unavailable={!table}/></div>
         {table ? <><div className="tt-distribution">{[...table.rows].sort((a,b) => dimension.key === 'ages' ? parseInt(String(a[dimension.column])) - parseInt(String(b[dimension.column])) : Number(b.percentage) - Number(a.percentage)).map((row,index) => <div key={index}>
@@ -113,7 +116,7 @@ function Audience({ rows, tables, range }: { rows: Daily[]; tables: ReportTable[
         : <p className="tt-muted">Not supplied by the connected account. TikTok requires enough followers and eligible analytics access.</p>}
       </section>;
     })}</div>
-    <section className="tt-intelligence-panel">
+    {hours.length > 0 && <section className="tt-intelligence-panel">
       <div className="tt-panel-heading"><div><span className="tt-eyebrow">FOLLOWER ACTIVITY</span><h2>When your followers are active</h2><p>Hourly audience activity reported by TikTok, in UTC.</p></div>
         {latest.length > 0 && <label className="tt-day-picker"><Clock size={15}/><select aria-label="Follower activity date" value={observation.date} onChange={event => setDay(event.target.value)}>{latest.map(row => <option key={row.date} value={row.date}>{row.date}</option>)}</select></label>}
       </div>
@@ -121,7 +124,7 @@ function Audience({ rows, tables, range }: { rows: Daily[]; tables: ReportTable[
         const value = hours.find(item => item.hour === hour)?.count;
         return <div key={hour} title={hour + ':00 UTC · ' + (value == null ? 'Not supplied' : number(value) + ' followers')}><i style={{height: value == null ? 0 : Math.max(2,value / max * 100) + '%'}}/>{hour % 3 === 0 && <small>{String(hour).padStart(2,'0')}</small>}</div>;
       })}</div> : <div className="tt-data-empty"><Clock size={28}/><h3>Hourly activity has not been supplied.</h3><p>This field requires TikTok advanced analytics access.</p></div>}
-    </section>
+    </section>}
     <details className="tt-studio-note"><summary>What remains in TikTok Studio?</summary><p>Account-wide viewer demographics, new-viewer totals and search queries remain separate Studio reports. Post-specific viewer demographics, traffic sources and watch time appear in Video insights when available. Followers and viewers are different audiences.</p></details>
   </div>;
 }
@@ -134,10 +137,10 @@ function VideoInsights({ posts }: { posts: Post[] }) {
   const motion = useMinimalMotion();
   const fields = [['views','Video views','count'],['reach','Reached audience','count'],['saves','Saves','count'],['followers','Followers gained','count'],
     ['profileVisits','Profile visits','count'],['websiteClicks','Website clicks','count'],['averageWatchTimeMs','Average watch time','time'],
-    ['watchTimeMs','Total watch time','time'],['completionRate','Watched full video','percent']];
+    ['watchTimeMs','Total watch time','time'],['completionRate','Watched full video','percent']].filter(([key]) => post?.available?.includes(key) && typeof (post as unknown as Record<string,unknown>)[key] === 'number');
   const retention = (analytics?.video_view_retention || []).map(row => ({second:Number(row.second),value:row.percentage*100})).sort((a,b) => a.second-b.second);
   return <section className="tt-intelligence-panel">
-    <div className="tt-panel-heading"><div><span className="tt-eyebrow">TIKTOK / VIDEO INSIGHTS</span><h2>A closer look at each post</h2><p>Posts published within your selected dates. Metrics describe each post's lifetime, including organic and paid activity.</p></div><SourceBadge channel="TikTok" unavailable={!analytics}/></div>
+    <div className="tt-panel-heading"><div><span className="tt-eyebrow">TIKTOK / VIDEO INSIGHTS</span><h2>A closer look at each post</h2><p>Posts published within your selected dates. Metrics describe each post's lifetime, including organic and paid activity.</p></div><SourceBadge channel="TikTok" imported={post?.origin === 'file'}/></div>
     {post ? <>
       <label className="tt-video-picker">Choose a post<select aria-label="TikTok video insights post" value={post.id} onChange={event => setId(event.target.value)}>{sorted.map(post => <option key={post.id} value={post.id}>{post.date} · {post.title.slice(0,100)}</option>)}</select></label>
       <div className="tt-video-heading">{post.image && <img src={post.image} alt="" loading="lazy"/>}<div><h3>{post.title}</h3><p>Published {post.date} · {post.observedAt ? 'Observed ' + new Date(post.observedAt).toLocaleString() : 'Saved observation'}</p>{post.permalink && <a href={post.permalink} target="_blank" rel="noreferrer">Open original post ↗</a>}</div></div>
@@ -145,30 +148,34 @@ function VideoInsights({ posts }: { posts: Post[] }) {
         const raw = (post as unknown as Record<string,unknown>)[key], value = post.available?.includes(key) && typeof raw === 'number' ? raw : null;
         return <div className="tt-metric-choice" key={key}><span>{label}</span><strong>{value === null ? '—' : unit === 'percent' ? value.toFixed(1)+'%' : unit === 'time' ? value >= 3600000 ? (value/3600000).toFixed(1)+'h' : value>=60000 ? (value/60000).toFixed(1)+'m' : (value/1000).toFixed(1)+'s' : number(value)}</strong><small>{value === null ? 'Not supplied by TikTok' : 'Lifetime of this post'}</small></div>;
       })}</div>
-      <div className="tt-panel-heading tt-retention-heading"><div><h3>Audience retention</h3><p>People still watching at each second of the video.</p></div></div>
+      {retention.length > 0 && <div className="tt-panel-heading tt-retention-heading"><div><h3>Audience retention</h3><p>People still watching at each second of the video.</p></div></div>}
       {retention.length ? <div className="tt-main-chart" role="img" aria-label="Audience retention by video second"><ResponsiveContainer width="100%" height="100%"><AreaChart data={retention}>
         <CartesianGrid vertical={false} stroke="rgba(90,110,115,.12)" strokeDasharray="3 7"/>
         <XAxis dataKey="second" tickFormatter={value => value+'s'} axisLine={false} tickLine={false}/>
         <YAxis domain={[0,100]} tickFormatter={value => value+'%'} axisLine={false} tickLine={false}/>
         <Tooltip formatter={value => [Number(value).toFixed(1)+'%','Still watching']} labelFormatter={value => value+' seconds'}/>
         <Area dataKey="value" type="monotone" stroke="#419e9b" fill="#dcece6" strokeWidth={2} isAnimationActive={motion} animationDuration={240}/>
-      </AreaChart></ResponsiveContainer></div> : <p className="tt-muted">Retention has not been supplied for this post. TikTok can omit insights for inactive or restricted posts.</p>}
-      <div className="tt-demographics-grid tt-video-distributions">{[['impression_sources','impression_source','Traffic sources'],['audience_types','type','Viewer types'],['audience_genders','gender','Viewer gender'],['audience_countries','country','Viewer countries']].map(([key,column,title]) => <section className="tt-demographic-card" key={key}><h3>{title}</h3>{analytics?.[key]?.length ? <div className="tt-distribution">{analytics[key].map((row,index) => <div key={index}><div><span>{audienceLabel(String(row[column]),column)}</span><strong>{(row.percentage*100).toFixed(1)}%</strong></div><span className="tt-distribution-track"><i style={{width:row.percentage*100+'%',background:'#72aaa3'}}/></span></div>)}</div> : <p className="tt-muted">Not supplied for this post.</p>}</section>)}</div>
+      </AreaChart></ResponsiveContainer></div> : null}
+      <div className="tt-demographics-grid tt-video-distributions">{[['impression_sources','impression_source','Traffic sources'],['audience_types','type','Viewer types'],['audience_genders','gender','Viewer gender'],['audience_countries','country','Viewer countries']].filter(([key]) => analytics?.[key]?.length).map(([key,column,title]) => <section className="tt-demographic-card" key={key}><h3>{title}</h3><div className="tt-distribution">{analytics![key].map((row,index) => <div key={index}><div><span>{audienceLabel(String(row[column]),column)}</span><strong>{(row.percentage*100).toFixed(1)}%</strong></div><span className="tt-distribution-track"><i style={{width:row.percentage*100+'%',background:'#72aaa3'}}/></span></div>)}</div></section>)}</div>
     </> : <div className="tt-data-empty"><Eye size={28}/><h3>No TikTok posts in these dates.</h3><p>Choose a wider publication date range to explore video insights.</p></div>}
   </section>;
 }
 
 export function TikTokAnalytics({ rows, tables, range, posts, overview }: { rows: Daily[]; tables: ReportTable[]; range: Range; posts: Post[]; overview: ReactNode }) {
   const [tab, setTab] = useState('Overview');
-  return <div className="tt-analytics"><Tabs value={tab} onValueChange={value => setTab(String(value))}><TabsList className="page-tabs tt-subtabs">
+  const selectedPosts = posts.filter(post => post.date >= range.start && post.date <= range.end);
+  const has = (measures: Measure[]) => measures.some(m => rows.some(row => supplied(row, m.key) !== null));
+  const available = ['Overview', ...(has(activity) ? ['Daily activity'] : []), ...(has(growth) || tables.some(t => t.source === 'tiktok' && t.rows.length > 0 && t.key.startsWith('audience-tiktok-accounts-')) ? ['Audience'] : []), ...(selectedPosts.some(p => p.platform === 'TikTok') ? ['Video insights'] : []), ...(has(actions) ? ['Profile actions'] : [])];
+  const active = available.includes(tab) ? tab : 'Overview';
+  return <div className="tt-analytics"><Tabs value={active} onValueChange={value => setTab(String(value))}><TabsList className="page-tabs tt-subtabs">
     <TabsTrigger value="Overview"><Activity size={15}/>Overview</TabsTrigger>
-    <TabsTrigger value="Daily activity"><TrendingUp size={15}/>Daily activity</TabsTrigger>
-    <TabsTrigger value="Audience"><Users size={15}/>Audience</TabsTrigger>
-    <TabsTrigger value="Video insights"><Eye size={15}/>Video insights</TabsTrigger>
-    <TabsTrigger value="Profile actions"><MousePointerClick size={15}/>Profile actions</TabsTrigger>
+    {available.includes('Daily activity') && <TabsTrigger value="Daily activity"><TrendingUp size={15}/>Daily activity</TabsTrigger>}
+    {available.includes('Audience') && <TabsTrigger value="Audience"><Users size={15}/>Audience</TabsTrigger>}
+    {available.includes('Video insights') && <TabsTrigger value="Video insights"><Eye size={15}/>Video insights</TabsTrigger>}
+    {available.includes('Profile actions') && <TabsTrigger value="Profile actions"><MousePointerClick size={15}/>Profile actions</TabsTrigger>}
   </TabsList></Tabs>
-    {tab === 'Overview' ? overview : tab === 'Daily activity' ? <TrendPanel rows={rows} range={range} measures={activity} title="TikTok, day by day" detail="Account activity for your selected dates. These counts include activity on older videos."/>
-      : tab === 'Video insights' ? <VideoInsights posts={posts}/> : tab === 'Audience' ? <Audience rows={rows} tables={tables} range={range}/>
+    {active === 'Overview' ? overview : active === 'Daily activity' ? <TrendPanel rows={rows} range={range} measures={activity} title="TikTok, day by day" detail="Account activity for your selected dates. These counts include activity on older videos."/>
+      : active === 'Video insights' ? <VideoInsights posts={selectedPosts}/> : active === 'Audience' ? <Audience rows={rows} tables={tables} range={range}/>
       : <TrendPanel rows={rows} range={range} measures={actions} title="From interest to action" detail="Clicks on your TikTok profile links and contact options. A click is not a verified website visit or completed booking."/>}
   </div>;
 }

@@ -42,7 +42,7 @@ export function StoryPerformance({platform}:{platform:'Instagram'|'Facebook'}) {
     {(source.loading||source.refreshing)&&<p role="status">Updating story results…</p>}
     {source.error&&<p role="alert">{source.error}</p>}
     {!source.detailsReady ? <p role="status">{source.error ? 'Story details could not be loaded. Reconnecting automatically…' : 'Loading captured stories and their results…'}</p> : <>
-    <div className="story-summary-cards">{metrics.map(([key,label])=>{
+    <div className="story-summary-cards">{metrics.filter(([key]) => supplied(key).length > 0).map(([key,label])=>{
       const available=supplied(key);const total=available.reduce((n,p)=>n+value(p,key),0);
       return <article className="surface story-summary-card" key={key} data-primary={key==='linkClicks'}>
         <div><DataIcon name={key==='linkClicks'?'Website':label}/><span>{label}</span></div>
@@ -51,7 +51,7 @@ export function StoryPerformance({platform}:{platform:'Instagram'|'Facebook'}) {
       </article>;
     })}</div>
     <p className="footnote">Reach and unique viewers are added per story and can count the same person again. Average watch time is an unweighted average of reported story averages. Missing metrics are not treated as zero.</p>
-    <section className="surface padded"><h3>Link clicks by story publication date</h3>{linkDays.length?<Bars items={linkDays.map(d=>({label:d.label,value:d.posts.reduce((n,p)=>n+value(p,'linkClicks'),0)}))}/>:<p>No link-click metrics supplied for these stories.</p>}</section>
+    {linkDays.length > 0 && <section className="surface padded"><h3>Link clicks by story publication date</h3><Bars items={linkDays.map(d=>({label:d.label,value:d.posts.reduce((n,p)=>n+value(p,'linkClicks'),0)}))}/></section>}
     <p className="footnote">{platform}: {stories.length} captured stories. No captured stories does not mean no stories were published.</p>
     <MediaCards posts={stories} deferPreviews onSelect={setSelected}/>
     </>}

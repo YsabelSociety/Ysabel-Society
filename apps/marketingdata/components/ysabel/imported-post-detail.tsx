@@ -65,9 +65,10 @@ export function ImportedPostDetail({ post, close }: { post: Post; close: () => v
   const primaryKeys = post.format === 'Story'
     ? ['views', 'reach', 'linkClicks']
     : ['views', supplied('reach') ? 'reach' : supplied('mediaViewers') ? 'mediaViewers' : 'reach'];
-  const primary = primaryKeys.map(key => metrics.find(metric => metric.key === key)!).filter(Boolean);
-  const remaining = metrics.filter(metric => !primaryKeys.includes(metric.key));
-  const unavailable = remaining.filter(metric => !supplied(metric.key));
+  const reported = metrics.filter(metric => supplied(metric.key));
+  const primary = primaryKeys.map(key => reported.find(metric => metric.key === key)!).filter(Boolean);
+  if (!primary.length) primary.push(...reported.slice(0, 2));
+  const remaining = reported.filter(metric => !primary.some(hero => hero.key === metric.key));
   const published = recordedDate(post.publishedAt || post.date);
   const observed = recordedDate(post.observedAt);
   const isVideo = post.mediaType === 'video';
@@ -133,7 +134,6 @@ export function ImportedPostDetail({ post, close }: { post: Post; close: () => v
                 return fields.length > 0 && <section className={styles.metricGroup} aria-label={group} key={group}><div className={styles.sectionHead}><h3>{group}</h3><span>{fields.length} reported</span></div><div className={styles.metricGrid} data-count={fields.length}>{fields.map(metric => metricCard(metric))}</div></section>;
               })}
               <div className={styles.observed}><Clock3 size={14} aria-hidden="true" /><span>{observed ? `Updated ${observed.day} · ${observed.time}` : 'Recorded at import'}<small>Publication dates filter posts. These are {post.metricScope === 'period' ? 'source-reported period metrics' : 'lifetime totals'}, not daily activity.</small></span></div>
-              {unavailable.length > 0 && <details className={styles.details}><summary><span>More metrics <small>{unavailable.length} not supplied</small></span><ChevronDown size={16} aria-hidden="true" /></summary><p className={styles.detailNote}>A dash means this source did not supply the metric. It does not mean zero.</p><div className={styles.unavailableGrid}>{unavailable.map(metric => <div key={metric.key}><metric.icon size={15} aria-hidden="true" /><span>{metric.label}{['averageWatchTimeMs', 'watchTimeMs'].includes(metric.key) ? ' · ms' : ''}</span><strong>—</strong></div>)}</div></details>}
               <details className={styles.details}><summary><span>Data & source details</span><ChevronDown size={16} aria-hidden="true" /></summary><p className={styles.detailNote}>{post.platform} · {post.origin === 'file' ? 'Imported file' : 'Provider API'}{published && post.publishedAt ? ` · Published ${published.day} at ${published.time} (Prishtina time)` : ''}. Manage published content on its original platform.</p>{Object.keys(post.sourceMetrics || {}).length > 0 ? <div className={styles.sourceValues}>{Object.entries(post.sourceMetrics || {}).map(([key, value]) => <div key={key}><strong>{key}</strong><span>{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span></div>)}</div> : <p className={styles.detailNote}>No additional source definitions were supplied.</p>}</details>
             </section>
           </div>

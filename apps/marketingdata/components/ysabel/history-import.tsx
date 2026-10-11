@@ -190,7 +190,7 @@ export function HistoryImport({ source }: { source?: string }) {
                     {daily.latest}. Individual metrics may cover fewer dates.
                   </p>
                 )}
-                <small>{job?.note}</small>
+                <small>{l.source === 'tiktok' ? 'Accessible posts and supported account analytics refresh through the API. Daily account history has a 60-day lookback; older Studio records remain saved.' : job?.note}</small>
                 {job && (
                   <small>
                     {job.batches} batches completed · {job.gaps} report requests

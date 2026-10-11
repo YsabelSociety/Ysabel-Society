@@ -2,12 +2,13 @@
 import { openDataCenter } from './data-center-navigation';
 import { useState } from 'react';
 import { ReportDownloadButton } from './reports';
-import { type ReportTable } from '@/lib/reporting';
+import { type ReportTable, reportSourceKind } from '@/lib/reporting';
 import { SOURCE_CHANNELS } from '@/lib/connector-catalog';
 import { Picker } from './controls';
 import { WebsiteReports } from './website-reports';
 import { GoogleBusinessReports } from './google-business-reports';
 import { type Daily } from '@/lib/analytics';
+import { SourceBadge } from './source-badge';
 const labels: Record<string, string> = {
   activeUsers: 'Active users',
   sessions: 'Sessions',
@@ -37,7 +38,7 @@ export function SourceReports({
   group,
   daily = [],
   archive = true,
-  title = 'Imported source reports',
+  title = 'Source reports',
 }: {
   tables: ReportTable[];
   group?: string;
@@ -89,6 +90,7 @@ export function SourceReports({
     <section className="surface padded source-report">
       <div className="section-head">
         <h2>{title}</h2>
+        {reportSourceKind(selected) !== 'unknown' && <SourceBadge channel={SOURCE_CHANNELS[selected.source] || selected.source} imported={reportSourceKind(selected) === 'file'} />}
         <ReportDownloadButton range={selected.period} title={selected.title} />
       </div>
       <div className="source-report-controls">
@@ -117,7 +119,7 @@ export function SourceReports({
       </div>
       <p className="footnote">{selected.scope}</p>
       <p className="source-asof">
-        Imported period: {selected.period.start} – {selected.period.end}
+        {reportSourceKind(selected) === 'file' ? 'Imported snapshot' : reportSourceKind(selected) === 'api' ? 'API report' : 'Recorded period'}: {selected.period.start} – {selected.period.end}
         {selected.observedAt
           ? ' · Refreshed ' + new Date(selected.observedAt).toLocaleString()
           : ''}

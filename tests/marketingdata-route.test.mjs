@@ -13,6 +13,26 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 } });
 const { GET } = await import('../src/app/marketingdata/[[...path]]/route.ts');
 
+test('TikTok Accounts authorization keeps its exact browser nonce through the callback proxy', async t => {
+  t.mock.method(globalThis, 'fetch', async (target, init) => {
+    assert.equal(target.pathname, '/marketingdata/api/tiktok-business/callback/');
+    assert.equal(target.searchParams.get('state'), 'test-state');
+    assert.equal(target.searchParams.get('code'), 'test-code');
+    assert.equal(init.headers.get('cookie'), 'ys_marketing_session=sample; ys_oauth_tiktok_business=test-nonce');
+    assert.equal(init.redirect, 'manual');
+    return new Response(null, { status: 303, headers: {
+      Location: 'https://ysabelsociety.com/marketingdata/tiktok-business?status=authorized',
+      'Set-Cookie': 'ys_oauth_tiktok_business=; HttpOnly; SameSite=Lax; Path=/marketingdata/api/tiktok-business; Max-Age=0; Secure',
+    } });
+  });
+  const response = await GET(new Request('https://ysabelsociety.com/marketingdata/api/tiktok-business/callback/?state=test-state&code=test-code', { headers: {
+    cookie: '_ga=unrelated; ys_marketing_session=sample; ys_oauth_tiktok_business=test-nonce; ys_oauth_tiktok_business_extra=unrelated',
+  } }));
+  assert.equal(response.status, 303);
+  assert.match(response.headers.get('location'), /status=authorized$/);
+  assert.match(response.headers.get('set-cookie'), /ys_oauth_tiktok_business=; HttpOnly; SameSite=Lax;/);
+});
+
 test('Instagram authorization keeps the exact state cookie through the callback proxy', async t => {
   t.mock.method(globalThis, 'fetch', async (target, init) => {
     assert.equal(target.pathname, '/marketingdata/api/instagram-messaging/callback');

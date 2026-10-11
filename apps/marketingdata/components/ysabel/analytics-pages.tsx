@@ -1,4 +1,5 @@
 'use client';
+import { TikTokAnalytics } from './tiktok-analytics';
 import { openDataCenter } from './data-center-navigation';
 import { useMinimalMotion } from './use-motion';
 import { StoryPerformance } from './story-performance';
@@ -500,6 +501,8 @@ export function PerformancePage({
             />
           )}
         </>
+      ) : channel === 'TikTok' ? (
+        <TikTokAnalytics rows={r} tables={tables} range={range} posts={data.posts} overview={<><ProfileViews rows={r} previous={p} channels={['TikTok']} /><SocialPerformance rows={r} posts={data.posts} tables={tables} range={range} channel={channel} loading={loading}/></>}/>
       ) : (
         <>
           <ProfileViews

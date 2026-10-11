@@ -79,6 +79,14 @@ function TrendPanel({ rows, range, measures, title, detail }: { rows: Daily[]; r
       <span>{selected.key.endsWith('Audience') ? 'Daily audience counts overlap. The total is not unique people across the period.' : 'Gaps stay blank. TikTok can take 24–48 hours to process daily data.'}</span></div>
   </section>;
 }
+function audienceLabel(value: string, column: string) {
+  const region = (code: string) => { try { return new Intl.DisplayNames(['en'], {type:'region'}).of(code) || code; } catch { return code; } };
+  if (column === 'country' && /^[A-Z]{2}$/.test(value)) return region(value);
+  if (column === 'city_name' && /^[A-Z]{2} /.test(value)) return value.slice(3) + ' · ' + region(value.slice(0,2));
+  const labels: Record<string,string> = {NEW_VIEWER:'New viewers',RETURN_VIEWER:'Returning viewers',FOLLOWER_PERCENT:'Followers',NON_FOLLOWER_PERCENT:'Non-followers'};
+  return labels[value] || value.replaceAll('_',' ');
+}
+
 const dimensions = [
   { key: 'ages', title: 'Follower ages', column: 'age', color: '#7d84c8' },
   { key: 'genders', title: 'Follower gender', column: 'gender', color: '#c97c9a' },
@@ -98,8 +106,8 @@ function Audience({ rows, tables, range }: { rows: Daily[]; tables: ReportTable[
         .sort((a,b) => String(b.observedAt || b.period.end).localeCompare(String(a.observedAt || a.period.end)))[0];
       return <section className="tt-demographic-card" key={dimension.key}>
         <div className="tt-panel-heading"><h3>{dimension.title}</h3><SourceBadge channel="TikTok" unavailable={!table}/></div>
-        {table ? <><div className="tt-distribution">{table.rows.map((row,index) => <div key={index}>
-          <div><span>{String(row[dimension.column])}</span><strong>{Number(row.percentage).toFixed(1)}%</strong></div>
+        {table ? <><div className="tt-distribution">{[...table.rows].sort((a,b) => dimension.key === 'ages' ? parseInt(String(a[dimension.column])) - parseInt(String(b[dimension.column])) : Number(b.percentage) - Number(a.percentage)).map((row,index) => <div key={index}>
+          <div><span>{audienceLabel(String(row[dimension.column]), dimension.column)}</span><strong>{Number(row.percentage).toFixed(1)}%</strong></div>
           <span className="tt-distribution-track"><i style={{width: Number(row.percentage) + '%',background:dimension.color}}/></span>
         </div>)}</div><small>Follower snapshot · {table.observedAt ? new Date(table.observedAt).toLocaleString() : table.period.end}</small></>
         : <p className="tt-muted">Not supplied by the connected account. TikTok requires enough followers and eligible analytics access.</p>}
@@ -145,7 +153,7 @@ function VideoInsights({ posts }: { posts: Post[] }) {
         <Tooltip formatter={value => [Number(value).toFixed(1)+'%','Still watching']} labelFormatter={value => value+' seconds'}/>
         <Area dataKey="value" type="monotone" stroke="#419e9b" fill="#dcece6" strokeWidth={2} isAnimationActive={motion} animationDuration={240}/>
       </AreaChart></ResponsiveContainer></div> : <p className="tt-muted">Retention has not been supplied for this post. TikTok can omit insights for inactive or restricted posts.</p>}
-      <div className="tt-demographics-grid tt-video-distributions">{[['impression_sources','impression_source','Traffic sources'],['audience_types','type','Viewer types'],['audience_genders','gender','Viewer gender'],['audience_countries','country','Viewer countries']].map(([key,column,title]) => <section className="tt-demographic-card" key={key}><h3>{title}</h3>{analytics?.[key]?.length ? <div className="tt-distribution">{analytics[key].map((row,index) => <div key={index}><div><span>{String(row[column]).replaceAll('_',' ').toLowerCase()}</span><strong>{(row.percentage*100).toFixed(1)}%</strong></div><span className="tt-distribution-track"><i style={{width:row.percentage*100+'%',background:'#72aaa3'}}/></span></div>)}</div> : <p className="tt-muted">Not supplied for this post.</p>}</section>)}</div>
+      <div className="tt-demographics-grid tt-video-distributions">{[['impression_sources','impression_source','Traffic sources'],['audience_types','type','Viewer types'],['audience_genders','gender','Viewer gender'],['audience_countries','country','Viewer countries']].map(([key,column,title]) => <section className="tt-demographic-card" key={key}><h3>{title}</h3>{analytics?.[key]?.length ? <div className="tt-distribution">{analytics[key].map((row,index) => <div key={index}><div><span>{audienceLabel(String(row[column]),column)}</span><strong>{(row.percentage*100).toFixed(1)}%</strong></div><span className="tt-distribution-track"><i style={{width:row.percentage*100+'%',background:'#72aaa3'}}/></span></div>)}</div> : <p className="tt-muted">Not supplied for this post.</p>}</section>)}</div>
     </> : <div className="tt-data-empty"><Eye size={28}/><h3>No TikTok posts in these dates.</h3><p>Choose a wider publication date range to explore video insights.</p></div>}
   </section>;
 }

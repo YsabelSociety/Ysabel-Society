@@ -1,0 +1,25 @@
+YSABEL SOCIETY AFTER WORK SUNSET
+
+PUBLIC NEWSLETTER ASSETS
+
+index.html       Animated browser preview
+email.html       HTML email with public image and menu links
+email-source.txt  Copyable source of the same HTML email
+gmail-send-code.txt  Google Apps Script sender for the public email HTML
+menu.pdf         The original supplied menu PDF
+assets/          Artwork, original website logo, and original website fonts
+
+GMAIL
+
+Open script.google.com with the account you want to send from.
+Create a project, copy gmail-send-code.txt into Code.gs, and enter RECIPIENT.
+Use your own email for the first test. Run createYsabelDraft and review the
+result in Gmail > Drafts before sending. To send directly from code, run
+sendYsabelNewsletter instead. Google will ask you to authorize your script.
+The script downloads email.html from this public folder. No Drive upload is needed.
+
+The email is HTML with selectable text and clickable buttons.
+The menu is linked, not attached as a newsletter PDF. Gmail uses a static
+layout and font fallbacks; the browser preview carries the animation.
+For a mailing-list campaign, configure the appropriate unsubscribe link in
+your sending system before distribution.

@@ -1,0 +1,46 @@
+// Paste this complete code into a new Google Apps Script project.
+// Use your own email address for the first test.
+const RECIPIENT = '';
+const NEWSLETTER_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html';
+const MENU_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/menu.pdf';
+const SUBJECT = 'Sunset at Ysabel Society | The evening is yours';
+
+function createYsabelDraft() {
+  const message = newsletterMessage_();
+  const draft = GmailApp.createDraft(RECIPIENT.trim(), SUBJECT, message.body, {
+    name: 'Ysabel Society',
+    htmlBody: message.html
+  });
+  console.log('Draft created: ' + draft.getId() + '. Open Gmail > Drafts to review and send.');
+}
+
+function sendYsabelNewsletter() {
+  const message = newsletterMessage_();
+  GmailApp.sendEmail(RECIPIENT.trim(), SUBJECT, message.body, {
+    name: 'Ysabel Society',
+    htmlBody: message.html
+  });
+  console.log('Newsletter sent to ' + RECIPIENT.trim());
+}
+
+function newsletterMessage_() {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(RECIPIENT.trim())) {
+    throw new Error('Enter one email address in RECIPIENT at the top of this script.');
+  }
+  const response = UrlFetchApp.fetch(NEWSLETTER_URL, {muteHttpExceptions: true});
+  if (response.getResponseCode() !== 200) {
+    throw new Error('The public newsletter could not be loaded. HTTP ' + response.getResponseCode());
+  }
+  const html = response.getContentText();
+  if (!html.includes('data-ysabel-newsletter="afterwork-sunset-email"')) {
+    throw new Error('The address did not return the Ysabel email newsletter.');
+  }
+  return {
+    html: html,
+    body: 'SUNSET AT YSABEL SOCIETY\n\n' +
+      'Starting 21 October. Wednesday to Friday, 16:00 - 19:00.\n' +
+      'Familiar songs from the 80s and 90s, and an evening together.\n\n' +
+      'View the menu: ' + MENU_URL + '\n' +
+      'Reserve your evening: https://www.ysabelsociety.com/\n'
+  };
+}

@@ -3,7 +3,7 @@
 const RECIPIENT = '';
 const NEWSLETTER_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html';
 const MENU_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/menu.pdf';
-const SUBJECT = 'Sunset at Ysabel Society | The evening is yours';
+const SUBJECT = 'After Work Sunset at Ysabel Society';
 
 function createYsabelDraft() {
   const message = newsletterMessage_();
@@ -37,7 +37,7 @@ function newsletterMessage_() {
   }
   return {
     html: html,
-    body: 'SUNSET AT YSABEL SOCIETY\n\n' +
+    body: 'AFTER WORK SUNSET AT YSABEL SOCIETY\n\n' +
       'Starting 21 October. Wednesday to Friday, 16:00 - 19:00.\n' +
       'Familiar songs from the 80s and 90s, and an evening together.\n\n' +
       'View the menu: ' + MENU_URL + '\n' +

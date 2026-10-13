@@ -270,6 +270,12 @@ button:focus-visible { outline: 2px solid #1d3428; outline-offset: 2px; }
 .tile-video-control { position: absolute; z-index: 5; right: 6px; bottom: 6px; width: 27px; height: 27px; padding: 0; display: grid; place-items: center; border: 1px solid rgba(255,255,255,.34); border-radius: 50%; background: rgba(18,20,18,.8); color: white; cursor: pointer; backdrop-filter: blur(8px); transition: transform .15s ease, background .15s ease; }
 .tile-video-control:hover { transform: scale(1.04); background: rgba(18,20,18,.94); }
 .tile-video-control svg { width: 11px; height: 11px; }
+.tile-video-controls { position: absolute; z-index: 5; right: 6px; bottom: 6px; display: flex; gap: 4px; }
+.tile-video-controls .tile-video-control { position: static; }
+.feed-tile-wrap:has(.tile-video-controls.is-available) .carousel-position { bottom: 40px; }
+.video-sound-prompt { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%,-50%); display: flex; align-items: center; justify-content: center; gap: 6px; width: max-content; max-width: calc(100% - 12px); padding: 9px 11px; border: 1px solid #ffffff55; border-radius: 5px; background: #20251eed; color: white; font-size: 12px; cursor: pointer; }
+.video-sound-prompt svg { width: 17px; height: 17px; flex-shrink: 0; }
+.feed-tile .video-sound-prompt { flex-direction: column; font-size: 9px; padding: 7px; }
 @keyframes ysabel-video-spin { to { transform: rotate(360deg); } }
 .feed-tile:hover .asset-media { filter: saturate(1.04); }
 .asset-visual--brand { background: #f6f5f1; }

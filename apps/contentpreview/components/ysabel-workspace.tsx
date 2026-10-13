@@ -6,7 +6,7 @@ import {
   MessageCircle, Mail,
   LockKeyhole, LogOut, Monitor, MoreHorizontal, Move, NotebookPen, Pause, Play, Plus, Redo2,
   RotateCcw, Search, Send, Settings, SlidersHorizontal, Smartphone, Sparkles, Trash2, Undo2,
-  Upload, UserRound, Video, Volume2, X,
+  Upload, UserRound, Video, Volume2, VolumeX, X,
 } from 'lucide-react';
 import { memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
@@ -44,7 +44,8 @@ import { coverSize, dragCropPosition } from '@/lib/grid-framing';
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
-import { bindSlideVideoPlayback, currentGridVideo, type SlideVideoPlayback } from '@/lib/slide-video-playback';
+import { bindSlideVideoPlayback, currentGridVideo, pauseOtherPreviewVideos, playVideoWithSound, type SlideVideoPlayback } from '@/lib/slide-video-playback';
+import { usePreviewView } from '@/lib/use-preview-view';
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
 type Section = 'feed' | 'media' | 'occasions' | 'notes' | 'captions' | 'email' | 'ereza' | 'archive' | 'settings';
@@ -625,6 +626,7 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
   const [videoSource, setVideoSource] = useState(asset.url);
   const [videoPoster, setVideoPoster] = useState(mediaVariantUrl(asset.url, 'thumbnail') || undefined);
   const [videoRecovering, setVideoRecovering] = useState(false);
+  const [videoPlaybackBlocked, setVideoPlaybackBlocked] = useState(false);
   useEffect(() => {
     setVideoSource(asset.url);
     setVideoPoster(mediaVariantUrl(asset.url, 'thumbnail') || undefined);
@@ -632,7 +634,8 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
   }, [asset.url]);
   useEffect(() => {
     const video = videoRef.current;
-    if (video && isVideo && visible) return bindSlideVideoPlayback(video, playback);
+    setVideoPlaybackBlocked(false);
+    if (video && isVideo && visible) return bindSlideVideoPlayback(video, playback, document, () => setVideoPlaybackBlocked(true));
   }, [isVideo, visible, videoSource, playback]);
   const style = original ? {
     objectPosition: 'center',
@@ -645,7 +648,8 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
   if (isVideo) return (
     <span ref={ref} className={'video-visual' + (videoRecovering ? ' is-converting' : '')}>
       {visible && <video
-        ref={videoRef} data-grid-video data-slide-playback={playback} src={videoSource} poster={videoPoster} muted loop playsInline controls={contain}
+        ref={videoRef} data-grid-video data-slide-playback={playback} src={videoSource} poster={videoPoster} loop playsInline controls={contain}
+        onPlay={event => { setVideoPlaybackBlocked(false); pauseOtherPreviewVideos(event.currentTarget); }}
         preload={playback === 'active' ? 'auto' : contain ? 'metadata' : 'none'}
         className={'asset-media' + (original ? ' asset-media--original' : '')} style={style}
         onError={() => {
@@ -658,6 +662,10 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
         }}
       />}
       {videoRecovering && <span className="video-converting"><span />Preparing video</span>}
+      {videoPlaybackBlocked && <button type="button" className="video-sound-prompt" onPointerDown={event => event.stopPropagation()} onClick={event => {
+        event.preventDefault(); event.stopPropagation();
+        if (videoRef.current) void playVideoWithSound(videoRef.current).catch(() => setVideoPlaybackBlocked(true));
+      }}><Volume2 /><span>Play with sound</span></button>}
     </span>
   );
   return (
@@ -762,37 +770,47 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
 });
 
 function InlineVideoControl() {
-  const control = useRef<HTMLButtonElement>(null);
+  const control = useRef<HTMLSpanElement>(null);
   const [available, setAvailable] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [muted, setMuted] = useState(false);
   useEffect(() => {
     const root = control.current?.parentElement;
     if (!root) return;
     const sync = () => {
       const video = currentGridVideo(root);
       setAvailable(Boolean(video)); setPlaying(Boolean(video && !video.paused));
+      setMuted(Boolean(video && (video.muted || video.volume === 0)));
     };
     const observer = new MutationObserver(sync);
     observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-slide-playback'] });
-    const events = ['play', 'pause', 'ended', 'emptied'];
+    const events = ['play', 'pause', 'ended', 'emptied', 'volumechange'];
     events.forEach(event => root.addEventListener(event, sync, true));
     sync();
     return () => { observer.disconnect(); events.forEach(event => root.removeEventListener(event, sync, true)); };
   }, []);
   return (
+    <span ref={control} className={'tile-video-controls' + (available ? ' is-available' : '')} style={available ? undefined : { display: 'none' }}>
     <button
-      ref={control} style={available ? undefined : { display: 'none' }}
       className="tile-video-control" type="button" aria-label={playing ? 'Pause video in grid' : 'Play video in grid'}
-      title={playing ? 'Pause video' : 'Play video'}
+      title={playing ? 'Pause video' : 'Play with sound'}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => {
         event.preventDefault(); event.stopPropagation();
-        const video = currentGridVideo(event.currentTarget.parentElement);
+        const video = currentGridVideo(control.current?.parentElement || null);
         if (!video) return;
-        if (video.paused) void video.play().catch(() => undefined);
+        if (video.paused) void playVideoWithSound(video).catch(() => undefined);
         else video.pause();
       }}
     >{playing ? <Pause /> : <Play fill="currentColor" />}</button>
+    <button className="tile-video-control" type="button" aria-label={muted ? 'Unmute video in grid' : 'Mute video in grid'} title={muted ? 'Turn sound on' : 'Turn sound off'} onPointerDown={event => event.stopPropagation()} onClick={event => {
+      event.preventDefault(); event.stopPropagation();
+      const video = currentGridVideo(control.current?.parentElement || null);
+      if (!video) return;
+      if (muted) void playVideoWithSound(video).catch(() => undefined);
+      else video.muted = true;
+    }}>{muted ? <VolumeX /> : <Volume2 />}</button>
+    </span>
   );
 }
 
@@ -1153,7 +1171,7 @@ export default function YsabelWorkspace() {
     document.addEventListener('visibilitychange', visibility);
     return () => { window.clearTimeout(timer); document.removeEventListener('visibilitychange', visibility); };
   }, [loginEntering, workspaceReady, authState]);
-  const [view, setView] = useState<ViewMode>('mobile');
+  const { view, setView, mobile: mobilePreviewOnly } = usePreviewView();
   const [section, setSection] = useState<Section>('feed');
   const [emailOpened, setEmailOpened] = useState(false);
   const [erezaOpened, setErezaOpened] = useState(false);
@@ -2239,7 +2257,7 @@ export default function YsabelWorkspace() {
   if (presentation) {
     return (
       <main className="presentation-mode">
-        <header><div className="presentation-brand"><BrandAvatar size="sm" /><span>YSABEL SOCIETY</span></div><Tabs value={view} onValueChange={(value) => setView(value as ViewMode)}><TabsList variant="line" className="presentation-tabs"><TabsTrigger value="mobile">Mobile</TabsTrigger><TabsTrigger value="desktop">Desktop</TabsTrigger><TabsTrigger value="grid">Grid</TabsTrigger></TabsList></Tabs><Button variant="ghost" onClick={() => setPresentation(false)}><X />Exit presentation</Button></header>
+        <header><div className="presentation-brand"><BrandAvatar size="sm" /><span>YSABEL SOCIETY</span></div><Tabs value={view} onValueChange={(value) => setView(value as ViewMode)}><TabsList variant="line" className="presentation-tabs"><TabsTrigger value="mobile">Mobile</TabsTrigger>{!mobilePreviewOnly && <><TabsTrigger value="desktop">Desktop</TabsTrigger><TabsTrigger value="grid">Grid</TabsTrigger></>}</TabsList></Tabs><Button variant="ghost" onClick={() => setPresentation(false)}><X />Exit presentation</Button></header>
         <div className={'presentation-canvas presentation-canvas--' + view}>{renderPreview(true)}</div>
         <footer><span>{activeBoard?.name}</span><span>YSABEL SOCIETY · CONTENT DIRECTION</span></footer>
       </main>
@@ -2302,7 +2320,7 @@ export default function YsabelWorkspace() {
               </>}
             </DropdownMenuContent>
           </DropdownMenu>
-          {section === 'feed' && <Tabs value={view} onValueChange={(value) => setView(value as ViewMode)} className="topbar-center"><TabsList variant="line" className="view-tabs"><TabsTrigger value="mobile"><Smartphone />Mobile</TabsTrigger><TabsTrigger value="desktop"><Monitor />Desktop</TabsTrigger><TabsTrigger value="grid"><Grid3X3 />Grid</TabsTrigger></TabsList></Tabs>}
+          {section === 'feed' && <Tabs value={view} onValueChange={(value) => setView(value as ViewMode)} className="topbar-center"><TabsList variant="line" className="view-tabs"><TabsTrigger value="mobile"><Smartphone />Mobile</TabsTrigger>{!mobilePreviewOnly && <><TabsTrigger value="desktop"><Monitor />Desktop</TabsTrigger><TabsTrigger value="grid"><Grid3X3 />Grid</TabsTrigger></>}</TabsList></Tabs>}
           <div className="topbar-actions">
             {edit ? <span className="save-state">{mediaProcessing || `Draft · ${saveState}`}</span> : <span className="published-state" title={activePublication ? `Published ${new Date(activePublication.publishedAt).toLocaleString()}` : 'Published feed'}><Check />Live</span>}
             {edit && <Button variant="ghost" size="icon-sm" aria-label="Undo" disabled={!history.length} onClick={undo}><Undo2 /></Button>}

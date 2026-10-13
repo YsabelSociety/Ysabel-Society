@@ -1,0 +1,16 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const ts = require('typescript');
+const vm = require('node:vm');
+const mod = { exports: {} };
+const source = fs.readFileSync(path.resolve(__dirname, '../lib/preview-view.ts'), 'utf8');
+vm.runInNewContext(ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText, { module: mod, exports: mod.exports });
+const { defaultPreviewView, allowedPreviewView, MOBILE_PREVIEW_QUERY } = mod.exports;
+assert.equal(defaultPreviewView(false), 'desktop');
+assert.equal(defaultPreviewView(true), 'mobile');
+for (const request of ['mobile', 'desktop', 'grid']) assert.equal(allowedPreviewView(request, true), 'mobile');
+assert.equal(allowedPreviewView('grid', false), 'grid', 'Desktop can still deliberately inspect grid-only');
+assert.match(MOBILE_PREVIEW_QUERY, /max-width: 760px/);
+assert.match(MOBILE_PREVIEW_QUERY, /pointer: coarse/);
+console.log('PASS: desktop default, mobile-only view, landscape phone detection and explicit desktop choices.');

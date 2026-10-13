@@ -26,7 +26,7 @@ export default function ContentPreviewPage() {
         className={styles.previewFrame}
         src={`/contentpreview-app/index.html?v=${cacheBust}`}
         title="Ysabel Society Content Media Preview"
-        allow="fullscreen"
+        allow="autoplay; fullscreen"
       />
       <InstallApp />
     </main>

@@ -6,8 +6,8 @@ Copy email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/
 Gmail sender: https://ysabelsociety.com/library/newsletters/afterwork-sunset/gmail-send-code.txt
 Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/menu.pdf
 
-The email contains linked JPEG sections exported directly from the original browser invitation, at twice the displayed resolution. Separate phone and desktop layouts preserve the original fonts, colors, hero composition, and spacing without relying on email font loading or dark-mode recoloring. The phone layout is the fallback if a client removes media-query styles. Menu and reservation sections are clickable. Image alternative text and the script's plain-text body provide fallback content. Recipients must load images to see the full design.
+The email contains linked image sections exported directly from the original browser invitation, at high resolution. Separate phone and desktop layouts preserve the original fonts, colors, hero composition, and spacing without relying on email font loading or dark-mode recoloring. The phone layout is the fallback if a client removes media-query styles. Menu and reservation sections are clickable. Image alternative text and the script's plain-text body provide fallback content. Recipients must load images to see the full design.
 
-Motion remains available through the browser link. Email clients do not reproduce the browser's scroll animations.
+The lower text strip is an animated GIF that starts and loops automatically when images load in Gmail and other supported clients. Some clients or recipient settings may show a still frame. The browser link includes the full motion experience.
 
 Your existing Apps Script fetches the current email.html each time it runs. Run createYsabelDraft again to create a new review draft; previous drafts and sent messages retain their previous content.

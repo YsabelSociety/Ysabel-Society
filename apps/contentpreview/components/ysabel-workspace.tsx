@@ -8,7 +8,7 @@ import {
   RotateCcw, Search, Send, Settings, SlidersHorizontal, Smartphone, Sparkles, Trash2, Undo2,
   Upload, UserRound, Video, Volume2, X,
 } from 'lucide-react';
-import { memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -40,6 +40,7 @@ import ErezaPlanning from '@/components/ereza-planning';
 import UploadStatus, { UploadBadge, UploadRetry } from '@/components/upload-status';
 import MediaFileDrop from '@/components/media-file-drop';
 import SlideSequence from '@/components/slide-sequence';
+import { coverSize, dragCropPosition } from '@/lib/grid-framing';
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
 import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/media-preview';
@@ -599,6 +600,23 @@ function BrandAvatar({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   return <span className={'brand-avatar brand-avatar--' + size}><img src="/contentpreview-app/ysabel-instagram-profile.jpg" alt="Ysabel Society official Instagram profile" /></span>;
 }
 
+export function WorkspaceNavigation({ section, onNavigate }: { section: Section; onNavigate: (section: Section) => void }) {
+  const navItems: { label: string; value: Section; icon: typeof Grid3X3 }[] = [
+    { label: 'Instagram Grid', value: 'feed', icon: Grid3X3 }, { label: 'Media Library', value: 'media', icon: Images },
+    { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
+    { label: 'Community Captions', value: 'captions', icon: MessageCircle },
+    { label: 'Email Marketing', value: 'email', icon: Mail },
+    { label: 'Ereza Reels and Stories', value: 'ereza', icon: CalendarDays },
+    { label: 'Archive', value: 'archive', icon: Archive },
+  ];
+
+  return <aside className="rail">
+    <div className="rail-brand"><BrandAvatar size="sm" /><span className="rail-brand-name">YSABEL<small>SOCIETY · CONTENT STUDIO</small></span></div>
+    <nav className="rail-nav" aria-label="Workspace navigation">{navItems.map(({ label, value, icon: Icon }) => <button type="button" className={section === value ? 'active' : ''} key={value} onClick={() => onNavigate(value)} aria-current={section === value ? 'page' : undefined} aria-label={label} title={label}><Icon /><span className="rail-label">{label}</span></button>)}</nav>
+    <button type="button" className={'rail-settings ' + (section === 'settings' ? 'active' : '')} onClick={() => onNavigate('settings')} aria-current={section === 'settings' ? 'page' : undefined} aria-label="Settings" title="Settings"><Settings /><span className="rail-label">Settings</span></button>
+  </aside>;
+}
+
 const AssetVisual = memo(function AssetVisual({ asset, contain = false, original = false, defer = false, playback = 'manual' }: { asset: Asset; contain?: boolean; original?: boolean; defer?: boolean; playback?: SlideVideoPlayback }) {
   const { ref, visible } = useMediaVisibility(defer);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -621,6 +639,7 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
     transform: 'none',
   } : {
     objectPosition: asset.cropX + '% ' + asset.cropY + '%',
+    transformOrigin: asset.cropX + '% ' + asset.cropY + '%',
     transform: 'scale(' + asset.cropZoom / 100 + ')',
   };
   if (isVideo) return (
@@ -650,16 +669,28 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
   );
 });
 
-const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = false, defer = false }: { asset: Asset; assets: Asset[]; contain?: boolean; defer?: boolean }) {
+const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = false, defer = false, framing = false, instanceKey = asset.id, onActiveSlide }: { asset: Asset; assets: Asset[]; contain?: boolean; defer?: boolean; framing?: boolean; instanceKey?: string; onActiveSlide?: (postId: string, id: string) => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; startX: number; startScroll: number; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
   const [active, setActive] = useState(0);
+  const activeRef = useRef(0);
+  activeRef.current = active;
   const [hasNavigated, setHasNavigated] = useState(false);
   const byId = useMemo(() => new Map(assets.map((item) => [item.id, item])), [assets]);
   const slides = useMemo(() => [asset, ...(asset.slides || []).map((id) => byId.get(id)).filter(Boolean) as Asset[]], [asset, byId]);
 
   useEffect(() => { if (active >= slides.length) setActive(Math.max(0, slides.length - 1)); }, [active, slides.length]);
+  const activeId = slides[active]?.id || asset.id;
+  useEffect(() => { onActiveSlide?.(instanceKey, activeId); }, [instanceKey, activeId, onActiveSlide]);
+  useEffect(() => {
+    const node = frame.current;
+    if (!node) return;
+    // Keep the same slide when the device, view or library width changes.
+    const observer = new ResizeObserver(() => { node.scrollLeft = activeRef.current * node.clientWidth; });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [slides.length]);
 
   const activate = (index: number) => {
     const next = Math.max(0, Math.min(slides.length - 1, index));
@@ -670,7 +701,7 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
     const node = frame.current;
     if (!node?.clientWidth) return;
     const index = Math.max(0, Math.min(slides.length - 1, Math.round(node.scrollLeft / node.clientWidth)));
-    node.scrollTo({ left: index * node.clientWidth, behavior: 'smooth' });
+    node.scrollTo({ left: index * node.clientWidth, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     activate(index);
   };
 
@@ -678,7 +709,7 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
     const node = frame.current;
     if (!node?.clientWidth) return;
     const next = Math.max(0, Math.min(slides.length - 1, index));
-    node.scrollTo({ left: next * node.clientWidth, behavior: 'smooth' });
+    node.scrollTo({ left: next * node.clientWidth, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
     // onScroll activates the slide actually in view, not the target while the
     // old slide is still passing through a smooth-scroll transition.
   };
@@ -690,11 +721,14 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
         className="carousel-track" ref={frame}
         onDragStart={(event) => event.preventDefault()}
         onPointerDown={(event) => {
+          if (framing) return;
+          if (!event.isPrimary) return;
+          event.stopPropagation();
           if ((event.target as HTMLElement).closest('video[controls]')) return;
           // Native touch scrolling preserves inertia and vertical page scrolling.
           if (event.pointerType !== 'mouse') return;
           if (event.pointerType === 'mouse' && event.button !== 0) return;
-          event.stopPropagation();
+          suppressClick.current = false;
           event.currentTarget.style.scrollSnapType = 'none';
           event.currentTarget.setPointerCapture(event.pointerId);
           drag.current = { pointerId: event.pointerId, startX: event.clientX, startScroll: event.currentTarget.scrollLeft, moved: false };
@@ -711,16 +745,16 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
           drag.current = null; event.currentTarget.style.scrollSnapType = ''; settle();
           window.setTimeout(() => { suppressClick.current = false; }, 0);
         }}
-        onPointerCancel={(event) => { drag.current = null; event.currentTarget.style.scrollSnapType = ''; settle(); }}
+        onPointerCancel={(event) => { if (drag.current?.pointerId !== event.pointerId) return; drag.current = null; event.currentTarget.style.scrollSnapType = ''; settle(); }}
         onScroll={(event) => { if (event.currentTarget.clientWidth) activate(Math.round(event.currentTarget.scrollLeft / event.currentTarget.clientWidth)); }}
         onClick={(event) => { if (suppressClick.current) { event.preventDefault(); event.stopPropagation(); } }}
       >
-        {slides.map((slide, index) => <span className="carousel-slide" key={slide.id + '-' + index}>{Math.abs(index - active) <= 1 && <AssetVisual asset={slide} contain={contain && index === active} defer={defer || index !== active} playback={index !== active ? 'inactive' : hasNavigated ? 'active' : 'manual'} />}</span>)}
+        {slides.map((slide, index) => <span className="carousel-slide" data-active-slide={index === active} data-slide-id={slide.id} key={slide.id + '-' + index}>{Math.abs(index - active) <= 1 && <AssetVisual asset={slide} contain={contain && index === active} defer={defer || index !== active} playback={index !== active ? 'inactive' : hasNavigated ? 'active' : 'manual'} />}</span>)}
       </span>
-      {contain && <>
+      <span className="carousel-navigation" onPointerDown={event => event.stopPropagation()}>
         <button className="carousel-control carousel-control--previous" type="button" aria-label="Previous slide" disabled={active === 0} onClick={(event) => { event.stopPropagation(); goTo(active - 1); }}><ChevronLeft /></button>
         <button className="carousel-control carousel-control--next" type="button" aria-label="Next slide" disabled={active === slides.length - 1} onClick={(event) => { event.stopPropagation(); goTo(active + 1); }}><ChevronRight /></button>
-      </>}
+      </span>
       <span className="carousel-position">{active + 1} / {slides.length}</span>
       <span className="carousel-progress" aria-hidden="true"><i style={{ width: `${((active + 1) / slides.length) * 100}%` }} /></span>
     </span>
@@ -783,15 +817,20 @@ type FeedGridProps = {
   onDrop: (index: number) => void; onDelete: (index: number) => void; onCrop: (asset: Asset) => void;
 };
 
-function FeedGrid({
+export function FeedGrid({
   positions, assets, edit, scale = 'phone', grayscale, colorRhythm, similarity, exchangeFirst,
   dropTarget, onTile, onDragStart, onDragEnd, onPointerStart, onDrop, onDelete, onCrop,
 }: FeedGridProps) {
   const byId = useMemo(() => new Map(assets.map((asset) => [asset.id, asset])), [assets]);
-  const cropDrag = useRef<{ pointerId: number; index: number; asset: Asset; latest: Asset; startX: number; startY: number; startCropX: number; startCropY: number; width: number; height: number; moved: boolean } | null>(null);
+  const cropDrag = useRef<{ pointerId: number; index: number; asset: Asset; latest: Asset; image: HTMLImageElement; startX: number; startY: number; width: number; height: number; renderedWidth: number; renderedHeight: number; moved: boolean } | null>(null);
   const suppressTileClick = useRef<number | null>(null);
   const prefetchTimer = useRef<number | undefined>(undefined);
-  const [frameIndex, setFrameIndex] = useState<number | null>(null);
+  const [frameId, setFrameId] = useState<string | null>(null);
+  const [activeSlides, setActiveSlides] = useState<Record<string, string>>({});
+  const rememberActiveSlide = useCallback((postId: string, slideId: string) => {
+    setActiveSlides(current => current[postId] === slideId ? current : { ...current, [postId]: slideId });
+  }, []);
+  useEffect(() => { if (!edit) setFrameId(null); }, [edit]);
   const gridRef = useRef<HTMLDivElement>(null);
   const previousRects = useRef(new Map<string, DOMRect>());
   useLayoutEffect(() => {
@@ -811,36 +850,40 @@ function FeedGrid({
   }, [positions, edit]);
   useEffect(() => () => window.clearTimeout(prefetchTimer.current), []);
 
-  const beginCrop = (event: ReactPointerEvent<HTMLButtonElement>, index: number, asset: Asset, isCarousel: boolean) => {
-    if (!edit || frameIndex !== index || isCarousel || isVideoAsset(asset)) return;
+  const beginCrop = (event: ReactPointerEvent<HTMLDivElement>, index: number, asset: Asset) => {
+    if (!edit || isVideoAsset(asset)) return;
     // A second finger belongs to native pinch zoom, not a new crop gesture.
     if (!event.isPrimary) return;
     if (event.pointerType === 'mouse' && event.button !== 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
+    const image = event.currentTarget.querySelector<HTMLImageElement>('[data-active-slide="true"] img.asset-media') || event.currentTarget.querySelector<HTMLImageElement>('img.asset-media');
+    if (!image?.naturalWidth || !image.naturalHeight) return;
+    const rendered = coverSize(rect.width, rect.height, image.naturalWidth, image.naturalHeight);
     event.currentTarget.setPointerCapture(event.pointerId);
-    cropDrag.current = { pointerId: event.pointerId, index, asset, latest: asset, startX: event.clientX, startY: event.clientY, startCropX: asset.cropX, startCropY: asset.cropY, width: rect.width, height: rect.height, moved: false };
+    cropDrag.current = { pointerId: event.pointerId, index, asset, latest: asset, image, startX: event.clientX, startY: event.clientY, width: rect.width, height: rect.height, renderedWidth: rendered.width, renderedHeight: rendered.height, moved: false };
   };
 
-  const moveCrop = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const moveCrop = (event: ReactPointerEvent<HTMLDivElement>) => {
     const current = cropDrag.current;
     if (!current || current.pointerId !== event.pointerId) return;
     const deltaX = event.clientX - current.startX;
     const deltaY = event.clientY - current.startY;
     if (!current.moved && Math.hypot(deltaX, deltaY) < 4) return;
     current.moved = true; event.preventDefault();
-    current.latest = { ...current.asset, cropX: Math.max(0, Math.min(100, current.startCropX - (deltaX / current.width) * 100)), cropY: Math.max(0, Math.min(100, current.startCropY - (deltaY / current.height) * 100)) };
+    current.latest = { ...current.asset,
+      cropX: dragCropPosition(current.asset.cropX, deltaX, current.width, current.renderedWidth, current.asset.cropZoom),
+      cropY: dragCropPosition(current.asset.cropY, deltaY, current.height, current.renderedHeight, current.asset.cropZoom),
+    };
     // Frame locally during the gesture; commit once on release, not per pixel.
-    event.currentTarget.querySelectorAll<HTMLElement>('.asset-media').forEach((image) => {
-      image.style.objectPosition = `${current.latest.cropX}% ${current.latest.cropY}%`;
-    });
+    current.image.style.objectPosition = current.image.style.transformOrigin = `${current.latest.cropX}% ${current.latest.cropY}%`;
   };
 
-  const endCrop = (event: ReactPointerEvent<HTMLButtonElement>) => {
+  const endCrop = (event: ReactPointerEvent<HTMLDivElement>) => {
     const current = cropDrag.current;
     if (!current || current.pointerId !== event.pointerId) return;
     if (current.moved) {
       if (event.type === 'pointercancel') {
-        event.currentTarget.querySelectorAll<HTMLElement>('.asset-media').forEach((image) => { image.style.objectPosition = `${current.asset.cropX}% ${current.asset.cropY}%`; });
+        current.image.style.objectPosition = current.image.style.transformOrigin = `${current.asset.cropX}% ${current.asset.cropY}%`;
       } else onCrop(current.latest);
       suppressTileClick.current = current.index;
       window.setTimeout(() => { if (suppressTileClick.current === current.index) suppressTileClick.current = null; }, 0);
@@ -853,16 +896,22 @@ function FeedGrid({
       {positions.slice(0, FEED_SIZE).map((id, index) => {
         const asset = id ? byId.get(id) || null : null;
         const isCarousel = Boolean(asset?.format === 'Carousel' && asset.slides?.length);
+        const instanceKey = `${index}:${id}`;
+        const activeSlideId = activeSlides[instanceKey];
+        const visibleAsset = asset && isCarousel && activeSlideId && asset.slides.includes(activeSlideId) ? byId.get(activeSlideId) || asset : asset;
+        const framing = Boolean(edit && asset && frameId === instanceKey);
         const similar = similarity && index > 0 && id && positions[index - 1] === id;
         return (
           <div className={'feed-tile-wrap' + (dropTarget === index ? ' is-drop-target' : '')} key={index} data-feed-index={index}>
-            <button
-              className={'feed-tile ' + (asset ? 'feed-tile--filled' : 'feed-tile--empty') + (edit && asset ? (frameIndex === index ? ' is-crop-editable' : ' is-post-draggable') : '') + (exchangeFirst === index ? ' is-exchange-selected' : '')}
-              type="button"
+            <div
+              className={'feed-tile ' + (asset ? 'feed-tile--filled' : 'feed-tile--empty') + (edit && asset ? (framing ? ' is-crop-editable' : isCarousel ? ' is-carousel-interactive' : ' is-post-draggable') : '') + (exchangeFirst === index ? ' is-exchange-selected' : '')}
+              role="button" tabIndex={0}
+              onKeyDown={event => { if (event.target !== event.currentTarget || framing) return; if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onTile(index, asset); } }}
               onDragStart={(event) => { if (edit) event.preventDefault(); }}
               onPointerDown={(event) => {
                 if (!edit || !asset || !event.isPrimary || event.button !== 0) return;
-                if (frameIndex === index) { beginCrop(event, index, asset, isCarousel); return; }
+                if (framing && visibleAsset) { beginCrop(event, index, visibleAsset); return; }
+                if (isCarousel) return;
                 event.currentTarget.setPointerCapture(event.pointerId);
                 onPointerStart({ type: 'grid', index }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY });
               }}
@@ -874,17 +923,22 @@ function FeedGrid({
               onDragOver={(event) => { if (edit) { event.preventDefault(); event.dataTransfer.dropEffect = 'move'; highlightDrop(event.currentTarget); } }}
               onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) clearDropHighlight(); }}
               onDrop={(event) => { event.preventDefault(); clearDropHighlight(); if (edit) onDrop(index); }}
-              onClick={() => { if (suppressTileClick.current === index) { suppressTileClick.current = null; return; } onTile(index, asset); }}
+              onClick={() => { if (framing) return; if (suppressTileClick.current === index) { suppressTileClick.current = null; return; } onTile(index, asset); }}
               aria-label={asset ? 'Open position ' + (index + 1) + ': ' + asset.name : 'Add media to position ' + (index + 1)}
             >
-              {asset ? <CarouselVisual key={asset.id} asset={asset} assets={assets} defer={index >= 6} /> : <span className="empty-add"><Plus /><small>Add media</small></span>}
+              {asset ? <CarouselVisual key={asset.id} asset={asset} assets={assets} defer={index >= 6} framing={framing} instanceKey={instanceKey} onActiveSlide={rememberActiveSlide} /> : <span className="empty-add"><Plus /><small>Add media</small></span>}
               {edit && <span className="position-number">{String(index + 1).padStart(2, '0')}</span>}
               {asset && isVideoAsset(asset) && <Video className="video-mark" />}
               {similar && <span className="similarity-note">Similar composition</span>}
-              {edit && asset && <span className="crop-drag-hint"><Move />{frameIndex === index ? 'Drag image to frame' : 'Drag to move post'}</span>}
-            </button>
+              {edit && asset && <span className="crop-drag-hint"><Move />{framing ? 'Drag image to frame' : isCarousel ? 'Swipe slides · handle to move' : 'Drag to move post'}</span>}
+            </div>
             {asset && (isVideoAsset(asset) || isCarousel) && <InlineVideoControl />}
-            {edit && asset && !isCarousel && !isVideoAsset(asset) && <button className="tile-frame-toggle" type="button" aria-label={frameIndex === index ? 'Finish framing photo' : 'Adjust photo framing'} aria-pressed={frameIndex === index} onClick={() => setFrameIndex(frameIndex === index ? null : index)}>{frameIndex === index ? 'Done' : 'Frame'}</button>}
+            {edit && asset && visibleAsset && (!isVideoAsset(visibleAsset) || framing) && <button className="tile-frame-toggle" type="button" aria-label={framing ? 'Finish framing photo' : 'Adjust photo framing'} aria-pressed={framing} onClick={() => setFrameId(framing ? null : instanceKey)}>{framing ? 'Done' : 'Frame'}</button>}
+            {framing && visibleAsset && !isVideoAsset(visibleAsset) && <div className="tile-crop-zoom" aria-label="Visible slide zoom">
+              <button type="button" aria-label="Zoom out visible photo" disabled={visibleAsset.cropZoom <= 100} onClick={() => onCrop({ ...visibleAsset, cropZoom: Math.max(100, visibleAsset.cropZoom - 10) })}>−</button>
+              <span>{visibleAsset.cropZoom}%</span>
+              <button type="button" aria-label="Zoom in visible photo" disabled={visibleAsset.cropZoom >= 200} onClick={() => onCrop({ ...visibleAsset, cropZoom: Math.min(200, visibleAsset.cropZoom + 10) })}>+</button>
+            </div>}
             {edit && asset && <button className="tile-drag-handle" type="button" draggable aria-label={'Drag post at position ' + (index + 1) + ' to swap it'} title="Drag directly to swap" onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', String(index)); onDragStart({ type: 'grid', index }); }} onDragEnd={onDragEnd} onPointerDown={(event) => { event.stopPropagation(); if (event.pointerType === 'touch') { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); onPointerStart({ type: 'grid', index }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); } }}><Grid3X3 /></button>}
             {edit && asset && <button className="tile-delete" type="button" aria-label={'Remove position ' + (index + 1)} title="Remove from feed" onPointerDown={(event) => event.stopPropagation()} onClick={(event) => { event.stopPropagation(); onDelete(index); }}><Trash2 /></button>}
             {colorRhythm && asset && <div className="tile-palette">{asset.palette.split(',').map((color) => <i key={color} style={{ background: color }} />)}</div>}
@@ -2192,14 +2246,6 @@ export default function YsabelWorkspace() {
     );
   }
 
-  const navItems: { label: string; value: Section; icon: typeof Grid3X3 }[] = [
-    { label: 'Feed', value: 'feed', icon: Grid3X3 }, { label: 'Media', value: 'media', icon: Images },
-    { label: 'Occasions', value: 'occasions', icon: CalendarHeart }, { label: 'Notes', value: 'notes', icon: NotebookPen },
-    { label: 'Captions', value: 'captions', icon: MessageCircle },
-    { label: 'Email Marketing', value: 'email', icon: Mail },
-    { label: 'Ereza Reels and Stories', value: 'ereza', icon: CalendarDays },
-    { label: 'Archive', value: 'archive', icon: Archive },
-  ];
 
   return (
     <main className="app-shell">
@@ -2226,11 +2272,7 @@ export default function YsabelWorkspace() {
       </Dialog>
       <input ref={fileInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadFiles(event.target.files)} />
       <input ref={carouselInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadCarouselFiles(event.target.files, selectedId)} />
-      <aside className="rail">
-        <div className="rail-brand"><BrandAvatar size="sm" /></div>
-        <nav className="rail-nav" aria-label="Workspace navigation">{navItems.map(({ label, value, icon: Icon }) => <button className={section === value ? 'active' : ''} key={value} onClick={() => setSection(value)} aria-label={label} title={label}><Icon /></button>)}</nav>
-        <button className={'rail-settings ' + (section === 'settings' ? 'active' : '')} onClick={() => setSection('settings')} aria-label="Settings" title="Settings"><Settings /></button>
-      </aside>
+      <WorkspaceNavigation section={section} onNavigate={setSection} />
 
       <section className="workspace">
         <div className="mobile-brand-header" aria-label="Ysabel Society Content Preview">

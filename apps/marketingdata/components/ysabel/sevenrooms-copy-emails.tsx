@@ -46,7 +46,7 @@ function CopyAudience({query}:{query:string}){
  return <div className="sr-copy-content" aria-busy={loading||busy}>
   <div className="sr-copy-total"><strong>{loading?'—':summary?.count.toLocaleString('en')||'0'}</strong><span>Unique marketing emails</span></div>
   <p className="sr-copy-note">{loading?'Checking the complete audience…':summary?summary.eligible.toLocaleString('en')+' eligible guest profiles · duplicate addresses removed.':''}</p>
-  <p className="sr-copy-note">All matching pages are included. Only valid email addresses with confirmed marketing consent and no suppression are copied.</p>
+  <p className="sr-copy-note">All matching pages are included. Only subscribed guests with valid email addresses are included. Blocked contacts are excluded.</p>
   <label className="sr-copy-format">Separate addresses with<select aria-label="Email separator" value={separator} disabled={busy} onChange={event=>{setSeparator(event.target.value);setManual('');setMessage('');}}><option value="line">A new line</option><option value="comma">A comma</option></select></label>
   <button type="button" className="sr-primary sr-copy-confirm" disabled={loading||busy||!summary?.count} onClick={copy}>{message&&!manual?<Check size={16}/>:<Copy size={16}/>} {busy?'Preparing the full list…':'Copy '+(summary?.count.toLocaleString('en')||'')+' emails'}</button>
   {error&&<p role="alert" className="sr-error">{error} <button type="button" onClick={()=>setRevision(v=>v+1)}>Retry</button></p>}

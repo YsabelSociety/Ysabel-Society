@@ -28,7 +28,7 @@
 .sr .sr-segment-card{display:flex;flex-direction:column;gap:22px}
 .sr .sr-segment-card .sr-segment-open{border:0;background:transparent;padding:0;align-items:flex-start;gap:16px;width:100%;text-align:left;flex:1}
 .sr .sr-segment-card .sr-segment-open:hover{background:transparent}
-.sr-copy-dialog{width:min(540px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;padding:28px;border:1px solid #e3e9e2;border-radius:20px;color:#1d3428;background:linear-gradient(145deg,#fbfcfa,#f6f7f4);box-shadow:0 20px 90px #15221c25;font-family:Inter,Arial,sans-serif}
+.sr-copy-dialog{position:fixed;inset:0;margin:auto;height:fit-content;width:min(540px,calc(100vw - 32px));max-height:calc(100dvh - 40px);overflow:auto;padding:28px;border:1px solid #e3e9e2;border-radius:20px;color:#1d3428;background:linear-gradient(145deg,#fbfcfa,#f6f7f4);box-shadow:0 20px 90px #15221c25;font-family:Inter,Arial,sans-serif}
 .sr-copy-dialog::backdrop{background:#15221c42}
 .sr-copy-dialog header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:14px}
 .sr-copy-dialog h2{font-size:25px;font-weight:450;letter-spacing:-.7px;margin:12px 0 0}

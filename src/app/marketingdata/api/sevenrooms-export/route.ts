@@ -1,9 +1,16 @@
 import ExcelJS from 'exceljs';
+import {collectMarketingEmails} from '@/lib/sevenrooms-marketing-copy';
 export const runtime='nodejs';export const maxDuration=60;
 const safe=(v:unknown)=>{const s=String(v??'');return /^[=+\-@\t\r]/.test(s)?"'"+s:s;};
 export async function GET(req:Request){try{
  const q=new URL(req.url).searchParams,format=q.get('format')||'csv',scope=q.get('scope')||'email';
  const cookie=(req.headers.get('cookie')||'').split(';').map(x=>x.trim()).filter(x=>/^ys_marketing_(session|admin)=/.test(x)).join('; ');
+ if(format==='copy'&&q.has('context')){
+  q.set('op','marketing-copy');q.delete('kind');
+  const read=async(page:number)=>{q.set('page',String(page));const response=await fetch('https://ysabel-society-intelligence.arberhalili1.chatgpt.site/marketingdata/api/sevenrooms?'+q,{headers:{cookie},cache:'no-store',signal:AbortSignal.timeout(25000)});const result=await response.json();if(!response.ok)throw new Error(result.error||'Email copying is unavailable. Please unlock administrator access and retry.');return result;};
+  const result=q.get('counts')==='yes'?await read(1):await collectMarketingEmails(read);
+  return Response.json(result,{headers:{'Cache-Control':'private, no-store'}});
+ }
  const rows:Record<string,string|number>[]=[];q.set('op',q.get('kind')?'crm-export':'export');
  for(let page=1;page<=100;page++){q.set('page',String(page));const r=await fetch('https://ysabel-society-intelligence.arberhalili1.chatgpt.site/marketingdata/api/sevenrooms?'+q,{headers:{cookie},cache:'no-store',signal:AbortSignal.timeout(20000)});const d=await r.json();if(!r.ok)throw new Error(d.error||'Export unavailable.');rows.push(...d.rows);if(d.rows.length<1000)break;}
  const fields=q.get('kind')==='reservations'?['date','time','name','email','phone','consent','venue','covers','status','status_original','external_id']:q.get('kind')==='guests'?['name','email','phone','consent','visits','last_visit','preferred_venue','birthday','external_id']:scope==='email'?['email']:scope==='name'?['name','email']:['name','email','phone','birthday','visits','last_visit','preferred_venue'];

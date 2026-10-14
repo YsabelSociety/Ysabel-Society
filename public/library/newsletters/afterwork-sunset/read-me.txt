@@ -6,7 +6,7 @@ Copy email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/
 Gmail sender: https://ysabelsociety.com/library/newsletters/afterwork-sunset/gmail-send-code.txt
 Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Centred_Cover_Text.pdf
 
-Brand typography is preserved as high-resolution image artwork using the exact Rhiffiral-Regular.ttf and ArminGrotesk-Thin.ttf files used by the website. No visible heading or paragraph has been substituted with a system font. The website keeps live custom-font text.
+Brand typography is preserved as image artwork at 2x desktop and 3x phone resolution using the exact Rhiffiral-Regular.ttf and ArminGrotesk-Thin.ttf files used by the website. No visible heading or paragraph has been substituted with a system font. The website keeps live custom-font text and responsive 2400px/4608px painting sources. Text panels use PNG to avoid another lossy compression pass.
 
 The email includes separate 780px desktop and 390px mobile compositions. An inline fluid fallback remains usable when a composer removes head styles, with a 600px reading panel and enlarged brand text that scales to phone width. Image text scales as artwork; it is not selectable or reflowable live text. Complete image descriptions and the sender script's plain-text alternative retain the copy. Menu and reservation sections are clickable. The browser-view link is omitted.
 

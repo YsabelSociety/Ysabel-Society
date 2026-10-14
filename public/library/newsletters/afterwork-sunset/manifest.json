@@ -1,6 +1,6 @@
 {
   "id": "ysabel-afterwork-sunset",
-  "email_version": 7,
+  "email_version": 8,
   "files": [
     {
       "path": "Ysabel_Fine_Dining_A5_Warm_White_Cover.pdf",
@@ -227,14 +227,14 @@
     {
       "path": "email-source.txt",
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/email-source.txt",
-      "bytes": 11170,
-      "sha256": "bd567fbcea1620d388a9af1386fa628ebeec3243c5d94014a5e769d0cd8fe0f1"
+      "bytes": 20678,
+      "sha256": "f89177e110ed073da57a8523f9016f44391c00407eb8b0d2882a73906590f4fb"
     },
     {
       "path": "email.html",
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html",
-      "bytes": 11170,
-      "sha256": "bd567fbcea1620d388a9af1386fa628ebeec3243c5d94014a5e769d0cd8fe0f1"
+      "bytes": 20678,
+      "sha256": "f89177e110ed073da57a8523f9016f44391c00407eb8b0d2882a73906590f4fb"
     },
     {
       "path": "gmail-send-code.txt",
@@ -257,8 +257,8 @@
     {
       "path": "read-me.txt",
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/read-me.txt",
-      "bytes": 1506,
-      "sha256": "3dc60cacaa40f31866c44c1efade936d4b478ab92d777626b3c0e6b6465e6a89"
+      "bytes": 1628,
+      "sha256": "81dcf57d8416b272201307b660ea96afb61471e124a5f0b1745e99f005447496"
     }
   ]
 }

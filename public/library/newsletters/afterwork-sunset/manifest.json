@@ -1,6 +1,6 @@
 {
   "id": "ysabel-afterwork-sunset",
-  "email_version": 12,
+  "email_version": 13,
   "files": [
     {
       "path": "Ysabel_Fine_Dining_A5_Centred_Cover_Text.pdf",
@@ -85,6 +85,24 @@
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/assets/email-v12-mobile-story.jpg",
       "bytes": 81431,
       "sha256": "a3699f9b7fbe20108002e0be5e3e1781c3d368421d6451a2f0500acdbdb70985"
+    },
+    {
+      "path": "assets/email-v13-desktop-story.jpg",
+      "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/assets/email-v13-desktop-story.jpg",
+      "bytes": 132138,
+      "sha256": "ac9addc8eb2c41e02bef33ec426328f5c556ce45825fd2581e01b2521eb1c6eb"
+    },
+    {
+      "path": "assets/email-v13-fluid-story.jpg",
+      "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/assets/email-v13-fluid-story.jpg",
+      "bytes": 381712,
+      "sha256": "b49af521d7336d5beb2c5b0ab85d350cd94085e7b00109c4d8dca46cb5947a27"
+    },
+    {
+      "path": "assets/email-v13-mobile-story.jpg",
+      "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/assets/email-v13-mobile-story.jpg",
+      "bytes": 83309,
+      "sha256": "24cfcb4b7c0d658daf2b33a1fc8e70dc297e37fb43e7937f429204a33b695d15"
     },
     {
       "path": "assets/email-v2-desktop-closing.jpg",
@@ -306,13 +324,13 @@
       "path": "email-source.txt",
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/email-source.txt",
       "bytes": 19937,
-      "sha256": "9b91471f555fb5b1aa1d104c7d5046fb41fff722e216983150607f601a13d71f"
+      "sha256": "0dc4f4a2414e77d773b64bf6173f31850e68ad7f128bb90818a168462630bfee"
     },
     {
       "path": "email.html",
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html",
       "bytes": 19937,
-      "sha256": "9b91471f555fb5b1aa1d104c7d5046fb41fff722e216983150607f601a13d71f"
+      "sha256": "0dc4f4a2414e77d773b64bf6173f31850e68ad7f128bb90818a168462630bfee"
     },
     {
       "path": "gmail-send-code.txt",
@@ -323,8 +341,8 @@
     {
       "path": "index.html",
       "url": "https://ysabelsociety.com/library/newsletters/afterwork-sunset/index.html",
-      "bytes": 16004,
-      "sha256": "88edda515b3ff132d65825567f4e785bead5333b34084ad003869bebcbf28228"
+      "bytes": 16304,
+      "sha256": "4e2dbe75c946281fb21c3b657bf4f8391592c3145b8bbc82b7510b2bd38e4239"
     },
     {
       "path": "menu.pdf",

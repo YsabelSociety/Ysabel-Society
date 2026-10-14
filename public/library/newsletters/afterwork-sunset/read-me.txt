@@ -6,8 +6,8 @@ Copy email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/
 Gmail sender: https://ysabelsociety.com/library/newsletters/afterwork-sunset/gmail-send-code.txt
 Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Warm_White_Cover.pdf
 
-The email contains linked image sections exported directly from the original browser invitation, at high resolution. Separate phone and desktop layouts preserve the original fonts, colors, hero composition, and spacing without relying on email font loading or dark-mode recoloring. An inline fluid fallback expands to 780px on desktop and fits the available phone width when a composer removes media-query styles. Its reading column is capped at 468px to preserve legibility. The browser-view link has been removed from the email. Menu and reservation sections are clickable. Image alternative text and the script's plain-text body provide fallback content. Recipients must load images to see the full design.
+The email has a fluid layout up to 780px wide. Its paragraphs, schedule, menu button and footer are live HTML text that wraps to the available width. Inline percentage padding keeps a broad desktop reading area and comfortable phone margins even when a composer removes the head styles. Mobile media queries refine text sizes and use a portrait cover; the default cover also scales to the available width without them. The cover preserves the website's brand type. Email text uses email-safe fonts. The browser-view link is omitted.
 
-The lower text strip is an animated GIF that starts and loops automatically when images load in Gmail and other supported clients. Some clients or recipient settings may show a still frame.
+The lower text strip is an animated GIF that starts and loops automatically when images load in supported clients. Some clients or recipient settings may show a still frame. The full menu remains a linked PDF, not an email attachment.
 
 Your existing Apps Script fetches the current email.html each time it runs. Run createYsabelDraft again to create a new review draft; previous drafts and sent messages retain their previous content.

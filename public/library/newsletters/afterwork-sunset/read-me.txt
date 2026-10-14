@@ -4,7 +4,7 @@ Browser invitation: https://ysabelsociety.com/library/newsletters/afterwork-suns
 Email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html
 Copy email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/email-source.txt
 Gmail sender: https://ysabelsociety.com/library/newsletters/afterwork-sunset/gmail-send-code.txt
-Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Warm_White_Cover.pdf
+Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Centred_Cover_Text.pdf
 
 Brand typography is preserved as high-resolution image artwork using the exact Rhiffiral-Regular.ttf and ArminGrotesk-Thin.ttf files used by the website. No visible heading or paragraph has been substituted with a system font. The website keeps live custom-font text.
 

@@ -27,14 +27,14 @@ function CopyAudience({query}:{query:string}){
  useEffect(()=>{
   const abort=new AbortController();setSummary(null);setLoading(true);setError('');setMessage('');setManual('');
   const params=new URLSearchParams(query);params.set('format','copy');params.set('counts','yes');
-  fetch('/marketingdata/api/sevenrooms-export?'+params,{cache:'no-store',signal:abort.signal}).then(async response=>{const data=await response.json();if(!response.ok)throw new Error(data.error||'Could not prepare this audience.');if(!Number.isInteger(data.count))throw new Error('Could not verify this audience.');return data;}).then(data=>{if(!abort.signal.aborted)setSummary(data);}).catch(reason=>{if(!abort.signal.aborted)setError(reason.message);}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});
+  fetch('/marketingdata/api/sevenrooms-export?'+params,{cache:'no-store',signal:abort.signal}).then(async response=>{const data=await response.json() as {count:number;eligible:number;error?:string};if(!response.ok)throw new Error(data.error||'Could not prepare this audience.');if(!Number.isInteger(data.count))throw new Error('Could not verify this audience.');return data;}).then(data=>{if(!abort.signal.aborted)setSummary(data);}).catch(reason=>{if(!abort.signal.aborted)setError(reason.message);}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});
   return()=>abort.abort();
  },[query,revision]);
  async function copy(){
   setBusy(true);setError('');setMessage('');setManual('');
   try{
    const params=new URLSearchParams(query);params.set('format','copy');params.delete('counts');
-   const response=await fetch('/marketingdata/api/sevenrooms-export?'+params,{cache:'no-store',signal:AbortSignal.timeout(60000)}),data=await response.json();
+   const response=await fetch('/marketingdata/api/sevenrooms-export?'+params,{cache:'no-store',signal:AbortSignal.timeout(60000)}),data=await response.json() as {emails:string[];error?:string};
    if(!response.ok)throw new Error(data.error||'Could not prepare the email list.');
    if(!Array.isArray(data.emails)||!data.emails.length)throw new Error('No marketing-eligible emails match this selection.');
    const text=data.emails.join(separator==='line'?'\n':', ');

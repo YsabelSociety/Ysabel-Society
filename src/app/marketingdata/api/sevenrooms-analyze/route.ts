@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import {createHash} from 'node:crypto';
 const parsedCache=new Map<string,{rows:Record<string,unknown>[];summary:Record<string,unknown>;expires:number}>();
 import {normalize,clientColumns,reservationColumns} from '@/lib/sevenrooms-normalize';
+import {sevenRoomsCsv,sevenRoomsHeader} from '@/lib/sevenrooms-csv';
 type Normalized = ReturnType<typeof normalize> & Partial<{venue:string;source_venue:string;date:string;status:string;source_visits:number}>;
 export const runtime='nodejs';
 export const maxDuration=60;
@@ -17,14 +18,19 @@ export async function POST(req:Request){try{
  const key=createHash('sha256').update(cookie+id+JSON.stringify(mapping)).digest('hex');for(const [k,v] of parsedCache)if(v.expires<Date.now())parsedCache.delete(k);let cached=parsedCache.get(key);
  if(!cached){
  const raw=await fetch(url+'?op=raw&id='+encodeURIComponent(id),{headers:{cookie},cache:'no-store',signal:AbortSignal.timeout(25000)});if(!raw.ok)throw new Error('Unlock administrator access before importing.');
- const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(Buffer.from(await raw.arrayBuffer()) as unknown as Parameters<typeof workbook.xlsx.load>[0]);
- const sheet=workbook.worksheets[0];if(!sheet)throw new Error('No worksheet found.');
+ const bytes=Buffer.from(await raw.arrayBuffer());if(bytes.length>30000000)throw new Error('Choose an export smaller than 30 MB.');
  const scalar=(v:ExcelJS.CellValue):unknown=>v instanceof Date?v.toISOString():v&&typeof v==='object'?('result' in v?v.result:'text' in v?v.text:'richText' in v?v.richText.map(x=>x.text).join(''):''):v??'';
- const headersRaw=(sheet.getRow(1).values as ExcelJS.CellValue[]).slice(1).map(x=>String(scalar(x)).trim());
- const heads=headersRaw.map(h=>mapping[h]||h);
+ let headersRaw:string[],sourceRows:unknown[][];
+ if(bytes[0]===0x50&&bytes[1]===0x4b){
+  const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(bytes as unknown as Parameters<typeof workbook.xlsx.load>[0]);const sheet=workbook.worksheets[0];if(!sheet)throw new Error('No worksheet found.');
+  headersRaw=(sheet.getRow(1).values as ExcelJS.CellValue[]).slice(1).map(value=>String(scalar(value)).trim());sourceRows=[];
+  sheet.eachRow((row,index)=>{if(index!==1)sourceRows.push(headersRaw.map((_,column)=>scalar(row.getCell(column+1).value)));});
+ }else{const parsed=sevenRoomsCsv(bytes.toString('utf8'));headersRaw=parsed.headers;sourceRows=parsed.records;}
+ const heads=headersRaw.map(h=>mapping[h]||sevenRoomsHeader(h));
+ if(new Set(heads).size!==heads.length)throw new Error('Some mapped columns have the same name. Check the column mapping.');
  const needed=kind==='clients'?['Full Name','Guest ID']:['Reservation Date','Full Name (Reservation)','Venue Name'];
  const missing=needed.filter(h=>!heads.includes(h));if(missing.length)return Response.json({error:'Some required columns could not be recognised.',missing,columns:headersRaw},{status:400});
- const rows:Record<string,unknown>[]=[];sheet.eachRow((row,i)=>{if(i===1)return;const r:Record<string,unknown>={};heads.forEach((h,j)=>{r[h]=scalar(row.getCell(j+1).value);});rows.push(r);});
+ const rows:Record<string,unknown>[]=sourceRows.map(values=>Object.fromEntries(heads.map((head,index)=>[head,values[index]??''])));
  if(rows.length>100000)throw new Error('Import up to 100,000 rows per file.');
  const venues:Record<string,number>={},statuses:Record<string,number>={},emailCounts=new Map<string,number>(),ids=new Set<string>(),dates:string[]=[];let eligible=0,duplicateIDs=0,missingIDs=0;
  for(const raw of rows){const r:Normalized=normalize(raw,kind);const v=r.venue||r.source_venue;if(v)venues[v]=(venues[v]||0)+1;if(r.date)dates.push(r.date);if(r.status)statuses[r.status]=(statuses[r.status]||0)+1;if(!r.external_id)missingIDs++;else if(ids.has(r.external_id))duplicateIDs++;else ids.add(r.external_id);if(r.email&&r.consent==='yes'){eligible++;emailCounts.set(r.email,(emailCounts.get(r.email)||0)+1);}}

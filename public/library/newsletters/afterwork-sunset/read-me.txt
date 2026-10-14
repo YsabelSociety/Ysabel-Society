@@ -4,7 +4,7 @@ Browser invitation: https://ysabelsociety.com/library/newsletters/afterwork-suns
 Email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html
 Copy email HTML: https://ysabelsociety.com/library/newsletters/afterwork-sunset/email-source.txt
 Gmail sender: https://ysabelsociety.com/library/newsletters/afterwork-sunset/gmail-send-code.txt
-Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/menu.pdf
+Menu PDF: https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Warm_White_Cover.pdf
 
 The email contains linked image sections exported directly from the original browser invitation, at high resolution. Separate phone and desktop layouts preserve the original fonts, colors, hero composition, and spacing without relying on email font loading or dark-mode recoloring. The phone layout is the fallback if a client removes media-query styles. Menu and reservation sections are clickable. Image alternative text and the script's plain-text body provide fallback content. Recipients must load images to see the full design.
 

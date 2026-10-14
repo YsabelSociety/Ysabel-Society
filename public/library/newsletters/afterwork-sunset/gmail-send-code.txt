@@ -2,8 +2,8 @@
 // Enter one recipient address here before using sendYsabelNewsletter.
 const RECIPIENT = '';
 const NEWSLETTER_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/email.html';
-const MENU_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/menu.pdf';
-const SUBJECT = 'After Work Sunset at Ysabel Society';
+const MENU_URL = 'https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Warm_White_Cover.pdf';
+const SUBJECT = 'After work Sunset at Ysabel Society';
 
 function createYsabelDraft() {
   const recipient = RECIPIENT.trim() || Session.getEffectiveUser().getEmail();
@@ -45,6 +45,6 @@ function newsletterMessage_() {
   }
   return {
     html: html,
-    body: "AFTER WORK SUNSET AT YSABEL SOCIETY\n\nStarting 21 October. Wednesday to Friday, 16:00 - 19:00.\n\nTHE 80s & 90s RETURN\n\nSee you after work.\n\nThere's probably someone you've been meaning to see. A friend you haven't caught up with in a while, or a colleague you'd enjoy spending a little more time with outside the office.\n\nWe'd love to welcome you both to Ysabel Garden.\n\nFind something you like on the menu, enjoy a few drinks, and spend the sunset together with familiar songs from the 80s and 90s. The kind of music that brings back old memories and gives everyone something to talk about.\n\nWhether you're stopping by for an hour or staying into the evening, there's always room for a little more time together.\n\nExplore our Garden menu. We'd love to see you after work.\n\nView the menu: https://ysabelsociety.com/library/newsletters/afterwork-sunset/menu.pdf\nReserve your evening: https://www.ysabelsociety.com/\n"
+    body: "After work Sunset\nat Ysabel Society\n\nStarting 21 October. Wednesday to Friday, 16:00 - 19:00.\n\nTHE 80s & 90s RETURN\n\nSee you after work.\n\nThere's probably someone you've been meaning to see. A friend you haven't caught up with in a while, or a colleague you'd enjoy spending a little more time with outside the office.\n\nWe'd love to welcome you both to Ysabel Garden.\n\nFind something you like on the menu, enjoy a few drinks, and spend the sunset together with familiar songs from the 80s and 90s. The kind of music that brings back old memories and gives everyone something to talk about.\n\nWhether you're stopping by for an hour or staying into the evening, there's always room for a little more time together.\n\nExplore our Garden menu. We'd love to see you after work.\n\nView the menu: https://ysabelsociety.com/library/newsletters/afterwork-sunset/Ysabel_Fine_Dining_A5_Warm_White_Cover.pdf\nReserve your evening: https://www.ysabelsociety.com/\n"
   };
 }

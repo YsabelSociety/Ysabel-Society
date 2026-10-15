@@ -4,7 +4,7 @@ import { calendarDate } from '@/lib/sync-window';
 import { number, postAvailable, type Post } from '@/lib/analytics';
 import { useSourceAnalytics } from './use-analytics';
 import { DataIcon } from './data-icons';
-import { MediaCards } from './content';
+import { MediaCards } from './media-cards';
 import { ImportedPostDetail } from './imported-post-detail';
 import { Bars } from './charts';
 

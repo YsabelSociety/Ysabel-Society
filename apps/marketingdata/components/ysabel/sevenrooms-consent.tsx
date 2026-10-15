@@ -3,6 +3,7 @@ import {useEffect,useRef,useState} from 'react';
 import {ArrowDownToLine,ArrowUpRight,MailCheck,MailX,ShieldAlert,HelpCircle,ShieldX,X} from 'lucide-react';
 import {AdminGate} from './admin-gate';
 import {CopyEmailsButton} from './sevenrooms-copy-emails';
+import {sevenRoomsApi,peekSevenRooms} from '../../lib/sevenrooms-read';
 
 const definitions=[
  {key:'yes',title:'Yes · subscribed',note:'Consistent consent across every profile sharing the email.',Icon:MailCheck},
@@ -17,8 +18,8 @@ type Summary={total:number;profiles:number;emailProfiles:number;withoutEmail:num
 export function SevenRoomsConsent({venue,revision,onView}:{venue:string;revision:number;onView:(group:string)=>void}){
  const [data,setData]=useState<Summary|null>(null),[error,setError]=useState(''),[loading,setLoading]=useState(true),[retry,setRetry]=useState(0),[exportGroup,setExportGroup]=useState<Group|null>(null);
  useEffect(()=>{
-  const abort=new AbortController();setData(null);setError('');setLoading(true);
-  fetch('/marketingdata/api/sevenrooms?'+new URLSearchParams({op:'consent-summary',venue}),{cache:'no-store',signal:abort.signal}).then(async response=>{const result=await response.json() as Summary&{error?:string};if(!response.ok)throw new Error(result.error||'Could not check email consent.');return result;}).then(result=>{if(!abort.signal.aborted)setData(result);}).catch(reason=>{if(!abort.signal.aborted)setError(reason.message);}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});
+  const abort=new AbortController(),query=new URLSearchParams({op:'consent-summary',venue}).toString();setData((peekSevenRooms(query) as Summary)||null);setError('');setLoading(true);
+  sevenRoomsApi(query).then(result=>{if(!abort.signal.aborted)setData(result as Summary);}).catch(reason=>{if(!abort.signal.aborted)setError(reason.message);}).finally(()=>{if(!abort.signal.aborted)setLoading(false);});
   return()=>abort.abort();
  },[venue,revision,retry]);
  const shown=definitions.filter(group=>['yes','no','conflict'].includes(group.key)||!!data?.groups[group.key]?.emails);

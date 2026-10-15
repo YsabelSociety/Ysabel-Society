@@ -24,7 +24,7 @@ import {
 } from '@/lib/analytics';
 import { Help } from './controls';
 import { AnalyticsChart, Spark } from './charts';
-import { MediaCards, Media } from './content';
+import { MediaCards, Media } from './media-cards';
 import { useState, useEffect } from 'react';
 import { calendarDate } from '@/lib/sync-window';
 import { IntelligenceScene } from './intelligence-scene';

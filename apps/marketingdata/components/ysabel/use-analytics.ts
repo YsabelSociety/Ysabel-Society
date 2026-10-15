@@ -34,8 +34,15 @@ export function useSourceAnalytics(
     comparisonLimited: boolean;
   } | null>(null);
   const [revision, setRevision] = useState(0);
+  const activeRead = useRef<AbortController | null>(null);
+  const refreshQueued = useRef(false);
   useEffect(() => {
-    const refresh = () => setRevision((v) => v + 1);
+    // Providers finish separately. Let an existing read finish instead of
+    // repeatedly cancelling it while the next platform is being imported.
+    const refresh = () => {
+      if (activeRead.current) refreshQueued.current = true;
+      else setRevision((v) => v + 1);
+    };
     window.addEventListener('ysabel:sources-updated', refresh);
     return () => window.removeEventListener('ysabel:sources-updated', refresh);
   }, []);
@@ -44,6 +51,7 @@ export function useSourceAnalytics(
   const key = unit + '|' + range.start + '|' + range.end + '|' + comparison;
   useEffect(() => {
     const abort = new AbortController();
+    activeRead.current = abort;
     setLoading(true);
     setError('');
     async function run() {
@@ -142,11 +150,23 @@ export function useSourceAnalytics(
             e instanceof Error ? e.message : 'Could not load analytics.',
           );
       } finally {
-        if (!abort.signal.aborted) setLoading(false);
+        if (activeRead.current === abort) {
+          activeRead.current = null;
+          if (!abort.signal.aborted) {
+            setLoading(false);
+            if (refreshQueued.current) {
+              refreshQueued.current = false;
+              setRevision(value => value + 1);
+            }
+          }
+        }
       }
     }
     void run();
-    return () => abort.abort();
+    return () => {
+      abort.abort();
+      if (activeRead.current === abort) activeRead.current = null;
+    };
   }, [key, revision, onLive]);
   useEffect(() => {
     if (!error || loading) return;

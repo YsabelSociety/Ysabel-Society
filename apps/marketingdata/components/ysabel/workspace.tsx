@@ -92,22 +92,30 @@ import { SourceStatusContext } from './source-badge';
 import { sourceFeedLabel } from '@/lib/source-status';
 import { useWorkspace } from './use-workspace';
 import { useSourceAnalytics } from './use-analytics';
-import { PostDetail, ContentIntelligence } from './content';
-import {
-  PerformancePage,
-  AudiencePage,
-  WebsitePage,
-  ComparisonsPage,
-  InsightsPage,
-} from './analytics-pages';
-import { ReportsPage, ExportDialog } from './reports';
-import { SettingsPage } from './system-pages';
-import { AdminPanel } from './admin-panel';
+import { deferredSection } from './deferred-section';
+const loadAnalytics = () => import('./analytics-pages');
+const loadCommunity = () => import('./community');
+const loadReports = () => import('./reports');
+const loadContent = () => import('./content');
+const PerformancePage = deferredSection('performance', () => loadAnalytics().then(m=>({default:m.PerformancePage})));
+const AudiencePage = deferredSection('audience', () => loadAnalytics().then(m=>({default:m.AudiencePage})));
+const WebsitePage = deferredSection('website', () => loadAnalytics().then(m=>({default:m.WebsitePage})));
+const ComparisonsPage = deferredSection('comparisons', () => loadAnalytics().then(m=>({default:m.ComparisonsPage})));
+const InsightsPage = deferredSection('insights', () => loadAnalytics().then(m=>({default:m.InsightsPage})));
+const ReportsPage = deferredSection('reports', () => loadReports().then(m=>({default:m.ReportsPage})));
+const ExportDialog = deferredSection('export', () => loadReports().then(m=>({default:m.ExportDialog})));
+const PostDetail = deferredSection('post details', () => loadContent().then(m=>({default:m.PostDetail})));
+const ContentIntelligence = deferredSection('content', () => loadContent().then(m=>({default:m.ContentIntelligence})));
+const SettingsPage = deferredSection('settings', () => import('./system-pages').then(m=>({default:m.SettingsPage})));
+const AdminPanel = deferredSection('administration', () => import('./admin-panel').then(m=>({default:m.AdminPanel})));
+const SourceReports = deferredSection('source reports', () => import('./source-reports').then(m=>({default:m.SourceReports})));
+const CommunityPage = deferredSection('inbox', () => loadCommunity().then(m=>({default:m.CommunityPage})));
+const GoogleReviews = deferredSection('Google reviews', () => loadCommunity().then(m=>({default:m.GoogleReviews})));
+const sectionLoads: Record<string, () => Promise<unknown>> = {Performance:loadAnalytics,Audience:loadAnalytics,Website:loadAnalytics,Insights:loadAnalytics,Comparisons:loadAnalytics,'Google Business':loadCommunity,Inbox:loadCommunity,Reports:loadReports,'Content Intelligence':loadContent,'Seven Rooms':()=>import('./sevenrooms'),'Data Center':()=>import('./data-center'),'Admin Panel':()=>import('./admin-panel'),Settings:()=>import('./system-pages')};
+function preloadSection(name:string) { void sectionLoads[name]?.().catch(()=>{}); }
 import { useInboxSync } from './use-inbox-sync';
 import { useAutoRefresh } from './use-auto-refresh';
 import { calendarDate } from '@/lib/sync-window';
-import { SourceReports } from './source-reports';
-import { CommunityPage, GoogleReviews } from './community';
 const SevenRooms = lazy(() => import('./sevenrooms'));
 const groups = [
   {
@@ -644,6 +652,8 @@ export default function Workspace({
                             type="button"
                             data-nav={name}
                             isActive={page === name}
+                            onPointerEnter={() => preloadSection(name)}
+                            onFocus={() => preloadSection(name)}
                             onClick={() => navigate(name)}
                           >
                             <Icon size={17} />
@@ -1133,14 +1143,14 @@ export default function Workspace({
                 </p>
               </DialogContent>
             </Dialog>
-            <PostDetail
+            <VisitedPanel active={!!post}><PostDetail
               post={
                 post ? (data.posts.find((p) => p.id === post.id) ?? post) : null
               }
               onClose={() => setPost(null)}
               data={data}
-            />
-            <ExportDialog
+            /></VisitedPanel>
+            <VisitedPanel active={exportOpen}><ExportDialog
               open={exportOpen}
               onClose={() => setExportOpen(false)}
               rows={rows}
@@ -1148,7 +1158,7 @@ export default function Workspace({
               range={range}
               unit={unit}
               mode={source.mode}
-            />
+            /></VisitedPanel>
             {data.notice && (
               <div className="toast" role="status">
                 <Check size={15} />

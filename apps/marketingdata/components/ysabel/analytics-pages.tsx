@@ -56,7 +56,7 @@ import {
 import { Picker, Help } from './controls';
 import { AnalyticsChart, Bars, Spark } from './charts';
 import { type WorkspaceData } from './use-workspace';
-import { MediaCards, Empty } from './content';
+import { MediaCards, Empty } from './media-cards';
 import { SourceReports } from './source-reports';
 import { SourceBadge } from './source-badge';
 import type { ReportTable } from '@/lib/reporting';

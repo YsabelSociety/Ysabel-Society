@@ -50,3 +50,13 @@ test('a late daily response cannot replace the newer completed full report',asyn
  const h=mount();t.after(h.unmount);h.requests.find(r=>!r.url.includes('dailyOnly')).resolve({...h.report,rows:[{...daily[0],views:43}]});await flush();h.render();
  h.requests.find(r=>r.url.includes('dailyOnly')).resolve({mode:'live',rows:[{...daily[0],views:42}]});await flush();assert.equal(h.render().rows[0].views,43);
 });
+
+test('provider completion bursts finish the current read and queue one fresh follow-up',async t=>{
+ const h=mount();t.after(h.unmount);const initial=h.requests.slice();
+ for(let i=0;i<5;i++)h.refresh();
+ h.render();assert.equal(h.requests.length,2);assert.ok(initial.every(r=>!r.signal.aborted));
+ initial.forEach(r=>r.resolve(r.url.includes('dailyOnly')?{mode:'live',rows:daily}:h.report));await flush();
+ assert.equal(h.render().detailsReady,true);assert.equal(h.requests.length,4);
+ h.requests.slice(2).forEach(r=>r.resolve(r.url.includes('dailyOnly')?{mode:'live',rows:daily}:h.report));await flush();
+ h.render();assert.equal(h.requests.length,4,'One refresh follows a burst, with no cancelled valid result');
+});

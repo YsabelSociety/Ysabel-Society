@@ -8,10 +8,9 @@ import {feedbackMonthLabel,groupFeedbackByMonth,feedbackRatingSelections,feedbac
 import {CopyEmailsButton} from './sevenrooms-copy-emails';
 import {SevenRoomsConsent} from './sevenrooms-consent';
 import {importSevenRoomsBatches} from '../../lib/sevenrooms-import-batches';
+import {sevenRoomsApi as api,peekSevenRooms} from '../../lib/sevenrooms-read';
 import './sevenrooms.css';
 type Row=Record<string,any>;type Rule={field:string;value:string};
-const base='/marketingdata/api/sevenrooms';
-async function api(q:string|Row){const retry=typeof q==='string'||['process','stage','part','finish'].includes(q.op);for(let attempt=0;attempt<(retry?3:1);attempt++){try{const r=await fetch(typeof q==='string'?base+'?'+q:base,typeof q==='string'?{cache:'no-store',signal:AbortSignal.timeout(25000)}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q),signal:AbortSignal.timeout(45000)});const d:any=await r.json().catch(()=>({error:'The service is temporarily unavailable. Please retry.'}));if(!r.ok){if(r.status<500&&r.status!==429)throw Object.assign(new Error(d.error||'Please try again.'),{noRetry:true});throw new Error(d.error||'Please try again.');}return d;}catch(e){if(!retry||attempt===2||(e as any).noRetry)throw e;await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)));}}throw new Error('Please retry.');}
 const num=(n:any)=>Number(n||0).toLocaleString('en');
 const pretty=(v:any)=>String(v||'Not recorded').replace(/^unmapped:/,'Unmapped · ').replaceAll('_',' ');
 const rel=(n:number)=>n>=10?'10+ visits':n>=5?'5–9 visits':n>=2?'2–4 visits':n===1?'Visited once':'No recorded visits';
@@ -23,22 +22,17 @@ const ven=(v:string)=>({all:'All Ysabel',asian:'Asian',italian:'Italian',garden:
 const smart=[['marketable','Guests we can email'],['active30','Visited in 30 days'],['active90','Visited in 90 days'],['inactive90','Away for 90+ days'],['inactive180','Away for 180+ days'],['one','Visited once'],['returning','Returning Guests'],['loyal','Five or more visits'],['inner','Ten or more visits'],['birthdaymonth','Birthday This Month'],['birthday30','Birthday Next 30 Days'],['prospects','No recorded visits'],['upcoming','Upcoming Reservations'],['firstupcoming','First-Time Upcoming'],['noshow','Previous No-Shows'],['cancelled','Previous Cancellations'],['asian','Asian Guests'],['italian','Italian Guests'],['garden','Garden Guests']];
 const options:Record<string,string[]>={marketing:['eligible','not-eligible','email','no-email'],'email-consent':['yes','no','conflict','unknown','blocked'],visits:['0','1','2-4','5-9','2+','5+','10+'],recency:['0-30','31-60','61-90','90+','180+','365+','unknown'],birthday:['known','this-month','next-month','0','7','30','60'],upcoming:['yes','no'],history:['completed','cancelled','no-show'],venue:['asian','italian','garden']};
 function useData(q:string,revision=0,enabled=true){
- const cache=useRef(new Map<string,{data:Row;at:number}>());
- const pending=useRef(new Map<string,Promise<Row>>());
  const [state,set]=useState<{key:string;data:Row|null;error:string;loading:boolean}>({key:'',data:null,error:'',loading:false});
  const key=revision+'|'+q;
  useEffect(()=>{
   if(!enabled)return;
-  let active=true;const saved=cache.current.get(key);
-  set({key,data:saved?.data||null,error:'',loading:!saved});
-  if(saved&&Date.now()-saved.at<30000)return;
-  let request=pending.current.get(key);
-  if(!request){request=api(q).then(data=>{cache.current.set(key,{data,at:Date.now()});while(cache.current.size>8)cache.current.delete(cache.current.keys().next().value!);return data;}).finally(()=>pending.current.delete(key));pending.current.set(key,request);}
-  request.then(data=>{if(active)set({key,data,error:'',loading:false});}).catch(e=>{if(active)set({key,data:saved?.data||null,error:e.message,loading:false});});
+  let active=true;const saved=peekSevenRooms(q);
+  set({key,data:saved||null,error:'',loading:!saved});
+  api(q).then(data=>{if(active)set({key,data,error:'',loading:false});}).catch(e=>{if(active)set({key,data:saved||null,error:e.message,loading:false});});
   return()=>{active=false;};
  },[key,enabled]);
- const saved=cache.current.get(key);
- return state.key===key?state:{data:saved?.data||null,error:'',loading:enabled&&!saved};
+ const saved=peekSevenRooms(q);
+ return state.key===key?state:{data:saved||null,error:'',loading:enabled&&!saved};
 }
 function Drawer({title,close,children}:{title:string;close:()=>void;children:ReactNode}){const ref=useRef<HTMLDivElement>(null);useEffect(()=>{const old=document.activeElement as HTMLElement;ref.current?.focus();const key=(e:KeyboardEvent)=>{if(e.key==='Escape')close();if(e.key==='Tab'){const els=ref.current?.querySelectorAll<HTMLElement>('button,input,select,textarea,a[href]');if(!els?.length)return;const a=els[0],b=els[els.length-1];if(e.shiftKey&&document.activeElement===a){e.preventDefault();b.focus();}else if(!e.shiftKey&&document.activeElement===b){e.preventDefault();a.focus();}}};document.addEventListener('keydown',key);return()=>{document.removeEventListener('keydown',key);old?.focus();};},[]);return <div className="sr-scrim" onClick={close}><div className="sr-drawer" ref={ref} tabIndex={-1} role="dialog" aria-modal="true" aria-label={title} onClick={e=>e.stopPropagation()}><header><h2>{title}</h2><button onClick={close} aria-label="Close"><X size={19}/></button></header>{children}</div></div>;}
 function ShareBar({value,total,label}:{value:number;total:number;label:string}){const percent=total?Math.min(100,100*value/total):0;return <div className="sr-share" title={`${num(value)} of ${num(total)} ${label}`}><span>{percent.toFixed(1)}% <small>{label}</small></span><i><em style={{width:percent+'%'}}/></i></div>;}

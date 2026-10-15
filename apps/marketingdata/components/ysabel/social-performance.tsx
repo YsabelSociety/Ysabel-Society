@@ -55,8 +55,9 @@ import {
 import type { ReportTable } from '@/lib/reporting';
 import { Picker } from './controls';
 import { useMinimalMotion } from './use-motion';
-import { AudienceMap } from './audience-map';
-import { PostPerformance } from './post-performance';
+import { deferredSection } from './deferred-section';
+const AudienceMap = deferredSection('audience map', () => import('./audience-map').then(m=>({default:m.AudienceMap})));
+const PostPerformance = deferredSection('post performance', () => import('./post-performance').then(m=>({default:m.PostPerformance})));
 import { Spark } from './charts';
 import { DataIcon } from './data-icons';
 import { SourceBadge } from './source-badge';

@@ -54,6 +54,9 @@ export function websitePlot(table: ReportTable, metric: string) {
   const totals = new Map<string, number>(),
     dates = new Map<string, Record<string, string | number>>();
   for (const row of table.rows) {
+    // Reservation CTAs can emit both click and reservation_click. Counting the
+    // secondary business event again would inflate this destination ranking.
+    if (table.key === 'website-links' && row.eventName && !['click', 'link_click'].includes(String(row.eventName))) continue;
     const value = row[metric];
     if (typeof value !== 'number' || !Number.isFinite(value)) continue;
     const category = dimension

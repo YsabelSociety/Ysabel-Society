@@ -5,6 +5,7 @@ import "./globals.css";
 import Footer from "./components/Footer/Footer";
 import ScrollToTop from "./components/ScrollToTop/ScrollToTop";
 import { LanguageProvider } from "./contexts/LanguageContext";
+import WebsiteLinkTracking from './components/WebsiteLinkTracking';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,6 +55,7 @@ export default function RootLayout({
           src="https://www.googletagmanager.com/gtag/js?id=G-WDV71MP0DK"
           strategy="afterInteractive"
         />
+        <WebsiteLinkTracking />
       </body>
     </html>
   );

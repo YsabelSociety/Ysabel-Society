@@ -1,6 +1,6 @@
 'use client';
 import { openDataCenter } from './data-center-navigation';
-import { useState, useMemo, useId } from 'react';
+import { useState, useMemo, useId, useEffect } from 'react';
 import {
   AreaChart,
   Area,
@@ -19,11 +19,14 @@ import {
   WEBSITE_REPORTS,
   websitePlot,
   reportLabel,
+  websiteDimension,
+  websiteLink,
 } from '@/lib/website-report-model';
 import { DeferredChart } from './social-performance';
 import { Picker } from './controls';
 import { useMinimalMotion } from './use-motion';
 import { DataIcon } from './data-icons';
+import { SourceBadge } from './source-badge';
 const colors = [
   '#297b98',
   '#8167ba',
@@ -43,22 +46,27 @@ function WebsiteReport({
 }) {
   const [metric, setMetric] = useState(''),
     [view, setView] = useState(
-      new Set(table.rows.map((r) => r.date).filter(Boolean)).size > 1
+      !websiteDimension(table) && new Set(table.rows.map((r) => r.date).filter(Boolean)).size > 1
         ? 'Over time'
         : 'Breakdown',
     ),
     [page, setPage] = useState(0),
+    [search, setSearch] = useState(''),
     animate = useMinimalMotion();
   const id = useId().replace(/:/g, '');
   const palette = colors.map((_, i) => colors[(index + i) % colors.length]);
   const metrics = table.columns.filter(
     (c) =>
-      !['conversions', 'conversionValue', 'keyEvents'].includes(c) &&
       table.rows.some((r) => typeof r[c] === 'number'),
   );
   const active = metrics.includes(metric) ? metric : metrics[0] || 'sessions';
   const plot = useMemo(() => websitePlot(table, active), [table, active]);
   const dated = table.columns.includes('date');
+  const dimension = websiteDimension(table);
+  const ranked = plot.ranked.filter(row => row.name.toLowerCase().includes(search.toLowerCase()));
+  const total = plot.ranked.reduce((sum, row) => sum + row.value, 0);
+  useEffect(() => setPage(0), [search, active, table.period.start, table.period.end]);
+  const title = WEBSITE_REPORTS.find(([key]) => key === table.key)?.[1] || table.title;
   return (
     <section
       className="surface padded website-report-card"
@@ -73,13 +81,14 @@ function WebsiteReport({
           <span className="metric-eyebrow">Website · ysabelsociety.com</span>
           <h3>
             <DataIcon name={table.key} />
-            {table.title}
+            {title}
           </h3>
         </div>
         <span className="report-number">
           {String(index + 1).padStart(2, '0')}
         </span>
       </div>
+      {table.observedAt && <p className="source-asof"><SourceBadge channel="Website" /> Google Analytics API · Updated {new Date(table.observedAt).toLocaleString('en-GB', {timeZone:'Europe/Tirane',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}</p>}
       <div className="inline-controls">
         {metrics.length > 0 && (
           <Picker
@@ -101,7 +110,7 @@ function WebsiteReport({
         )}
       </div>
       {!table.rows.length ? (
-        <p className="metric-empty">No records supplied for this period.</p>
+        <p className="metric-empty">Google has not returned {table.key === 'website-links' ? 'tracked destination link clicks' : table.key === 'website-downloads' ? 'file download events' : table.key === 'website-searches' ? 'website search events' : 'records'} for these dates. This is not a zero estimate.</p>
       ) : !dated ? (
         <div className="website-report-summary">
           {metrics.map((m) => (
@@ -116,6 +125,7 @@ function WebsiteReport({
         </div>
       ) : (
         <>
+          <DeferredChart title={title + ' chart'} loading={false}>
           <div className="website-report-chart">
             <ResponsiveContainer width="100%" height={280}>
               {view === 'Over time' ? (
@@ -216,6 +226,7 @@ function WebsiteReport({
               )}
             </ResponsiveContainer>
           </div>
+          </DeferredChart>
           <div className="chart-legend">
             {(view === 'Over time' ? plot.keys : []).map((k, i) => (
               <span key={k}>
@@ -227,13 +238,28 @@ function WebsiteReport({
           <p className="metric-definition">
             {view === 'Over time'
               ? 'Up to six leading categories; missing dates are not filled with zero.'
-              : 'Top ten categories; the detail table contains every imported row.'}{' '}
+              : 'Top ten categories; all recorded entries are searchable below.'}{' '}
             {active === 'activeUsers'
               ? 'Counts added across dates are user-days, not unique people for the entire period.'
               : ''}
           </p>
         </>
       )}
+      {dimension && table.rows.length > 0 && <div className="website-ranking">
+        <div className="website-ranking-tools">
+          <strong>{plot.ranked.length.toLocaleString()} {dimension === 'pagePath' || dimension === 'landingPage' ? 'pages' : dimension === 'linkUrl' ? 'links' : 'entries'}</strong>
+          <input type="search" aria-label={'Search ' + title} placeholder="Search pages, links or names" value={search} onChange={event=>setSearch(event.target.value)} />
+        </div>
+        <div className="report-table-scroll"><table aria-label={title + ' ranking'}>
+          <thead><tr><th scope="col">{reportLabel(dimension)}</th><th scope="col">{table.key === 'website-links' ? 'Clicks' : table.key === 'website-downloads' ? 'Downloads' : reportLabel(active)}</th><th scope="col">Share</th></tr></thead>
+          <tbody>{ranked.slice(page * 10, (page + 1) * 10).map(row=><tr key={row.name}>
+            <th scope="row">{websiteLink(row.name) ? <a href={websiteLink(row.name)} target="_blank" rel="noopener noreferrer">{row.name} ↗</a> : row.name}</th>
+            <td>{number(row.value)}</td><td>{total ? (row.value / total * 100).toFixed(1) : '0'}%</td>
+          </tr>)}</tbody>
+        </table></div>
+        {!ranked.length && <p>No matching entries.</p>}
+        <div className="pagination"><button disabled={!page} onClick={()=>setPage(page-1)}>Previous</button><span>{ranked.length ? page * 10 + 1 : 0}–{Math.min((page + 1) * 10, ranked.length)} of {number(ranked.length)}</span><button disabled={(page+1)*10 >= ranked.length} onClick={()=>setPage(page+1)}>Next</button></div>
+      </div>}
       {archive && <details className="website-report-details">
         <summary>
           Report details · {table.rows.length.toLocaleString()} rows
@@ -310,6 +336,7 @@ export function WebsiteReports({
   title: string;
   archive?: boolean;
 }) {
+  const [section, setSection] = useState('Pages & links');
   const available = tables.filter((t) => t.source === 'ga4');
   const reports = [
     ...WEBSITE_REPORTS.map(([key, name]) => ({
@@ -321,16 +348,19 @@ export function WebsiteReports({
       .filter((t) => !WEBSITE_REPORTS.some(([key]) => key === t.key))
       .map((t) => ({ key: t.key, name: t.title, table: t })),
   ];
+  const groups: Record<string, string[]> = {
+    'Pages & links': ['website-pages', 'website-links', 'website-landing'],
+    'Audience & sources': ['website-total', 'website-traffic', 'website-channels', 'website-campaigns', 'website-referrers', 'website-devices', 'website-browsers', 'website-languages', 'website-countries', 'website-cities', 'website-visitors'],
+    'Events & downloads': ['website-events', 'website-downloads', 'website-searches'],
+  };
   return (
     <section className="website-reports">
       <h2>{title}</h2>
+      <p className="footnote">Recorded Google Analytics data for the selected dates. Pages and links include public and private routes when tracked; Google does not identify their access level. Only “Activity right now” uses the Realtime API.</p>
+      <div className="website-report-tabs" role="group" aria-label="Website report sections">{[...Object.keys(groups), 'All reports'].map(name=><button key={name} type="button" aria-pressed={section===name} onClick={()=>setSection(name)}><DataIcon name={name}/>{name}</button>)}</div>
       <div className="website-reports-grid">
-        {reports.map(({ key, name, table }, i) => (
-          <DeferredChart
-            key={key}
-            title={name}
-            loading={false}
-          >
+        {reports.filter(r=>section === 'All reports' || groups[section]?.includes(r.key)).map(({ key, name, table }, i) => (
+          <div key={key}>
             {table ? (
               <WebsiteReport table={table} index={i} archive={archive} />
             ) : (
@@ -340,20 +370,20 @@ export function WebsiteReports({
                 </span>
                 <h3>{name}</h3>
                 <p>
-                  No report has been supplied for these exact dates.
+                  This report has not been synced for the selected dates.
                   {key === 'website-total'
-                    ? ' Unique period totals require an import matching the selected dates.'
+                    ? ' Unique users require a Google report covering these exact dates.'
                     : ''}
                 </p>
                 <a
                   className="text-link"
                   href="/marketingdata/connections?connect=ga4" onClick={event=>{event.preventDefault();openDataCenter('access');}}
                 >
-                  Import website reports
+                  Refresh Google Analytics in Data Center
                 </a>
               </section>
             )}
-          </DeferredChart>
+          </div>
         ))}
       </div>
     </section>

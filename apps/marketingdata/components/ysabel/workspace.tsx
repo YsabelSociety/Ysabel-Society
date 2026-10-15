@@ -957,14 +957,7 @@ export default function Workspace({
                       )}
                       realtime={source.websiteRealtime}
                       range={range}
-                    /></AnalyticsReady>
-                  )}
-                  {page === 'Website' && source.mode === 'live' && (
-                    <AnalyticsReady ready={source.detailsReady} error={source.error}><SourceReports
-                      tables={source.tables}
-                      group="website"
-                      archive={false}
-                      title="Website activity details"
+                      reports={source.mode === 'live' && <AnalyticsReady ready={source.detailsReady} error={source.error}><SourceReports tables={source.tables} group="website" archive={false} title="Website activity details" /></AnalyticsReady>}
                     /></AnalyticsReady>
                   )}
                   {page === 'Google Business' && (

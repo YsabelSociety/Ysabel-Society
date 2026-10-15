@@ -3,7 +3,7 @@ import { TikTokAnalytics } from './tiktok-analytics';
 import { openDataCenter } from './data-center-navigation';
 import { useMinimalMotion } from './use-motion';
 import { StoryPerformance } from './story-performance';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, type ReactNode } from 'react';
 import type { DashboardJump } from '@/lib/dashboard-navigation';
 import {
   websiteStatus,
@@ -478,16 +478,9 @@ export function PerformancePage({
             status={websiteConnection}
             realtime={websiteRealtime}
             range={range}
+            reports={live && <SourceReports tables={websiteTables} group="website" archive={false} title="Website activity details" />}
           />
           <AudienceMap tables={websiteTables} channels={['Website']} />
-          {live && (
-            <SourceReports
-              tables={websiteTables}
-              group="website"
-              archive={false}
-              title="Website activity details"
-            />
-          )}
         </>
       ) : channel === 'Google Business' ? (
         <>
@@ -883,6 +876,7 @@ export function WebsitePage({
   status,
   realtime,
   range,
+  reports,
 }: {
   rows: Daily[];
   previous: Daily[];
@@ -890,6 +884,7 @@ export function WebsitePage({
   status?: SourceStatus;
   realtime?: WebsiteRealtime;
   range?: Range;
+  reports?: ReactNode;
 }) {
   const r = rows.filter((r) => r.channel === 'Website'),
     p = previous.filter((r) => r.channel === 'Website');
@@ -904,7 +899,7 @@ export function WebsitePage({
     </Panel>
   );
   if (live && !metricAvailable(r, 'users'))
-    return <div className="view-enter">{connectionPanel}<Panel title="No website activity for these dates" description="Available source reports and connection details can be checked in the Data Center. Missing observations remain unavailable.">{null}</Panel></div>;
+    return <div className="view-enter">{connectionPanel}{reports}<Panel title="No website activity for these dates" description="Available source reports and connection details can be checked in the Data Center. Missing observations remain unavailable.">{null}</Panel></div>;
   const users = total(r, 'users'),
     sessions = total(r, 'sessions'),
     engaged = total(r, 'engaged'),
@@ -953,6 +948,7 @@ export function WebsitePage({
           },
         ]}
       />
+      {reports}
       <WebsiteMetricGraphs rows={r} range={range} />
       {live ? (
         <Panel

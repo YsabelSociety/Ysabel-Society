@@ -7494,6 +7494,7 @@ h1 {
 .website-ranking th:first-child {text-align:left;overflow-wrap:anywhere;font-weight:450;max-width:320px;min-width:150px}
 .website-ranking thead th {font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:#718078}
 .website-ranking a {color:#2d6871;text-decoration:none}
+.website-ranking tbody th {text-transform:none;letter-spacing:normal}
 .website-ranking a:hover {text-decoration:underline}
 .website-ranking .pagination {display:flex;align-items:center;gap:12px;justify-content:space-between;font-size:11px;margin-top:14px}
 .website-report-card .metric-placeholder {min-height:280px;height:280px;margin:0;background:transparent;box-shadow:none;border:0}

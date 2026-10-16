@@ -204,7 +204,7 @@ const headings: Record<string, [string, string]> = {
   ],
   'Email Marketing': [
     'Email Marketing',
-    'Your complete MailSignal workspace, connected to Ysabel Society.',
+    'Newsletters, audience activity and the conversations that follow.',
   ],
   'Google Business': [
     'Discovery starts here.',

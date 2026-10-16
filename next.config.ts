@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: "/mailsignal/:path*",
+        destination: "https://ysabel-mailsignal.netlify.app/mailsignal/:path*",
+      },
+      {
         source: "/prcmdl/:path*",
         destination: "https://ysabel-pricing.netlify.app/prcmdl/:path*",
       },

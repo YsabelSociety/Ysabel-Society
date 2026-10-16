@@ -30,7 +30,7 @@ test('the complete original app is returned after validation; credentials stay w
   });
   const response = await GET(new Request('https://ysabelsociety.com/marketingdata/email-marketing?source=https://untrusted.example', {headers:{cookie:'_ga=unrelated; ys_marketing_session=existing; ys_marketing_admin=private; mail-signal-key=private',Authorization:'Bearer must-not-forward'}}));
   assert.equal(response.status,200);
-  assert.equal(await response.text(),original);
+  assert.equal(await response.text(),original.replace('</head>','<meta name="ysabel-workspace-api" content="/marketingdata/api/email-marketing/"></head>'));
   assert.equal(response.headers.get('x-frame-options'),'SAMEORIGIN');
   assert.equal(response.headers.get('content-security-policy'),sourceCsp.replace("frame-ancestors 'none'; ",'')+"; frame-ancestors 'self'");
   assert.equal(response.headers.get('x-ysabel-email-marketing'),'mailsignal-original');

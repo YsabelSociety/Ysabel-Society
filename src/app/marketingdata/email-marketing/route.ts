@@ -42,7 +42,8 @@ export async function GET(request: Request) {
     const directives = csp.split(';').map(value=>value.trim()).filter(value=>value && !/^frame-ancestors(?:\s|$)/i.test(value));
     headers.set('Content-Security-Policy', [...directives, "frame-ancestors 'self'"].join('; '));
     headers.set('X-Ysabel-Email-Marketing', 'mailsignal-original');
-    return new Response(request.method === 'HEAD' ? null : html, {headers});
+    const connectedHtml = html.replace('</head>','<meta name="ysabel-workspace-api" content="/marketingdata/api/email-marketing/"></head>');
+    return new Response(request.method === 'HEAD' ? null : connectedHtml, {headers});
   } catch {
     return unavailable(503, 'The Email Marketing connection is taking longer than expected. Refresh this workspace shortly.');
   }

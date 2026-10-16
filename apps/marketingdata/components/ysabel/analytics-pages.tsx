@@ -62,6 +62,7 @@ import { SourceBadge } from './source-badge';
 import type { ReportTable } from '@/lib/reporting';
 import { SocialPerformance, AudienceBreakdown } from './social-performance';
 import { AudienceMap } from './audience-map';
+import { WebsiteAudienceMaps } from './website-audience-maps';
 import { SOURCE_PLATFORM, SOCIAL_PLATFORMS } from '@/lib/social-performance';
 import { activitySeries } from '@/lib/activity-series';
 import {
@@ -480,7 +481,6 @@ export function PerformancePage({
             range={range}
             reports={live && <SourceReports tables={websiteTables} group="website" archive={false} title="Website activity details" />}
           />
-          <AudienceMap tables={websiteTables} channels={['Website']} />
         </>
       ) : channel === 'Google Business' ? (
         <>
@@ -899,7 +899,7 @@ export function WebsitePage({
     </Panel>
   );
   if (live && !metricAvailable(r, 'users'))
-    return <div className="view-enter">{connectionPanel}{reports}<Panel title="No website activity for these dates" description="Available source reports and connection details can be checked in the Data Center. Missing observations remain unavailable.">{null}</Panel></div>;
+    return <div className="view-enter">{connectionPanel}<WebsiteAudienceMaps range={range} />{reports}<Panel title="No website activity for these dates" description="Available source reports and connection details can be checked in the Data Center. Missing observations remain unavailable.">{null}</Panel></div>;
   const users = total(r, 'users'),
     sessions = total(r, 'sessions'),
     engaged = total(r, 'engaged'),
@@ -948,6 +948,7 @@ export function WebsitePage({
           },
         ]}
       />
+      {live && <WebsiteAudienceMaps range={range} />}
       {reports}
       <WebsiteMetricGraphs rows={r} range={range} />
       {live ? (

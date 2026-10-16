@@ -12,6 +12,7 @@ import {
   ScanEye,
   Users,
   Globe,
+  Mail,
   MapPin,
   Grid2X2,
   Smartphone,
@@ -100,6 +101,7 @@ const loadContent = () => import('./content');
 const PerformancePage = deferredSection('performance', () => loadAnalytics().then(m=>({default:m.PerformancePage})));
 const AudiencePage = deferredSection('audience', () => loadAnalytics().then(m=>({default:m.AudiencePage})));
 const WebsitePage = deferredSection('website', () => loadAnalytics().then(m=>({default:m.WebsitePage})));
+const EmailMarketing = deferredSection('Email Marketing', () => import('./email-marketing'));
 const ComparisonsPage = deferredSection('comparisons', () => loadAnalytics().then(m=>({default:m.ComparisonsPage})));
 const InsightsPage = deferredSection('insights', () => loadAnalytics().then(m=>({default:m.InsightsPage})));
 const ReportsPage = deferredSection('reports', () => loadReports().then(m=>({default:m.ReportsPage})));
@@ -111,7 +113,7 @@ const AdminPanel = deferredSection('administration', () => import('./admin-panel
 const SourceReports = deferredSection('source reports', () => import('./source-reports').then(m=>({default:m.SourceReports})));
 const CommunityPage = deferredSection('inbox', () => loadCommunity().then(m=>({default:m.CommunityPage})));
 const GoogleReviews = deferredSection('Google reviews', () => loadCommunity().then(m=>({default:m.GoogleReviews})));
-const sectionLoads: Record<string, () => Promise<unknown>> = {Performance:loadAnalytics,Audience:loadAnalytics,Website:loadAnalytics,Insights:loadAnalytics,Comparisons:loadAnalytics,'Google Business':loadCommunity,Inbox:loadCommunity,Reports:loadReports,'Content Intelligence':loadContent,'Seven Rooms':()=>import('./sevenrooms'),'Data Center':()=>import('./data-center'),'Admin Panel':()=>import('./admin-panel'),Settings:()=>import('./system-pages')};
+const sectionLoads: Record<string, () => Promise<unknown>> = {Performance:loadAnalytics,Audience:loadAnalytics,Website:loadAnalytics,'Email Marketing':()=>import('./email-marketing'),Insights:loadAnalytics,Comparisons:loadAnalytics,'Google Business':loadCommunity,Inbox:loadCommunity,Reports:loadReports,'Content Intelligence':loadContent,'Seven Rooms':()=>import('./sevenrooms'),'Data Center':()=>import('./data-center'),'Admin Panel':()=>import('./admin-panel'),Settings:()=>import('./system-pages')};
 function preloadSection(name:string) { void sectionLoads[name]?.().catch(()=>{}); }
 import { useInboxSync } from './use-inbox-sync';
 import { useAutoRefresh } from './use-auto-refresh';
@@ -126,6 +128,7 @@ const groups = [
       ['Content Intelligence', ScanEye],
       ['Audience', Users],
       ['Website', Globe],
+      ['Email Marketing', Mail],
       ['Google Business', MapPin],
     ],
   },
@@ -198,6 +201,10 @@ const headings: Record<string, [string, string]> = {
   Website: [
     'From attention to intention.',
     'Understand the paths people take through Ysabel Society online.',
+  ],
+  'Email Marketing': [
+    'Email Marketing',
+    'Your complete MailSignal workspace, connected to Ysabel Society.',
   ],
   'Google Business': [
     'Discovery starts here.',
@@ -579,13 +586,13 @@ export default function Workspace({
     (communityLoad.kind === communityKind && communityLoad.ready);
   const initialError =
     (!data.ready ? data.error : '') ||
-    (!source.ready ? source.error : '') ||
+    (page !== 'Email Marketing' && !source.ready ? source.error : '') ||
     (communityKind === communityLoad.kind ? communityLoad.error : '');
   const initialReady =
-    data.ready && source.ready && communityReady && !initialError;
+    data.ready && (page === 'Email Marketing' || source.ready) && communityReady && !initialError;
   const initialStages = [
     data.ready,
-    source.ready,
+    ...(page === 'Email Marketing' ? [] : [source.ready]),
     ...(communityKind ? [communityReady] : []),
   ];
   const initialProgress =
@@ -735,13 +742,13 @@ export default function Workspace({
                     <ShieldCheck size={16} />
                     <span>Admin panel</span>
                   </button>
-                  <button
+                  {page !== 'Email Marketing' && <button
                     className="demo-badge"
                     onClick={() => navigate('Data Center')}
                   >
                     <i />
                     {!source.ready ? (source.error ? 'Reconnecting' : 'Loading data') : source.mode === 'live' ? 'Live sources' : 'Demo Data'}
-                  </button>
+                  </button>}
                   <button
                     className="search-button"
                     aria-label="Search workspace"
@@ -779,7 +786,7 @@ export default function Workspace({
                       {heading[1]}
                     </p>
                   </div>
-                  {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && (
+                  {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && page !== 'Email Marketing' && (
                     <button
                       className="secondary"
                       onClick={() => setExportOpen(true)}
@@ -788,7 +795,7 @@ export default function Workspace({
                     </button>
                   )}
                 </div>
-                {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && (
+                {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && page !== 'Email Marketing' && (
                   <div className="filter-row">
                     <div className="inline-controls">
                       <CalendarDays size={15} />
@@ -843,7 +850,7 @@ export default function Workspace({
                     <span className="freshness"><span className="small-dot" />{!source.ready ? (source.error ? 'Data unavailable · reconnecting' : 'Loading data…') : source.detailsPending ? 'Loading source details…' : source.mode === 'live' ? sourceFeedLabel(source.sourceStatus, ['Google Business', 'Website'].includes(page) ? page : undefined) : 'Preview data'}</span>
                   </div>
                 )}
-                {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && date === 'Custom Range' && (
+                {page !== 'Admin Panel' && page !== 'Seven Rooms' && page !== 'Data Center' && page !== 'Email Marketing' && date === 'Custom Range' && (
                   <div className="custom-dates">
                     <label>
                       From
@@ -947,6 +954,7 @@ export default function Workspace({
                       loading={source.detailsPending}
                     />
                   )}
+                  {page === 'Email Marketing' && <EmailMarketing />}
                   {page === 'Website' && (
                     <AnalyticsReady ready={source.ready} error={source.error}><WebsitePage
                       rows={rows}

@@ -8,7 +8,7 @@ import {
   RotateCcw, Search, Send, Settings, SlidersHorizontal, Smartphone, Sparkles, Trash2, Undo2,
   Upload, UserRound, Video, Volume2, VolumeX, X,
 } from 'lucide-react';
-import { memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, memo, type CSSProperties, type FormEvent, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -34,11 +34,10 @@ import { Textarea } from '@/components/ui/textarea';
 import YsabelLoginLogo from '@/components/ysabel-login-logo';
 import YsabelLoginBackground from '@/components/ysabel-login-background';
 import GalleryViewer from '@/components/gallery-viewer';
-import OccasionsCalendar from '@/components/occasions-calendar';
-import EmailMarketing from '@/components/email-marketing';
-import ErezaPlanning from '@/components/ereza-planning';
+import SectionLoader from '@/components/section-loader';
 import UploadStatus, { UploadBadge, UploadRetry } from '@/components/upload-status';
 import MediaFileDrop from '@/components/media-file-drop';
+import VirtualMediaGrid from '@/components/virtual-media-grid';
 import SlideSequence from '@/components/slide-sequence';
 import { coverSize, dragCropPosition } from '@/lib/grid-framing';
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
@@ -47,6 +46,18 @@ import { loadPreview, ProgressiveImage, useMediaVisibility } from '@/components/
 import { bindSlideVideoPlayback, currentGridVideo, pauseOtherPreviewVideos, playVideoWithSound, type SlideVideoPlayback } from '@/lib/slide-video-playback';
 import { usePreviewView } from '@/lib/use-preview-view';
 import { bindFeedPointerDrag } from '@/lib/feed-pointer-drag';
+import { createWorkspaceLoader } from '@/lib/workspace-loader';
+
+const loadOccasions = () => import('@/components/occasions-calendar');
+const loadEmail = () => import('@/components/email-marketing');
+const loadEreza = () => import('@/components/ereza-planning');
+const OccasionsCalendar = lazy(loadOccasions);
+const EmailMarketing = lazy(loadEmail);
+const ErezaPlanning = lazy(loadEreza);
+const preloadSection = (section: string) => {
+  const load = section === 'occasions' ? loadOccasions : section === 'email' ? loadEmail : section === 'ereza' ? loadEreza : null;
+  if (load) void load().catch(() => undefined);
+};
 
 type ViewMode = 'mobile' | 'desktop' | 'grid';
 type Section = 'feed' | 'media' | 'occasions' | 'notes' | 'captions' | 'email' | 'ereza' | 'archive' | 'settings';
@@ -614,7 +625,7 @@ export function WorkspaceNavigation({ section, onNavigate }: { section: Section;
 
   return <aside className="rail">
     <div className="rail-brand"><BrandAvatar size="sm" /><span className="rail-brand-name">YSABEL<small>SOCIETY · CONTENT STUDIO</small></span></div>
-    <nav className="rail-nav" aria-label="Workspace navigation">{navItems.map(({ label, value, icon: Icon }) => <button type="button" className={section === value ? 'active' : ''} key={value} onClick={() => onNavigate(value)} aria-current={section === value ? 'page' : undefined} aria-label={label} title={label}><Icon /><span className="rail-label">{label}</span></button>)}</nav>
+    <nav className="rail-nav" aria-label="Workspace navigation">{navItems.map(({ label, value, icon: Icon }) => <button type="button" className={section === value ? 'active' : ''} key={value} onPointerEnter={() => preloadSection(value)} onFocus={() => preloadSection(value)} onClick={() => onNavigate(value)} aria-current={section === value ? 'page' : undefined} aria-label={label} title={label}><Icon /><span className="rail-label">{label}</span></button>)}</nav>
     <button type="button" className={'rail-settings ' + (section === 'settings' ? 'active' : '')} onClick={() => onNavigate('settings')} aria-current={section === 'settings' ? 'page' : undefined} aria-label="Settings" title="Settings"><Settings /><span className="rail-label">Settings</span></button>
   </aside>;
 }
@@ -678,7 +689,7 @@ const AssetVisual = memo(function AssetVisual({ asset, contain = false, original
   );
 });
 
-const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = false, defer = false, framing = false, reordering = false, instanceKey = asset.id, onActiveSlide }: { asset: Asset; assets: Asset[]; contain?: boolean; defer?: boolean; framing?: boolean; reordering?: boolean; instanceKey?: string; onActiveSlide?: (postId: string, id: string) => void }) {
+const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = false, defer = false, framing = false, reordering = false, instanceKey = asset.id, assetIndex, onActiveSlide }: { asset: Asset; assets: Asset[]; contain?: boolean; defer?: boolean; framing?: boolean; reordering?: boolean; instanceKey?: string; assetIndex?: ReadonlyMap<string, Asset>; onActiveSlide?: (postId: string, id: string) => void }) {
   const frame = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; startX: number; startScroll: number; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -686,7 +697,7 @@ const CarouselVisual = memo(function CarouselVisual({ asset, assets, contain = f
   const activeRef = useRef(0);
   activeRef.current = active;
   const [hasNavigated, setHasNavigated] = useState(false);
-  const byId = useMemo(() => new Map(assets.map((item) => [item.id, item])), [assets]);
+  const byId = useMemo(() => assetIndex || new Map(assets.map((item) => [item.id, item])), [assetIndex, assets]);
   const slides = useMemo(() => [asset, ...(asset.slides || []).map((id) => byId.get(id)).filter(Boolean) as Asset[]], [asset, byId]);
 
   useEffect(() => { if (active >= slides.length) setActive(Math.max(0, slides.length - 1)); }, [active, slides.length]);
@@ -949,7 +960,7 @@ export function FeedGrid({
               onClick={() => { if (framing) return; if (suppressTileClick.current === index) { suppressTileClick.current = null; return; } onTile(index, asset); }}
               aria-label={asset ? 'Open position ' + (index + 1) + ': ' + asset.name : 'Add media to position ' + (index + 1)}
             >
-              {asset ? <CarouselVisual key={asset.id} asset={asset} assets={assets} defer={index >= 6} framing={framing} reordering={edit && !swiping} instanceKey={instanceKey} onActiveSlide={rememberActiveSlide} /> : <span className="empty-add"><Plus /><small>Add media</small></span>}
+              {asset ? <CarouselVisual key={asset.id} asset={asset} assets={assets} assetIndex={byId} defer={index >= 6} framing={framing} reordering={edit && !swiping} instanceKey={instanceKey} onActiveSlide={rememberActiveSlide} /> : <span className="empty-add"><Plus /><small>Add media</small></span>}
               {edit && <span className="position-number">{String(index + 1).padStart(2, '0')}</span>}
               {asset && isVideoAsset(asset) && <Video className="video-mark" />}
               {similar && <span className="similarity-note">Similar composition</span>}
@@ -1159,6 +1170,7 @@ export function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplic
   );
 }
 export default function YsabelWorkspace() {
+  const [workspaceLoader] = useState(() => createWorkspaceLoader<WorkspaceData>());
   const [authState, setAuthState] = useState<'checking' | 'login' | 'ready'>('checking');
   const [connectionError, setConnectionError] = useState('');
   const [connectionAttempt, setConnectionAttempt] = useState(0);
@@ -1289,19 +1301,20 @@ export default function YsabelWorkspace() {
     if (storedToken) setAuthToken(storedToken);
     const headers = new Headers();
     if (storedToken) headers.set('authorization', `Bearer ${storedToken}`);
-    fetch(storedToken ? '/contentpreview/api/workspace' : '/contentpreview/api/auth/session', { cache: 'no-store', credentials: 'same-origin', headers })
+    const session = storedToken
+      ? workspaceLoader.prime(storedToken).then(() => ({ authenticated: true, token: storedToken })).catch((error: Error) => {
+          if (error.message === 'SESSION_EXPIRED') return { authenticated: false, token: '' };
+          throw error;
+        })
+      : fetch('/contentpreview/api/auth/session', { cache: 'no-store', credentials: 'same-origin', headers })
       .then(async (response) => {
         if (response.status === 401) return { authenticated: false };
         if (!response.ok) throw new Error('Connection unavailable');
         const data = await response.json();
-        if (storedToken) {
-          if (!Array.isArray(data.boards)) throw new Error('Invalid workspace response');
-          return { authenticated: true };
-        }
         if (typeof data.authenticated !== 'boolean') throw new Error('Invalid session response');
         return data;
-      })
-      .then((data) => {
+      });
+    session.then((data) => {
         if (cancelled) return;
         if (data.authenticated) {
           if (typeof data.token === 'string' && data.token) { setAuthToken(data.token); storeSessionToken(data.token); }
@@ -1320,7 +1333,7 @@ export default function YsabelWorkspace() {
     if (authState !== 'ready') return;
     let cancelled = false;
     setWorkspaceReady(false);
-    authFetch('/contentpreview/api/workspace', { cache: 'no-store' }).then((response) => response.ok ? response.json() as Promise<WorkspaceData> : Promise.reject(new Error(response.status === 401 ? 'SESSION_EXPIRED' : 'CONNECTION_FAILED'))).then((data) => {
+    workspaceLoader.load(authToken).then((data) => {
       if (cancelled) return;
       const nextBoards = Array.isArray(data.boards) ? data.boards : [];
       const nextAssets = Array.isArray(data.media) ? data.media.map((asset) => ({ ...asset, slides: Array.isArray(asset.slides) ? asset.slides : [], url: mediaUrl(asset, authToken) })) : [];
@@ -1483,6 +1496,7 @@ export default function YsabelWorkspace() {
   };
 
   const logout = async () => {
+    workspaceLoader.clear();
     uploadRecords.current.clear();
     setUploadTasks([]);
     assetSaveTimers.current.forEach((timer) => window.clearTimeout(timer));
@@ -2284,12 +2298,12 @@ export default function YsabelWorkspace() {
             </div>
             <div className={'canvas canvas--' + view}>{renderPreview()}</div>
             {edit && <aside className="edit-dock"><SlidersHorizontal /><span>Drag posts directly</span><span className="dock-divider" /><button className={rearrangeMode === 'swap' ? 'active' : ''} onClick={() => setRearrangeMode('swap')}>Swap</button><button className={rearrangeMode === 'insert' ? 'active' : ''} onClick={() => setRearrangeMode('insert')}>Insert</button><span className="dock-divider" /><button className={exchangeMode ? 'active' : ''} onClick={() => { setExchangeMode(!exchangeMode); setExchangeFirst(null); }}><ArrowLeftRight />Exchange</button><button className={libraryDockOpen ? 'active' : ''} onClick={() => setLibraryDockOpen(!libraryDockOpen)}><Images />Library</button></aside>}
-            {edit && libraryDockOpen && <MediaFileDrop as="aside" onFiles={uploadDroppedFiles} className={'library-dock library-dock--' + libraryPreviewMode} style={{ width: libraryDockSize.width, height: libraryDockSize.height }}><header><div><span>Media library</span><small>{filteredAssets.length} assets</small></div><button aria-label="Upload media" title="Upload media" onClick={() => fileInput.current?.click()}><Upload /></button><button aria-label="Close media library" title="Close" onClick={() => setLibraryDockOpen(false)}><X /></button></header><nav aria-label="Filter media">{[['all','All'],['unused','Unused'],['photo','Photo'],['video','Video']].map(([value,label]) => <button key={value} className={libraryFilter === value ? 'active' : ''} onClick={() => setLibraryFilter(value)}>{label}</button>)}</nav><div className="library-dock-grid">{filteredAssets.map((asset) => <article key={asset.id}><button className="library-dock-asset" type="button" draggable title={'Preview ' + asset.name} onClick={() => setGalleryPreviewId(asset.id)} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag}><AssetVisual asset={asset} original={libraryPreviewMode === 'original'} defer /><UploadBadge id={asset.id} tasks={uploadTasks} />{used.has(asset.id) && <i />}</button><button className="library-touch-drag" type="button" aria-label={'Drag ' + asset.name + ' into feed'} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginPointerDrag({ type: 'library', id: asset.id }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); }}><Move /></button><button className="library-dock-delete" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onPointerDown={(event) => event.stopPropagation()} onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button><UploadRetry id={asset.id} tasks={uploadTasks} onRetry={id => { void queueUpload(id); }} /></article>)}</div><footer><span title="Drop files from your computer here to upload. Drag a thumbnail to place it in the feed.">Drop files to upload · Drag to place</span><button type="button" onClick={toggleLibraryPreview} title="Change thumbnail framing"><Expand />{libraryPreviewMode === 'original' ? 'Original' : '4:5 crop'}</button></footer><button className="library-dock-resize" type="button" aria-label="Resize media library" title="Drag to resize" onPointerDown={beginDockResize}><span /></button></MediaFileDrop>}
+            {edit && libraryDockOpen && <MediaFileDrop as="aside" onFiles={uploadDroppedFiles} className={'library-dock library-dock--' + libraryPreviewMode} style={{ width: libraryDockSize.width, height: libraryDockSize.height }}><header><div><span>Media library</span><small>{filteredAssets.length} assets</small></div><button aria-label="Upload media" title="Upload media" onClick={() => fileInput.current?.click()}><Upload /></button><button aria-label="Close media library" title="Close" onClick={() => setLibraryDockOpen(false)}><X /></button></header><nav aria-label="Filter media">{[['all','All'],['unused','Unused'],['photo','Photo'],['video','Video']].map(([value,label]) => <button key={value} className={libraryFilter === value ? 'active' : ''} onClick={() => setLibraryFilter(value)}>{label}</button>)}</nav><VirtualMediaGrid key={libraryFilter} items={filteredAssets} dock renderItem={(asset) => <article key={asset.id}><button className="library-dock-asset" type="button" draggable title={'Preview ' + asset.name} onClick={() => setGalleryPreviewId(asset.id)} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag}><AssetVisual asset={asset} original={libraryPreviewMode === 'original'} defer /><UploadBadge id={asset.id} tasks={uploadTasks} />{used.has(asset.id) && <i />}</button><button className="library-touch-drag" type="button" aria-label={'Drag ' + asset.name + ' into feed'} onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); beginPointerDrag({ type: 'library', id: asset.id }, { pointerId: event.pointerId, x: event.clientX, y: event.clientY }); }}><Move /></button><button className="library-dock-delete" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onPointerDown={(event) => event.stopPropagation()} onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button><UploadRetry id={asset.id} tasks={uploadTasks} onRetry={id => { void queueUpload(id); }} /></article>} /><footer><span title="Drop files from your computer here to upload. Drag a thumbnail to place it in the feed.">Drop files to upload · Drag to place</span><button type="button" onClick={toggleLibraryPreview} title="Change thumbnail framing"><Expand />{libraryPreviewMode === 'original' ? 'Original' : '4:5 crop'}</button></footer><button className="library-dock-resize" type="button" aria-label="Resize media library" title="Drag to resize" onPointerDown={beginDockResize}><span /></button></MediaFileDrop>}
             {artDirection && <aside className="art-panel"><div className="art-panel-head"><div><span>Art direction</span><small>Visual continuity</small></div><button onClick={() => setArtDirection(false)}><X /></button></div><label><span><strong>Grayscale preview</strong><small>Read tonal balance</small></span><Switch checked={grayscale} onCheckedChange={setGrayscale} /></label><label><span><strong>Color rhythm</strong><small>Show dominant palettes</small></span><Switch checked={colorRhythm} onCheckedChange={setColorRhythm} /></label><label><span><strong>Similarity guidance</strong><small>Flag close compositions</small></span><Switch checked={similarity} onCheckedChange={setSimilarity} /></label><div className="direction-metric"><span>Average brightness <strong>42%</strong></span><i><b style={{ width: '42%' }} /></i></div><div className="direction-metric"><span>Visual density <strong>Balanced</strong></span><i><b style={{ width: '61%' }} /></i></div><div className="balance-row"><div><strong>83%</strong><span>Photography</span></div><div><strong>17%</strong><span>Video</span></div></div><div className="rhythm-strip">{['#1d3428','#a46e41','#d8c6a7','#8d1723','#1a1b19','#d8d4ca','#66523d','#1d3428'].map((color) => <i key={color} style={{ background: color }} />)}</div></aside>}
           </div>
         )}
 
-        {section === 'media' && <MediaFileDrop className="library-page" onFiles={uploadDroppedFiles}><header><div><span className="page-kicker">Independent collection</span><h1>Media Library</h1><p>Drag photos & videos from your computer anywhere here, or use Upload media.</p><p>Originals up to 90 MB · Fast, lightweight previews · Wait for “Uploaded” before placing media.</p></div><div className="library-page-actions">{mediaSelection.length > 0 && <Button variant="destructive" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds(mediaSelection); }}><Trash2 />Delete {mediaSelection.length}</Button>}<Button variant="outline" onClick={() => { setMediaSelectMode((current) => !current); setMediaSelection([]); }}>{mediaSelectMode ? <><X />Cancel selection</> : <><Check />Select media</>}</Button><Button variant="outline" onClick={() => { setSection('feed'); setEdit(true); setLibraryDockOpen(true); }}><Grid3X3 />Open beside feed</Button><Button onClick={() => fileInput.current?.click()}><Upload />Upload media</Button></div></header><Tabs value={libraryFilter} onValueChange={(value) => setLibraryFilter(String(value))}><TabsList variant="line" className="library-tabs">{[['all','All'],['photo','Photography'],['video','Video'],['used','Used'],['unused','Unused'],['archived','Archived']].map(([value,label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}</TabsList></Tabs><div className="library-grid">{filteredAssets.map((asset) => { const selected = mediaSelection.includes(asset.id); return <article key={asset.id} className={selected ? 'selected' : ''}><button className="library-asset-button" draggable={!mediaSelectMode} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag} onClick={() => { if (mediaSelectMode) toggleMediaSelection(asset.id); else setGalleryPreviewId(asset.id); }}><span className="library-thumb"><AssetVisual asset={asset} defer /><UploadBadge id={asset.id} tasks={uploadTasks} />{used.has(asset.id) && <em>Used</em>}{mediaSelectMode && <i className="library-selection-mark">{selected && <Check />}</i>}</span><strong>{asset.name}</strong><small>{asset.format} · {asset.category}</small></button>{!mediaSelectMode && <button className="library-delete-one" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button>}</article>; })}</div></MediaFileDrop>}
+        {section === 'media' && <MediaFileDrop className="library-page" onFiles={uploadDroppedFiles}><header><div><span className="page-kicker">Independent collection</span><h1>Media Library</h1><p>Drag photos & videos from your computer anywhere here, or use Upload media.</p><p>Originals up to 90 MB · Fast, lightweight previews · Wait for “Uploaded” before placing media.</p></div><div className="library-page-actions">{mediaSelection.length > 0 && <Button variant="destructive" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds(mediaSelection); }}><Trash2 />Delete {mediaSelection.length}</Button>}<Button variant="outline" onClick={() => { setMediaSelectMode((current) => !current); setMediaSelection([]); }}>{mediaSelectMode ? <><X />Cancel selection</> : <><Check />Select media</>}</Button><Button variant="outline" onClick={() => { setSection('feed'); setEdit(true); setLibraryDockOpen(true); }}><Grid3X3 />Open beside feed</Button><Button onClick={() => fileInput.current?.click()}><Upload />Upload media</Button></div></header><Tabs value={libraryFilter} onValueChange={(value) => setLibraryFilter(String(value))}><TabsList variant="line" className="library-tabs">{[['all','All'],['photo','Photography'],['video','Video'],['used','Used'],['unused','Unused'],['archived','Archived']].map(([value,label]) => <TabsTrigger key={value} value={value}>{label}</TabsTrigger>)}</TabsList></Tabs><VirtualMediaGrid key={libraryFilter} items={filteredAssets} renderItem={(asset) => { const selected = mediaSelection.includes(asset.id); return <article key={asset.id} className={selected ? 'selected' : ''}><button className="library-asset-button" draggable={!mediaSelectMode} onDragStart={(event) => { event.dataTransfer.effectAllowed = 'move'; event.dataTransfer.setData('text/plain', asset.id); startMediaDrag({ type: 'library', id: asset.id }); }} onDragEnd={endMediaDrag} onClick={() => { if (mediaSelectMode) toggleMediaSelection(asset.id); else setGalleryPreviewId(asset.id); }}><span className="library-thumb"><AssetVisual asset={asset} defer /><UploadBadge id={asset.id} tasks={uploadTasks} />{used.has(asset.id) && <em>Used</em>}{mediaSelectMode && <i className="library-selection-mark">{selected && <Check />}</i>}</span><strong>{asset.name}</strong><small>{asset.format} · {asset.category}</small></button>{!mediaSelectMode && <button className="library-delete-one" type="button" aria-label={'Delete ' + asset.name} title="Delete from server" onClick={() => { setMediaDeleteError(''); setMediaDeleteIds([asset.id]); }}><Trash2 /></button>}</article>; }} /></MediaFileDrop>}
 
         {section === 'captions' && <section className="captions-page">
           <header><span className="page-kicker">Social direction writing</span><h1>Community Captions</h1><p>Keep one list of reusable caption suggestions and track what has already been used.</p></header>
@@ -2363,9 +2377,9 @@ export default function YsabelWorkspace() {
           </div>
         </section>}
 
-        {section === 'occasions' && <OccasionsCalendar />}
-        {(emailOpened || section === 'email') && <div style={{ display: section === 'email' ? 'flex' : 'none', minHeight: 0, flex: 1 }}><EmailMarketing assets={assets} request={authFetch} /></div>}
-        {(erezaOpened || section === 'ereza') && <div style={{ display: section === 'ereza' ? 'grid' : 'none', minHeight: 0 }}><ErezaPlanning token={authToken} initialMonth={`${calendar.year}-${String(calendar.month + 1).padStart(2, '0')}`} /></div>}
+        {section === 'occasions' && <SectionLoader><OccasionsCalendar /></SectionLoader>}
+        {(emailOpened || section === 'email') && <div style={{ display: section === 'email' ? 'flex' : 'none', minHeight: 0, flex: 1 }}><SectionLoader><EmailMarketing assets={assets} request={authFetch} /></SectionLoader></div>}
+        {(erezaOpened || section === 'ereza') && <div style={{ display: section === 'ereza' ? 'grid' : 'none', minHeight: 0 }}><SectionLoader><ErezaPlanning token={authToken} initialMonth={`${calendar.year}-${String(calendar.month + 1).padStart(2, '0')}`} /></SectionLoader></div>}
 
         {section === 'notes' && <section className="notes-page">
           <header><span className="page-kicker">Monthly creative record</span><h1>{calendar.label} Notes</h1><p>Notes are private, attached to this feed direction and saved automatically.</p></header>
@@ -2415,7 +2429,7 @@ export default function YsabelWorkspace() {
         if (!asset) return null;
         const list = filteredAssets.some(item => item.id === asset.id) ? filteredAssets : assets;
         const next = (step: number) => setGalleryPreviewId(list[(list.findIndex(item => item.id === asset.id) + step + list.length) % list.length].id);
-        return <GalleryViewer key={asset.id} name={asset.name} source={asset.url} preview={mediaVariantUrl(asset.url, 'display') || asset.url}
+        return <GalleryViewer key={asset.id} name={asset.name} source={asset.url} thumbnail={mediaVariantUrl(asset.url, 'thumbnail') || asset.url} preview={mediaVariantUrl(asset.url, 'display') || asset.url}
           video={isVideoAsset(asset) ? <AssetVisual asset={{ ...asset, cropZoom: 100 }} original contain /> : undefined}
           onClose={() => setGalleryPreviewId(null)} onPrevious={() => next(-1)} onNext={() => next(1)}
           onDetails={() => { setGalleryPreviewId(null); setSelectedId(asset.id); setEdit(true); }} />;

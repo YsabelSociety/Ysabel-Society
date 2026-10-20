@@ -100,7 +100,8 @@ export function ProgressiveImage({ thumbnail, display, alt, style, recover }: {
   thumbnail: string; display?: string; alt: string; style: CSSProperties;
   recover: () => Promise<{ thumbnail: string; display: string } | null>;
 }) {
-  const [source, setSource] = useState(decoded.has(thumbnail) ? thumbnail : '');
+  const bestCachedSource = () => display && decoded.has(display) ? display : decoded.has(thumbnail) ? thumbnail : '';
+  const [source, setSource] = useState(bestCachedSource);
   const [failed, setFailed] = useState(false);
   const recovery = useRef(recover);
   recovery.current = recover;
@@ -108,28 +109,30 @@ export function ProgressiveImage({ thumbnail, display, alt, style, recover }: {
     let cancelled = false;
     const controller = new AbortController();
     setFailed(false);
-    setSource(decoded.has(thumbnail) ? thumbnail : '');
+    const cached = bestCachedSource();
+    let quality = cached && cached === display ? 2 : cached ? 1 : 0;
+    setSource(cached);
     void (async () => {
-      let thumbnailReady = false;
-      try {
-        await loadPreview(thumbnail, Boolean(display), controller.signal);
-        thumbnailReady = true;
-        if (cancelled) return;
-        setSource(thumbnail);
-      } catch { /* Older uploads are repaired below, with bounded concurrency. */ }
-      if (cancelled) return;
-      if (display && display !== thumbnail) {
+      const show = async (url: string, rank: number) => {
         try {
-          await loadPreview(display, true, controller.signal);
-          if (!cancelled) setSource(display);
-          return;
-        } catch { /* Keep the thumbnail visible during repair. */ }
-      } else if (thumbnailReady) return;
-      if (cancelled) return;
+          await loadPreview(url, Boolean(display), controller.signal);
+          if (!cancelled && rank >= quality) { quality = rank; setSource(url); }
+          return true;
+        } catch { return false; }
+      };
+      // Race the lightweight thumbnail and display image. A slow or missing
+      // thumbnail must not hold an already-ready display image for 20 seconds.
+      const results = await Promise.all([
+        show(thumbnail, 1),
+        display && display !== thumbnail ? show(display, 2) : Promise.resolve(false),
+      ]);
+      // Never download a huge original just because a higher-resolution preview
+      // is missing when we already have a usable thumbnail.
+      if (cancelled || results.some(Boolean)) return;
       const urls = await recovery.current();
       if (cancelled) return;
       if (urls) setSource(display ? urls.display : urls.thumbnail);
-      else if (!thumbnailReady) setFailed(true);
+      else setFailed(true);
     })();
     return () => { cancelled = true; controller.abort(); };
   }, [thumbnail, display]);

@@ -575,6 +575,9 @@ button:focus-visible { outline: 2px solid #1d3428; outline-offset: 2px; }
 .library-tabs button { font-size: 11px; min-width: 62px; }
 .library-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(150px,1fr)); gap: 23px 13px; }
 .library-grid > article { position: relative; min-width: 0; }
+.section-loading { min-height: 180px; display: flex; align-items: center; justify-content: center; gap: 12px; color: #777c72; font-size: 13px; }
+.section-loading-mark { width: 16px; height: 16px; border: 1px solid #c7cbbf; border-top-color: #46533a; border-radius: 50%; animation: ysabel-video-spin .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .section-loading-mark { animation: none; } }
 .library-asset-button { width: 100%; border: 0; background: transparent; padding: 0; text-align: left; display: flex; flex-direction: column; cursor: grab; min-width: 0; }
 .library-asset-button:active { cursor: grabbing; }
 .library-thumb { aspect-ratio: 4/5; width: 100%; position: relative; overflow: hidden; background: #e6e4de; margin-bottom: 9px; }

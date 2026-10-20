@@ -4,3 +4,8 @@
   for = "/marketingdata-ui/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/contentpreview-app/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

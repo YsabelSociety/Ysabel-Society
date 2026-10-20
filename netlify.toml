@@ -9,3 +9,11 @@
   for = "/contentpreview-app/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+# An unlisted invitation, unlocked only by the key in the full sharing link.
+[[headers]]
+  for = "/share/italian-seasonal-0195492074b8/*"
+  [headers.values]
+    X-Robots-Tag = "noindex, nofollow, noarchive, noimageindex, nosnippet"
+    Referrer-Policy = "no-referrer"
+    Cache-Control = "no-store"

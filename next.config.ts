@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
+        source: "/share/italian-seasonal-0195492074b8/:path*",
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive, noimageindex, nosnippet" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      },
+      {
         // Vite fingerprints every file here; private media/API responses are excluded.
         source: "/contentpreview-app/assets/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],

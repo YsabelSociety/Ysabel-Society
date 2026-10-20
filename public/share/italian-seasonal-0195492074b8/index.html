@@ -157,6 +157,12 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
     }else requestAnimationFrame(loadFilm);
   }
   syncSound();
+  if(!artwork&&new URLSearchParams(location.search).get('watch')==='1'){
+    document.fonts.ready.then(()=>{
+      video.closest('.film').scrollIntoView({behavior:'instant',block:'start'});
+      loadFilm();
+    });
+  }
 })();
 
 </script>

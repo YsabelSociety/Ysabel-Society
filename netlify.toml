@@ -10,10 +10,30 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-# An unlisted invitation, unlocked only by the key in the full sharing link.
+# Public newsletter; keep its HTML fresh and reuse versioned media.
 [[headers]]
   for = "/share/italian-seasonal-0195492074b8/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow, noarchive, noimageindex, nosnippet"
     Referrer-Policy = "no-referrer"
+
+
+[[headers]]
+  for = "/share/italian-seasonal-0195492074b8/"
+  [headers.values]
     Cache-Control = "no-store"
+
+[[headers]]
+  for = "/share/italian-seasonal-0195492074b8/index.html"
+  [headers.values]
+    Cache-Control = "no-store"
+
+[[headers]]
+  for = "/share/italian-seasonal-0195492074b8/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+[[headers]]
+  for = "/share/italian-seasonal-0195492074b8/media/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

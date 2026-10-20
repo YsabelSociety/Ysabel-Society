@@ -8,6 +8,8 @@
 <meta name="color-scheme" content="dark">
 <meta name="description" content="Introducing Ysabel Italian’s New Seasonal Menu. Discover our chefs’ latest creations and reserve your table.">
 <title>Ysabel Italian · New Seasonal Menu</title>
+<link rel="preload" href="assets/Rhiffiral-Regular.ttf" as="font" type="font/ttf" crossorigin>
+<link rel="preload" href="assets/ArminGrotesk-Thin.ttf" as="font" type="font/ttf" crossorigin>
 <style>
 @font-face{font-family:Rhiffiral;src:url('assets/Rhiffiral-Regular.ttf') format('truetype');font-weight:400;font-display:swap}
 @font-face{font-family:Armin;src:url('assets/ArminGrotesk-Thin.ttf') format('truetype');font-weight:400;font-display:swap}
@@ -28,9 +30,9 @@
 @media(max-width:360px){.letter-head h1,.email-art .letter-head h1{font-size:30px}.story p{font-size:17px}.film-caption{display:none}}
 
 /* Italian coastal painting, shaded for a cinematic evening atmosphere. */
-body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91),rgba(10,15,12,.95)),url('assets/italian-seasonal-4x5-poster.jpg');background-size:cover;background-position:center;background-attachment:fixed}
+body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91),rgba(10,15,12,.95)),url('media/italian-coast-9ffa83c422.webp');background-size:cover;background-position:center;background-attachment:fixed}
 .newsletter{max-width:780px;background:#18211B;border-color:rgba(196,155,83,.23);box-shadow:0 24px 90px rgba(0,0,0,.32)}
-.italian-story{background-color:#18211B;background-image:linear-gradient(180deg,rgba(13,21,17,.76) 0%,rgba(13,21,17,.84) 45%,rgba(11,18,14,.80) 100%),url('assets/italian-seasonal-4x5-poster.jpg');background-size:100% 100%,cover;background-position:center;position:relative;isolation:isolate}
+.italian-story{background-color:#18211B;background-image:linear-gradient(180deg,rgba(13,21,17,.76) 0%,rgba(13,21,17,.84) 45%,rgba(11,18,14,.80) 100%),url('media/italian-coast-9ffa83c422.webp');background-size:100% 100%,cover;background-position:center;position:relative;isolation:isolate}
 .story p{color:#E1DED1;text-shadow:0 1px 8px rgba(0,0,0,.35)}
 .letter-head h1{font-size:47px;text-shadow:0 2px 18px rgba(0,0,0,.25)}
 .brand{filter:drop-shadow(0 2px 10px rgba(0,0,0,.18))}
@@ -49,8 +51,8 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
 
 
 
-.launch-date{margin:18px 0 0;color:#C9AC70;font:400 11px/1.7 Armin,Arial,sans-serif;letter-spacing:.14em;text-transform:uppercase}
-@media(max-width:600px){.launch-date{font-size:10px;letter-spacing:.10em}}
+.launch-date{margin:0 0 23px;color:#D0AC68;font:400 27px/1.45 Rhiffiral,Georgia,serif;letter-spacing:.015em;text-wrap:balance}.launch-date time{white-space:nowrap}.email-art .launch-date{display:none}
+@media(max-width:600px){.launch-date{font-size:23px;margin-bottom:21px}}
 </style>
 <script>if(location.hash)history.replaceState(null,'',location.pathname+location.search);if(new URLSearchParams(location.search).has('email-art'))document.documentElement.classList.add('email-art');</script>
 </head>
@@ -59,10 +61,9 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
 
   <div class="italian-story">
   <section class="letter-head" aria-label="Introducing the new seasonal menu">
-    <a class="brand" href="https://ysabelsociety.com/" aria-label="Ysabel Society website"><img src="assets/ysabel-logo-white.png" alt="Ysabel Society" width="140"></a>
+    <a class="brand" href="https://ysabelsociety.com/" aria-label="Ysabel Society website"><img src="media/ysabel-logo-3ecac1b1bf.png" alt="Ysabel Society" width="140"></a>
     <p class="eyebrow">Introducing</p>
     <h1><span>Ysabel Italian’s</span><span>New Seasonal Menu</span></h1>
-    <p class="launch-date">Launching <time datetime="2026-10-22">Thursday, 22 October</time></p>
     <div class="rule" aria-hidden="true"></div>
   </section>
   <section class="story" aria-label="An invitation from our kitchen">
@@ -70,6 +71,7 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
     <p>Created with care and refined through many hours in our kitchen, our new menu is a collection we are proud to share with you. Enjoy our chefs’ latest creations over an evening of thoughtful food, attentive service, and a warm welcome at Ysabel Italian.</p>
   </section>
   <section class="menu-invitation" aria-label="Explore the Italian menu">
+    <p class="launch-date">Launching <time datetime="2026-10-22">Thursday, 22 October</time></p>
     <a class="action" href="assets/italian-seasonal-menu.pdf" target="_blank" rel="noopener">Discover the menu <svg class="arrow" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5M5 5H19V19"/></svg></a>
   </section>
   <div class="marquee" aria-hidden="true"><div class="marquee-track">
@@ -82,9 +84,9 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
   </section>
   <footer class="footer"><a href="https://ysabelsociety.com/">www.ysabelsociety.com</a></footer>
   <section class="film" aria-label="A painted Italian coastline in motion">
-    <img class="poster" src="assets/italian-seasonal-4x5-poster.jpg" width="1080" height="1350" alt="An autumnal Italian coastal painting with terraced gardens, umbrella pines, and a sunlit bay.">
-    <video id="hero-film" autoplay loop playsinline preload="auto" poster="assets/italian-seasonal-4x5-poster.jpg" aria-label="Italian coast film, cropped to 4:5 portrait">
-      <source src="assets/italian-seasonal-4x5.mp4" type="video/mp4">
+    <img class="poster" decoding="async" src="media/italian-coast-9ffa83c422.webp" width="1080" height="1350" alt="An autumnal Italian coastal painting with terraced gardens, umbrella pines, and a sunlit bay.">
+    <video id="hero-film" autoplay loop playsinline preload="none" poster="media/italian-coast-9ffa83c422.webp" aria-label="Italian coast film, cropped to 4:5 portrait">
+      <source data-src="media/italian-seasonal-4x5-384f13aba7.mp4" type="video/mp4">
     </video>
     <span class="film-caption">A new season at Ysabel Italian</span>
     <div class="film-controls">
@@ -98,7 +100,7 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
   const video=document.getElementById('hero-film'),sound=document.getElementById('sound-toggle'),root=document.documentElement;
   const artwork=root.classList.contains('email-art');
   const animate=!artwork;
-  let pending=null,soundNeedsGesture=false;
+  let pending=null,soundNeedsGesture=false,mediaLoaded=false;
   video.defaultMuted=false;video.muted=false;video.volume=1;video.autoplay=animate;
   function syncSound(){
     sound.setAttribute('aria-pressed',String(!video.muted));
@@ -107,7 +109,7 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
     sound.querySelector('path').setAttribute('d',video.muted?'M2 6h3l4-3v10l-4-3H2zM12 6l3 4m0-4l-3 4':'M2 6h3l4-3v10l-4-3H2zM12 4q5 4 0 8');
   }
   function autoplay(preferSound=false){
-    if(!animate||artwork)return Promise.resolve();
+    if(!animate||artwork||!mediaLoaded)return Promise.resolve();
     if(pending)return pending;
     pending=(async()=>{
       video.dataset.playback='requested';
@@ -123,6 +125,14 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
       syncSound();
     })().finally(()=>{pending=null;});
     return pending;
+  }
+  function loadFilm(){
+    if(mediaLoaded||!animate)return;
+    mediaLoaded=true;
+    const source=video.querySelector('source');
+    source.src=source.dataset.src;
+    video.load();
+    autoplay(true);
   }
   sound.addEventListener('click',()=>{soundNeedsGesture=false;video.muted=!video.muted;syncSound();if(video.paused&&animate)autoplay();});
   video.addEventListener('volumechange',syncSound);
@@ -140,8 +150,13 @@ body{background-color:#111712;background-image:linear-gradient(rgba(10,15,12,.91
   document.addEventListener('click',enablePreferredSound);
   document.addEventListener('keydown',enablePreferredSound);
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&video.paused)autoplay();});
-  if('IntersectionObserver' in window)new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)&&video.paused)autoplay();},{threshold:.05}).observe(video);
-  syncSound();autoplay(true);
+  if(!artwork){
+    if('IntersectionObserver' in window){
+      const loader=new IntersectionObserver(entries=>{if(entries.some(e=>e.isIntersecting)){loadFilm();loader.disconnect();}},{rootMargin:'150px 0px',threshold:0});
+      loader.observe(video);
+    }else requestAnimationFrame(loadFilm);
+  }
+  syncSound();
 })();
 
 </script>

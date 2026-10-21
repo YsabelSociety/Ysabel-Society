@@ -1,0 +1,16 @@
+export type EOConnection={configured:boolean;keyHint:string|null;connectedAt:string|null;provider:string;mode:string;verifiedAt?:string};
+export type EOSummary={sent:number|null;hardBounces:number|null;softBounces:number|null;uniqueOpens:number|null;totalOpens:number|null;uniqueClicks:number|null;totalClicks:number|null;complaints:number|null;unsubscribed:number|null};
+export type EOCampaign={id:string;name:string;subject:string;previewText:string;status:string;fromName:string;fromEmail:string;listIds:string[];createdAt:string;sentAt:string};
+export type EOList={id:string;name:string;doubleOptIn:boolean|null;subscribed:number|null;unsubscribed:number|null;pending:number|null;fields:{label:string;tag:string;type:string}[];tags:string[];createdAt:string;updatedAt:string};
+export type EOLink={url:string;totalClicks:number|null;uniqueClicks:number|null};
+export type EOOverview={connection:EOConnection;lists?:EOList[];campaigns?:EOCampaign[];comparisons?:{campaignId:string;summary:EOSummary|null;error?:string}[];nextCampaigns?:string|null;nextLists?:string|null;observedAt?:string};
+export type EODetail={campaign:EOCampaign;summary:EOSummary|null;links:EOLink[];summaryError?:string|null;linksError?:string|null;observedAt:string};
+export type EOContact={id:string;email:string;fields?:Record<string,string|number|string[]>;tags?:string[];status?:string;createdAt?:string;updatedAt?:string;occurredAt?:string};
+export type EOPage={rows:EOContact[];next:string|null;status:string;observedAt:string};
+export const EO_CONTACT_STATUS={subscribed:'Subscribed',unsubscribed:'Unsubscribed',pending:'Awaiting confirmation'};
+export const EO_ACTIVITY={opened:'Opened',clicked:'Clicked',sent:'Sent',unsubscribed:'Unsubscribed',bounced:'Bounced',complained:'Complained','not-opened':'Not opened','not-clicked':'Not clicked'};
+export function emailDelivery(summary?:EOSummary|null){const bounced=summary?.hardBounces!=null&&summary?.softBounces!=null?summary.hardBounces+summary.softBounces:null;const delivered=summary?.sent!=null&&bounced!=null&&summary.sent>=bounced?summary.sent-bounced:null;return{bounced,delivered,openRate:delivered&&summary?.uniqueOpens!=null?summary.uniqueOpens/delivered*100:null,clickRate:delivered&&summary?.uniqueClicks!=null?summary.uniqueClicks/delivered*100:null};}
+export function emailListTotal(lists:EOList[],key:'subscribed'|'unsubscribed'|'pending'){return lists.length===0?0:lists.every(list=>list[key]!=null)?lists.reduce((sum,list)=>sum+list[key]!,0):null;}
+export function emailContactName(row:EOContact){const fields=row.fields||{};const find=(keys:string[])=>Object.entries(fields).find(([key,value])=>keys.includes(key.toLowerCase().replace(/[^a-z]/g,''))&&typeof value==='string')?.[1];return [find(['firstname','first']),find(['lastname','last'])].filter(Boolean).join(' ')||'Contact';}
+export function emailSafeURL(raw:string){try{const url=new URL(raw);return ['http:','https:'].includes(url.protocol)?url.href:null;}catch{return null;}}
+export function emailCSV(columns:string[],rows:unknown[][]){const escape=(value:unknown)=>{let text=String(value??'');if(/^[=+\-@\t\r]/.test(text))text="'"+text;return '"'+text.replace(/"/g,'""')+'"';};return '\uFEFF'+[columns,...rows].map(row=>row.map(escape).join(',')).join('\r\n');}

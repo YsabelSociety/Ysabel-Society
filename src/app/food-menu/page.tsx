@@ -5,9 +5,9 @@ import Link from "next/link";
 import Image, { StaticImageData } from "next/image";
 import Header from "../components/Header/Header";
 import { InfiniteText } from "../components/text";
-import asianMenuImage from "../../../public/assets/asian.png";
-import italianMenuImage from "../../../public/assets/italian.png";
-import gardenMenuImage from "../../../public/assets/garden.png";
+import asianMenuImage from "../../../public/assets/menus/asian-menu-cover.webp";
+import italianMenuImage from "../../../public/assets/menus/italian-menu-cover.webp";
+import gardenMenuImage from "../../../public/assets/menus/garden-menu-cover.webp";
 import backgroundImage from "../../../public/assets/ysabel-1.png";
 
 type MenuButton = {

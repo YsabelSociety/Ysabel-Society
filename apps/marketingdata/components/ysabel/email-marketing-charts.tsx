@@ -5,7 +5,7 @@ import {ResponsiveContainer} from './stable-chart-container';
 import {emailCSV,emailDelivery,emailContactName} from '../../lib/email-octopus';
 import type {EOAudienceInsights,EODetail,EOList,EOOverview,EOPage} from '../../lib/email-octopus';
 import s from './email-marketing.module.css';
-const API='/marketingdata/api/email-octopus';
+import {emailOctopusRequest as get} from '../../lib/email-octopus-request';
 const colors={sage:'#739e8b',blue:'#8cadd2',purple:'#a69cc5',gold:'#c8ab77',soft:'#e9eee8'};
 const number=(value:unknown)=>typeof value==='number'?new Intl.NumberFormat('en-GB').format(value):'—';
 const clock=(value:number|string)=>new Date(value).toLocaleTimeString('en-GB',{timeZone:'Europe/Tirane',hour:'2-digit',minute:'2-digit'});
@@ -14,7 +14,6 @@ const dayKey=(value:Date)=>{const parts=new Intl.DateTimeFormat('en-CA',{timeZon
 const shortDay=(value:string)=>new Date(value+'T12:00:00Z').toLocaleDateString('en-GB',{day:'numeric',month:'short'});
 const tick={fill:'#829186',fontSize:11};
 const tip={background:'#fffffff5',border:'1px solid #243d3014',borderRadius:12,fontSize:12,padding:'12px 16px',boxShadow:'0 12px 35px #193a2410'};
-async function get<T>(params:Record<string,string>,signal?:AbortSignal):Promise<T>{const response=await fetch(API+'?'+new URLSearchParams(params),{credentials:'same-origin',cache:'no-store',signal});const value=await response.json();if(!response.ok)throw Error(value.error||'EmailOctopus could not load this view.');return value;}
 function csv(id:string,rows:Record<string,unknown>[]){if(!rows.length)return;const keys=Object.keys(rows[0]),url=URL.createObjectURL(new Blob([emailCSV(keys,rows.map(row=>keys.map(key=>row[key])))],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=id+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),500);}
 function ChartCard({id,title,subtitle,children,rows,source,controls}:{id:string;title:string;subtitle?:string;children:ReactNode;rows?:Record<string,unknown>[];source:string;controls?:ReactNode}){return <section id={id} className={s.chartCard} aria-label={title} data-source="EmailOctopus API v2"><div className={s.chartHead}><div><h3>{title}</h3>{subtitle&&<p>{subtitle}</p>}</div><div className={s.chartControls}>{controls}{!!rows?.length&&<button className={s.iconButton} aria-label={'Export '+title} onClick={()=>csv(id,rows)}><Download size={15}/></button>}</div></div>{children}<details className={s.chartSource}><summary>About this data</summary><p>{source}</p><a href="https://emailoctopus.com/api-documentation/v2" target="_blank" rel="noreferrer">EmailOctopus API<ArrowUpRight size={12}/></a></details></section>;}
 const domain=(rows:{time:number}[]):[number,number]=>rows.length===1?[rows[0].time-30000,rows[0].time+30000]:[rows[0]?.time||0,rows[rows.length-1]?.time||1];

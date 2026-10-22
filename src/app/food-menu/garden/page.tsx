@@ -62,17 +62,28 @@ const GardenMenuPage = () => {
                             })}
                         </div>
 
+                        {activeCategory === "SUNSET - AFTERWORK MENU" && (
+                            <div className="text-center mb-12 space-y-2 font-roboto">
+                                <p className="text-lg md:text-xl font-semibold text-white">
+                                    Every Wednesday to Friday · 16:00 - 19:00
+                                </p>
+                                <p className="text-base text-white/80">
+                                    1980s &amp; 1990s music
+                                </p>
+                            </div>
+                        )}
+
                         {/* Menu Items Display */}
                         <div className="space-y-12">
                             {activeCategory === "EVENING MENU" && menuItems[activeCategory] && Array.isArray(menuItems[activeCategory]) && menuItems[activeCategory].length > 0 ? (
                                 // Render EVENING MENU as flat list without subcategories
                                 (menuItems[activeCategory] as MenuItem[]).map((item, index) => (
                                     <div key={index} className="flex flex-col">
-                                        <div className="flex items-start justify-between gap-4 mb-2">
-                                            <h2 className="text-4xl md:text-5xl lg:text-6xl font-rhiffiral text-white">
+                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-2">
+                                            <h2 className="min-w-0 max-w-full break-words text-4xl md:text-5xl lg:text-6xl font-rhiffiral text-white">
                                                 {item.name}
                                             </h2>
-                                            <span className="text-xl md:text-2xl font-semibold text-white whitespace-nowrap">
+                                            <span className="text-xl md:text-2xl font-semibold text-white whitespace-nowrap shrink-0">
                                                 {item.price}<span className="text-xl">€</span>
                                             </span>
                                         </div>
@@ -110,11 +121,11 @@ const GardenMenuPage = () => {
                                                 </div>
                                                 {subcategory.items && subcategory.items.length > 0 && subcategory.items.map((item, itemIndex) => (
                                                     <div key={itemIndex} className="flex flex-col">
-                                                        <div className="flex items-start justify-between gap-4 mb-2">
-                                                            <h3 className="text-3xl md:text-3xl lg:text-4xl font-rhiffiral text-white tracking-[1px]">
+                                                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-2">
+                                                            <h3 className="min-w-0 max-w-full break-words text-3xl md:text-3xl lg:text-4xl font-rhiffiral text-white tracking-[1px]">
                                                                 {item.name}
                                                             </h3>
-                                                            <span className="text-xl md:text-3xl font-semibold font-roboto text-gray-300 whitespace-nowrap">
+                                                            <span className="text-xl md:text-3xl font-semibold font-roboto text-gray-300 whitespace-nowrap shrink-0">
                                                                 {item.price}<span className="text-xl">€</span>
                                                             </span>
                                                         </div>
@@ -138,11 +149,11 @@ const GardenMenuPage = () => {
                                         
                                         return (
                                             <div key={index} className="flex flex-col">
-                                                <div className="flex items-start justify-between gap-4 mb-2">
-                                                    <h2 className="text-4xl md:text-5xl lg:text-6xl font-rhiffiral text-white">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-2">
+                                                    <h2 className="min-w-0 max-w-full break-words text-4xl md:text-5xl lg:text-6xl font-rhiffiral text-white">
                                                         {menuItem.name}
                                                     </h2>
-                                                    <span className="text-xl md:text-2xl text-white whitespace-nowrap">
+                                                    <span className="text-xl md:text-2xl text-white whitespace-nowrap shrink-0">
                                                         {menuItem.price}<span className="text-xl">€</span>
                                                     </span>
                                                 </div>
@@ -157,7 +168,7 @@ const GardenMenuPage = () => {
                                     }
                                 })
                             ) : menuItems[activeCategory] && Array.isArray(menuItems[activeCategory]) && menuItems[activeCategory].length > 0 ? (
-                                // Render with subcategories for DRINKS MENU
+                                // Render drinks and Sunset - Afterwork as grouped menus
                                 (menuItems[activeCategory] as FoodSubcategory[]).map((subcategory, subIndex) => (
                                     <div key={subIndex} className="space-y-2 pt-6">
                                         {/* Subcategory Title */}
@@ -179,11 +190,11 @@ const GardenMenuPage = () => {
                                         </div>
                                         {subcategory.items && subcategory.items.length > 0 && subcategory.items.map((item, itemIndex) => (
                                             <div key={itemIndex} className="flex flex-col">
-                                                <div className="flex items-start justify-between gap-4 mb-2">
-                                                    <h3 className="text-3xl md:text-3xl lg:text-4xl font-rhiffiral text-white tracking-[1px]">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4 mb-2">
+                                                    <h3 className="min-w-0 max-w-full break-words text-3xl md:text-3xl lg:text-4xl font-rhiffiral text-white tracking-[1px]">
                                                         {item.name}
                                                     </h3>
-                                                    <span className="text-xl md:text-2xl font-semibold font-roboto text-gray-300 whitespace-nowrap">
+                                                    <span className="text-xl md:text-2xl font-semibold font-roboto text-gray-300 whitespace-nowrap shrink-0">
                                                         {item.price}<span className="text-xl">€</span>
                                                     </span>
                                                 </div>
@@ -199,6 +210,16 @@ const GardenMenuPage = () => {
                                 ))
                             ) : null}
                         </div>
+                        {activeCategory !== "DRINKS MENU" && (
+                            <div className="mt-12 space-y-2 text-center font-roboto text-sm text-white/80">
+                                <p>If you have a food allergy or intolerance, please inform your server before ordering.</p>
+                                <p>
+                                    {activeCategory === "DAY MENU"
+                                        ? "A discretionary 5% service charge will be added to your bill."
+                                        : "A 5% service charge will be added to your bill."}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </main>
             </div>

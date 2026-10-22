@@ -12,6 +12,7 @@ const AsianMenuPage = () => {
     const [activeCategory, setActiveCategory] = useState<MenuCategory>("FOOD");
     
     const menuItems = asianMenuItems;
+    const isBeverageCategory = activeCategory === "DRINKS" || activeCategory === "WINE LIST";
 
     return (
         <div className="relative min-h-screen bg-[#1D3428] text-white overflow-hidden">
@@ -95,11 +96,11 @@ const AsianMenuPage = () => {
                                         )}
                                         {subcategory.items && subcategory.items.length > 0 && subcategory.items.map((item, itemIndex) => (
                                             <div key={itemIndex} className="flex flex-col">
-                                                <div className="flex items-start justify-between gap-4 mb-2">
-                                                    <h3 className="text-3xl md:text-3xl lg:text-4xl font-rhiffiral text-white tracking-[1px]">
+                                                <div className={`flex mb-2 ${isBeverageCategory ? "flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4" : "items-start justify-between gap-4"}`}>
+                                                    <h3 className={`text-3xl md:text-3xl lg:text-4xl font-rhiffiral text-white tracking-[1px] ${isBeverageCategory ? "min-w-0 max-w-full break-words" : ""}`}>
                                                         {item.name}
                                                     </h3>
-                                                    <span className="text-xl md:text-2xl font-semibold font-roboto text-gray-300 whitespace-nowrap">
+                                                    <span className={`text-xl md:text-2xl font-semibold font-roboto text-gray-300 whitespace-nowrap ${isBeverageCategory ? "shrink-0" : ""}`}>
                                                         {item.price}<span className="text-xl"> €</span>
                                                     </span>
                                                 </div>

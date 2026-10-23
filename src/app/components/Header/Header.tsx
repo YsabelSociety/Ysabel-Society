@@ -7,8 +7,8 @@ import { FiPhone } from "react-icons/fi";
 
 const menuItems = [
   { label: "MENU", href: "/food-menu", type: "link", bgImage: "/assets/ysabel-1.png" },
-  { label: "NEWSLETTERS", href: "/newsletters", type: "link", bgImage: "/library/newsletters/afterwork-sunset/assets/sunset-painting-v15-2400.webp" },
   { label: "RESERVATION", href: "#reservation", bgImage: "/assets/ysabel-2.png" },
+  { label: "NEWSLETTERS", href: "/newsletters", type: "link", bgImage: "/library/newsletters/afterwork-sunset/assets/sunset-painting-v15-2400.webp" },
 ];
 
 const bookLinks = [
@@ -620,7 +620,7 @@ const Header = ({ menuType = null }: HeaderProps) => {
                       className={`mt-5 w-[min(18rem,calc(100vw-3rem))] overflow-hidden border border-white/10 bg-gradient-to-br from-[#15261E]/95 via-[#1D3428]/90 to-[#0B1611]/95 p-[1px] backdrop-blur-md transition-all duration-300 ${
                         overlayBookOpen
                           ? "pointer-events-auto opacity-100 translate-y-0"
-                          : "pointer-events-none opacity-0 translate-y-2"
+                          : "hidden pointer-events-none opacity-0 translate-y-2"
                       }`}
                     >
                       <div className="relative bg-[#0F1A15]/90 p-4">

@@ -9,12 +9,12 @@ const navigationPrimary = [
   { label: "Home", href: "/" },
   { label: "Philosophy", href: "#philosophy" },
   { label: "Menu", href: "/food-menu" },
-  { label: "Newsletters", href: "/newsletters" },
 ];
 
 const navigationSecondary = [
   { label: "About Us", href: "#about" },
   { label: "Reservation", href: "#reservation" },
+  { label: "Newsletters", href: "/newsletters" },
   { label: "Contact", href: "#contact" },
 ];
 

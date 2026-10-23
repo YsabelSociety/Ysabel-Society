@@ -79,23 +79,34 @@
   let needsGesture=false,manualPause=false,pending=null;
   video.defaultMuted=false;video.muted=false;video.volume=1;
   function sync(){
-    button.textContent=video.paused?'Play':'Pause';
-    button.setAttribute('aria-label',video.paused?'Play film with sound':'Pause video');
+    const needsSound=video.muted;
+    button.textContent=needsSound?'Play with sound':video.paused?'Play':'Pause';
+    button.setAttribute('aria-label',needsSound?'Play film with sound':video.paused?'Play film with sound':'Pause video');
   }
   function startWithSound(){
     if(artwork||manualPause)return Promise.resolve();
     if(pending)return pending;
     video.muted=false;video.volume=1;
-    pending=video.play().then(()=>{
-      needsGesture=false;video.dataset.playback='playing-with-sound';
-    }).catch(error=>{
-      needsGesture=error.name==='NotAllowedError';
-      video.dataset.playback=needsGesture?'waiting-for-interaction':'waiting';
-    }).finally(()=>{pending=null;sync();});
+    pending=(async()=>{
+      try{
+        await video.play();
+        needsGesture=false;video.dataset.playback='playing-with-sound';
+      }catch(error){
+        if(error.name==='NotAllowedError'&&!manualPause){
+          needsGesture=true;video.muted=true;
+          try{
+            await video.play();
+            video.dataset.playback='playing-muted-awaiting-sound';
+          }catch{
+            video.dataset.playback='waiting-for-interaction';
+          }
+        }else video.dataset.playback='waiting';
+      }
+    })().finally(()=>{pending=null;sync();});
     return pending;
   }
   button.addEventListener('click',()=>{
-    if(video.paused){manualPause=false;startWithSound();}
+    if(video.muted||video.paused){manualPause=false;startWithSound();}
     else{manualPause=true;video.pause();}
   });
   function unlock(event){
@@ -104,9 +115,9 @@
     if(event.type==='keydown'&&!['Enter',' '].includes(event.key))return;
     startWithSound();
   }
-  document.addEventListener('click',unlock);
+  document.addEventListener('pointerdown',unlock);
   document.addEventListener('keydown',unlock);
-  for(const event of ['play','pause','loadeddata'])video.addEventListener(event,sync);
+  for(const event of ['play','pause','loadeddata','volumechange'])video.addEventListener(event,sync);
   video.addEventListener('error',()=>{
     video.style.display='none';button.hidden=true;
   });
@@ -117,10 +128,14 @@
     document.addEventListener('visibilitychange',()=>{
       if(!document.hidden&&video.paused&&!manualPause)startWithSound();
     });
+    if('IntersectionObserver' in window){
+      new IntersectionObserver(entries=>{
+        if(entries.some(e=>e.isIntersecting)&&video.paused&&!manualPause)startWithSound();
+      },{threshold:.1}).observe(video);
+    }
   }
   sync();
 })();
-
 </script>
 </body>
 </html>

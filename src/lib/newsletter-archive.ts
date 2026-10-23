@@ -10,9 +10,9 @@ export const newsletterArchive = [
       "The gates open once more. A Halloween invitation to a night of mystery, transformation, and a different identity.",
     href: "/library/newsletters/forbiddengarden/index.html",
     image:
-      "/library/newsletters/forbiddengarden/assets/forbidden-city-selected-cover-v4.png",
-    imageAlt: "Crows above a dark Prishtina skyline and the illuminated Ysabel rooftop",
-    imagePosition: "50% 46%",
+      "/library/newsletters/forbiddengarden/assets/forbidden-garden-glowing-card-v1.jpg",
+    imageAlt: "Warm light beneath Ysabel Garden’s glass rooftop, framed by dark thorns and storm clouds",
+    imagePosition: "50% 25%",
   },
   {
     id: "italian-seasonal-menu",

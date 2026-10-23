@@ -15,14 +15,14 @@
 :root{--ink:#08090a;--bone:#e7e2d9;--muted:#bdb9b3;--red:#8b3b42;--line:#75404766;--gold:#b4a48a}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#070809;color:var(--bone);font:400 20px/1.75 Armin,Arial,sans-serif}body:before{content:"";position:fixed;inset:0;z-index:-1;background:linear-gradient(#070809e8,#070809f5),url('https://ysabelsociety.com/library/newsletters/forbiddengarden/assets/forbidden-city-selected-cover-v4.png') center/cover}a{color:inherit}h1,h2,p{margin:0}button{font:inherit}img{display:block;max-width:100%}a:focus-visible,button:focus-visible{outline:2px solid var(--bone);outline-offset:5px}
 .newsletter{width:calc(100% - 48px);max-width:700px;margin:30px auto;border:1px solid #a2917a2b;background:#090b0d;overflow:hidden;box-shadow:0 24px 100px #0009}
-.cover{position:relative;aspect-ratio:9/16;background:#08090a;isolation:isolate}.cover video,.cover>img{display:block;width:100%;height:100%;object-fit:contain}.cover video{position:absolute;inset:0}.film-controls{position:absolute;bottom:16px;right:16px;z-index:2;display:flex;gap:8px}.film-controls button{border:1px solid #d0c4b366;background:#090b0dd9;color:#e7e2d9;font:12px/1.3 Arial,sans-serif;padding:10px 12px;cursor:pointer;min-height:36px;backdrop-filter:blur(10px)}.film-controls button:hover{background:#2d1518}.cover-note{position:absolute;bottom:25px;left:20px;font:9px/1.4 Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#e7e2d9;text-shadow:0 1px 5px #000}.cover:after{content:"";position:absolute;bottom:0;left:0;right:0;height:50px;pointer-events:none;background:linear-gradient(transparent,#08090a99)}
+.cover{position:relative;aspect-ratio:9/16;background:#08090a;isolation:isolate}.cover video,.cover>img{display:block;width:100%;height:100%;object-fit:contain}.cover video{position:absolute;inset:0}.cover-note{position:absolute;bottom:25px;left:20px;font:9px/1.4 Arial,sans-serif;letter-spacing:.17em;text-transform:uppercase;color:#e7e2d9;text-shadow:0 1px 5px #000}.cover:after{content:"";position:absolute;bottom:0;left:0;right:0;height:50px;pointer-events:none;background:linear-gradient(transparent,#08090a99)}
 .invitation{position:relative;isolation:isolate;background:url('https://ysabelsociety.com/library/newsletters/forbiddengarden/assets/forbidden-city-selected-cover-v4.png') center top/cover}.invitation:before{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,rgba(5,8,12,.25) 0%,rgba(5,8,12,.56) 30%,rgba(5,8,12,.61) 63%,rgba(5,8,12,.83) 100%);-webkit-mask-image:radial-gradient(ellipse 70px 45px at 53% 41%,transparent 0%,transparent 45%,#000 100%);mask-image:radial-gradient(ellipse 70px 45px at 53% 41%,transparent 0%,transparent 45%,#000 100%)}.invitation>*{position:relative;z-index:1}.invitation p,.invitation h1,.invitation h2{text-shadow:0 1px 9px #000a}.letter-head .subtitle{color:#d3ccc1}
 .letter-head{text-align:center;padding:52px 8% 0}.brand{display:block;width:132px;margin:0 auto 39px}.eyebrow{font-size:10px;line-height:1.5;letter-spacing:.28em;text-transform:uppercase;color:var(--gold)}h1{font:400 57px/1.12 Rhiffiral,Georgia,serif;margin-top:21px;text-wrap:balance}h1 span{display:block}.subtitle{font:400 21px/1.6 Rhiffiral,Georgia,serif;color:#b7b2a8;margin-top:18px}.rule{display:block;width:40px;height:1px;background:var(--red);margin:30px auto 0;box-shadow:0 0 20px #8b3b4255}
 .story{padding:37px 11% 0}.story p{font-size:19px;line-height:1.8;margin-bottom:24px;color:#d1cdc7}.story p:last-child{margin-bottom:0}.only-rule{text-align:center;padding:30px 10% 40px}.only-rule .lead{font-size:16px;line-height:1.7;color:#bbb5ae}.only-rule .vow{font:400 31px/1.4 Rhiffiral,Georgia,serif;color:var(--bone);margin:10px auto 0;max-width:440px}
 .event{text-align:center;padding:31px 8% 34px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#3b131520}.date{font:400 35px/1.4 Rhiffiral,Georgia,serif;color:var(--bone)}.dress{font-size:11px;line-height:1.7;letter-spacing:.16em;text-transform:uppercase;color:#c8beb1;margin-top:13px}.prize{text-align:center;padding:40px 8% 44px}.prize-label{font-size:11px;line-height:1.6;letter-spacing:.16em;text-transform:uppercase;color:#beb3a4}.prize h2{font:400 43px/1.3 Rhiffiral,Georgia,serif;color:#e3d4bd;margin-top:12px}.prize .rule{margin-top:27px;background:#744048}
 .closing{text-align:center;padding:0 8% 30px}.action{display:inline-flex;align-items:center;justify-content:center;gap:27px;border:1px solid #95636a;background:#441d2233;color:#e1d7cd;padding:16px 24px;text-transform:uppercase;font-size:11px;line-height:1.5;letter-spacing:.2em;text-decoration:none;transition:background .3s}.action:hover{background:#57252b66}.action span{font-family:Arial,sans-serif;font-size:19px;line-height:1}.footer{padding:0 8% 35px;text-align:center;font-size:10px;line-height:1.7;letter-spacing:.09em;color:#a39b90}.footer a{text-decoration:none}.footer a:hover{color:var(--bone)}
 .email-art body{background:#090b0d}.email-art body:before{display:none}.email-art .newsletter{margin:0;border:0;width:100%;max-width:none;box-shadow:none}.email-art .cover{display:none}
-@media(max-width:600px){.newsletter{width:100%;margin:0;border:0;box-shadow:none}.letter-head{padding:37px 7% 0}.brand{width:120px;margin-bottom:31px}h1{font-size:43px;margin-top:18px}.subtitle{font-size:18px;margin-top:16px}.eyebrow{font-size:9px;letter-spacing:.23em}.rule{margin-top:26px}.story{padding:29px 8% 0}.story p{font-size:18px;line-height:1.75;margin-bottom:22px}.only-rule{padding:28px 8% 33px}.only-rule .lead{font-size:15px}.only-rule .vow{font-size:28px;margin-top:11px}.event{padding:27px 6% 29px}.date{font-size:30px}.dress{font-size:10px;letter-spacing:.11em;margin-top:12px}.prize{padding:33px 7% 35px}.prize-label{font-size:10px;letter-spacing:.12em}.prize h2{font-size:37px}.closing{padding-bottom:25px}.action{font-size:10px;letter-spacing:.16em;padding:16px 21px}.footer{padding-bottom:30px}.cover-note{font-size:8px;left:13px;bottom:23px;letter-spacing:.12em}.film-controls{bottom:12px;right:12px;gap:6px}.film-controls button{font-size:10px;padding:9px 10px;min-height:32px}}
+@media(max-width:600px){.newsletter{width:100%;margin:0;border:0;box-shadow:none}.letter-head{padding:37px 7% 0}.brand{width:120px;margin-bottom:31px}h1{font-size:43px;margin-top:18px}.subtitle{font-size:18px;margin-top:16px}.eyebrow{font-size:9px;letter-spacing:.23em}.rule{margin-top:26px}.story{padding:29px 8% 0}.story p{font-size:18px;line-height:1.75;margin-bottom:22px}.only-rule{padding:28px 8% 33px}.only-rule .lead{font-size:15px}.only-rule .vow{font-size:28px;margin-top:11px}.event{padding:27px 6% 29px}.date{font-size:30px}.dress{font-size:10px;letter-spacing:.11em;margin-top:12px}.prize{padding:33px 7% 35px}.prize-label{font-size:10px;letter-spacing:.12em}.prize h2{font-size:37px}.closing{padding-bottom:25px}.action{font-size:10px;letter-spacing:.16em;padding:16px 21px}.footer{padding-bottom:30px}.cover-note{font-size:8px;left:13px;bottom:23px;letter-spacing:.12em}}
 @media(max-width:360px){h1{font-size:38px}.subtitle{font-size:17px}.story p{font-size:17px}.only-rule .vow{font-size:26px}.date{font-size:27px}.prize h2{font-size:33px}.cover-note{display:none}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 .story p{text-shadow:0 1px 2px #000,0 0 5px #000,0 0 10px #000}
@@ -69,21 +69,14 @@
       <a href="https://ysabelsociety.com/library/newsletters/forbiddengarden/assets/ysabel-final-project-hq-v6.mp4">Watch the Halloween film</a>
     </video>
     <span class="cover-note">Ysabel Garden · Halloween night</span>
-    <div class="film-controls"><button id="play-toggle" type="button" aria-label="Play video" aria-controls="cover-film">Play</button></div>
   </section>
 </main>
 <script>
 (()=>{
   const video=document.getElementById('cover-film');
-  const button=document.getElementById('play-toggle');
   const artwork=document.documentElement.classList.contains('email-art');
   let needsGesture=false,manualPause=false,pending=null;
   video.defaultMuted=false;video.muted=false;video.volume=1;
-  function sync(){
-    const needsSound=video.muted;
-    button.textContent=needsSound?'Play with sound':video.paused?'Play':'Pause';
-    button.setAttribute('aria-label',needsSound?'Play film with sound':video.paused?'Play film with sound':'Pause video');
-  }
   function startWithSound(){
     if(artwork||manualPause)return Promise.resolve();
     if(pending)return pending;
@@ -98,30 +91,27 @@
           try{
             await video.play();
             video.dataset.playback='playing-muted-awaiting-sound';
-          }catch{
-            video.dataset.playback='waiting-for-interaction';
-          }
+          }catch{video.dataset.playback='waiting-for-interaction';}
         }else video.dataset.playback='waiting';
       }
-    })().finally(()=>{pending=null;sync();});
+    })().finally(()=>{pending=null;});
     return pending;
   }
-  button.addEventListener('click',()=>{
-    if(video.muted||video.paused){manualPause=false;startWithSound();}
-    else{manualPause=true;video.pause();}
-  });
   function unlock(event){
-    if(!needsGesture||manualPause||artwork)return;
-    if(event.target.closest?.('a,button,input,textarea,select'))return;
+    if(!needsGesture||manualPause||artwork||event.target===video)return;
     if(event.type==='keydown'&&!['Enter',' '].includes(event.key))return;
     startWithSound();
   }
-  document.addEventListener('pointerdown',unlock);
+  document.addEventListener('pointerup',unlock);
+  document.addEventListener('touchend',unlock,{passive:true});
+  document.addEventListener('click',unlock);
   document.addEventListener('keydown',unlock);
-  for(const event of ['play','pause','loadeddata','volumechange'])video.addEventListener(event,sync);
-  video.addEventListener('error',()=>{
-    video.style.display='none';button.hidden=true;
+  video.addEventListener('click',()=>{
+    if(artwork)return;
+    if(needsGesture||video.paused){manualPause=false;startWithSound();}
+    else{manualPause=true;video.pause();}
   });
+  video.addEventListener('error',()=>{video.style.display='none';});
   if(artwork){video.autoplay=false;video.pause();}
   else{
     video.autoplay=true;startWithSound();
@@ -135,7 +125,6 @@
       },{threshold:.1}).observe(video);
     }
   }
-  sync();
 })();
 </script>
 </body>

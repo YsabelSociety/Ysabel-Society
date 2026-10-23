@@ -4,6 +4,7 @@ import Link from "next/link";
 import Header from "../components/Header/Header";
 import { newsletterArchive } from "@/lib/newsletter-archive";
 import styles from "./newsletters.module.css";
+import NewsletterSignup from "./NewsletterSignup";
 
 export const metadata: Metadata = {
   title: "Newsletters | Ysabel Society",
@@ -36,15 +37,19 @@ export default function NewslettersPage() {
           <p className={styles.eyebrow}>Ysabel Society · The archive</p>
           <div className={styles.heroRow}>
             <h1 id="newsletters-title">Newsletters<span className={styles.titleDot}>.</span></h1>
-            <p className={styles.intro}>
-              Stories, seasonal menus, and invitations.<br />
-              A collection of moments from Ysabel.
-            </p>
+            <div className={styles.heroAside}>
+              <p className={styles.intro}>
+                Stories, seasonal menus, and invitations.<br />
+                A collection of moments from Ysabel.
+              </p>
+              <a href="#subscribe" className={styles.subscribeLink}>Subscribe to our newsletters <Arrow /></a>
+            </div>
           </div>
         </div>
       </section>
 
       <section className={styles.archive} aria-labelledby="archive-title">
+        <NewsletterSignup />
         <div className={styles.archiveHeading}>
           <h2 id="archive-title">All editions <span>({String(newsletterArchive.length).padStart(2, "0")})</span></h2>
           <p>2026 <span aria-hidden="true">/</span> Newest first</p>

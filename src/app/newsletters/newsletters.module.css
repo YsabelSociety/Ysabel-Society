@@ -48,6 +48,69 @@
   font: 14px/1.9 Arial, Helvetica, sans-serif;
 }
 
+.heroAside { padding-bottom: 6px; }
+
+.subscribeLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 16px;
+  margin-top: 15px;
+  border: 1px solid #c7b89880;
+  color: #e8e3d8;
+  text-decoration: none;
+  font: 10px/1.6 Arial, Helvetica, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  transition: background .2s, border-color .2s;
+}
+
+.subscribeLink:hover { background: #ffffff0d; border-color: #c7b898; }
+.subscribeLink:focus-visible { outline: 2px solid #e8e3d8; outline-offset: 5px; }
+
+.signup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 56px;
+  padding: 0 0 42px;
+  margin: 0 0 34px;
+  border-bottom: 1px solid #1d34282b;
+  scroll-margin-top: 28px;
+}
+
+.signupEyebrow {
+  margin: 0 0 12px;
+  color: var(--quiet);
+  font: 10px/1.6 Arial, Helvetica, sans-serif;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.signupCopy h2 {
+  margin: 0 0 13px;
+  font: 400 38px/1.18 'Riffiral Regular', Georgia, serif;
+  letter-spacing: -.02em;
+}
+
+.signupCopy > p:last-child {
+  margin: 0;
+  max-width: 38ch;
+  color: var(--quiet);
+  font: 13px/1.8 Arial, Helvetica, sans-serif;
+}
+
+.signupFields { min-width: 0; }
+.signupEmbed { min-height: 126px; }
+.signupLoading { margin: 0; color: var(--quiet); font: 12px/1.8 Arial, Helvetica, sans-serif; }
+.signupError { color: var(--quiet); font: 13px/1.8 Arial, Helvetica, sans-serif; }
+.signupError p { margin: 0 0 10px; }
+.signupError button { padding: 9px 15px; border: 1px solid var(--ink); color: var(--ink); cursor: pointer; font: inherit; }
+.captchaNotice { margin: 12px 0 0; max-width: 64ch; color: #646b61; font: 10px/1.7 Arial, Helvetica, sans-serif; }
+.captchaNotice a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.captchaNotice a:focus-visible,
+.signupError button:focus-visible { outline: 2px solid #927441; outline-offset: 4px; }
+
 .archive { padding: 44px 0 0; }
 
 .archiveHeading {
@@ -205,6 +268,8 @@
   .editions { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 44px; }
   .edition h3 { font-size: 30px; }
   .archiveNote { margin-top: 48px; }
+  .signup { gap: 30px; }
+  .signupCopy h2 { font-size: 32px; }
 }
 
 @media (max-width: 640px) {
@@ -212,6 +277,11 @@
   .hero h1 { font-size: clamp(49px, 12vw, 76px); }
   .eyebrow { font-size: 9px; letter-spacing: .16em; margin-bottom: 20px; }
   .intro { font-size: 12px; line-height: 1.9; margin-top: 20px; }
+  .heroAside { padding-bottom: 0; }
+  .subscribeLink { font-size: 9px; gap: 15px; padding: 11px 13px; }
+  .signup { grid-template-columns: minmax(0, 1fr); gap: 18px; padding-bottom: 30px; margin-bottom: 25px; }
+  .signupCopy h2 { font-size: 32px; }
+  .signupEmbed { min-height: 155px; }
   .archive { margin: 0 24px; padding-top: 29px; }
   .archiveHeading { gap: 12px; margin-bottom: 26px; padding-bottom: 17px; }
   .archiveHeading h2 { font-size: 10px; letter-spacing: .08em; }

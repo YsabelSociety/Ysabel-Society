@@ -9,7 +9,7 @@ const navigationPrimary = [
   { label: "Home", href: "/" },
   { label: "Philosophy", href: "#philosophy" },
   { label: "Menu", href: "/food-menu" },
-  { label: "Newsletter", href: "/newsletter" },
+  { label: "Newsletters", href: "/newsletters" },
 ];
 
 const navigationSecondary = [

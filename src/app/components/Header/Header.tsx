@@ -7,7 +7,7 @@ import { FiPhone } from "react-icons/fi";
 
 const menuItems = [
   { label: "MENU", href: "/food-menu", type: "link", bgImage: "/assets/ysabel-1.png" },
-  { label: "NEWSLETTER", href: "/newsletter", type: "link", bgImage: "/library/newsletters/afterwork-sunset/assets/sunset-painting-v15-2400.webp" },
+  { label: "NEWSLETTERS", href: "/newsletters", type: "link", bgImage: "/library/newsletters/afterwork-sunset/assets/sunset-painting-v15-2400.webp" },
   { label: "RESERVATION", href: "#reservation", bgImage: "/assets/ysabel-2.png" },
 ];
 

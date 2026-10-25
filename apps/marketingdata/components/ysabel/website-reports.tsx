@@ -27,6 +27,7 @@ import { Picker } from './controls';
 import { useMinimalMotion } from './use-motion';
 import { DataIcon } from './data-icons';
 import { SourceBadge } from './source-badge';
+import { WebsitePublicPages } from './website-public-pages';
 const colors = [
   '#297b98',
   '#8167ba',
@@ -357,8 +358,8 @@ export function WebsiteReports({
     <section className="website-reports">
       <h2>{title}</h2>
       <p className="footnote">Recorded Google Analytics data for the selected dates. Pages and links include public and private routes when tracked; Google does not identify their access level. Only “Activity right now” uses the Realtime API.</p>
-      <div className="website-report-tabs" role="group" aria-label="Website report sections">{[...Object.keys(groups), 'All reports'].map(name=><button key={name} type="button" aria-pressed={section===name} onClick={()=>setSection(name)}><DataIcon name={name}/>{name}</button>)}</div>
-      <div className="website-reports-grid">
+      <div className="website-report-tabs" role="group" aria-label="Website report sections">{['Newsletters & pages', ...Object.keys(groups), 'All reports'].map(name=><button key={name} type="button" aria-pressed={section===name} onClick={()=>setSection(name)}><DataIcon name={name}/>{name}</button>)}</div>
+      {section === 'Newsletters & pages' ? <WebsitePublicPages tables={available}/> : <div className="website-reports-grid">
         {reports.filter(r=>section === 'All reports' || groups[section]?.includes(r.key)).map(({ key, name, table }, i) => (
           <div key={key}>
             {table ? (
@@ -385,7 +386,7 @@ export function WebsiteReports({
             )}
           </div>
         ))}
-      </div>
+      </div>}
     </section>
   );
 }

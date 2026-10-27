@@ -65,5 +65,7 @@ assert.equal(uploads.length, 1);
 const workspace = fs.readFileSync(path.resolve(__dirname, '../components/ysabel-workspace.tsx'), 'utf8');
 assert.match(workspace, /MediaFileDrop as="aside" onFiles=\{uploadDroppedFiles\}/);
 assert.match(workspace, /MediaFileDrop className="library-page" onFiles=\{uploadDroppedFiles\}/);
-assert.match(workspace, /const uploadDroppedFiles = \(files: File\[\]\) => \{[\s\S]*?replaceTarget.current = null;[\s\S]*?void uploadFiles\(files\)/);
+assert.match(workspace, /const uploadDroppedFiles = \(files: File\[\]\) => \{[\s\S]*?void uploadFiles\(files\)/);
+assert.doesNotMatch(workspace, /replaceTarget/, 'Normal file drops must never inherit a cancelled cover replacement');
+assert.match(workspace, /const uploadFiles = \(files: FileList \| File\[\] \| null\) => addUploads\(files\)/);
 console.log('PASS: PC multi-file drop, protected dragover, mixed formats, missing MIME, nested targets, internal drags, cancellation, missed drops, cleanup and both library upload entry points.');

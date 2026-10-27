@@ -5,9 +5,9 @@ import { moveSequenceSlide, sequenceEdgeSpeed } from '@/lib/slide-sequence';
 type Item = { id: string; name: string };
 type Drag = { pointerId: number; id: string; startX: number; startY: number; x: number; y: number; active: boolean; order: string[]; original: string[]; ghost: HTMLElement | null };
 
-export default function SlideSequence({ items, selectedId, onSelect, onReorder, onRemove, renderMedia }: {
+export default function SlideSequence({ items, selectedId, onSelect, onReorder, onRemove, onReplaceCover, renderMedia }: {
   items: Item[]; selectedId: string; onSelect: (id: string) => void;
-  onReorder: (ids: string[]) => void; onRemove: (id: string) => void; renderMedia: (id: string) => ReactNode;
+  onReorder: (ids: string[]) => void; onRemove: (id: string) => void; onReplaceCover?: () => void; renderMedia: (id: string) => ReactNode;
 }) {
   const strip = useRef<HTMLDivElement>(null);
   const drag = useRef<Drag | null>(null);
@@ -158,7 +158,7 @@ export default function SlideSequence({ items, selectedId, onSelect, onReorder, 
           <button className="sequence-thumbnail" type="button" aria-label={`Preview slide ${index + 1}: ${item.name}`} aria-pressed={selectedId === id} onClick={() => onSelect(id)} onPointerDown={event => begin(event, id)}>{renderMedia(id)}<span className="sequence-number">{String(index + 1).padStart(2, '0')}{index === 0 && ' · Cover'}</span></button>
           {index > 0 && <button className="sequence-remove" type="button" aria-label={`Remove slide ${index + 1}: ${item.name}`} title="Remove from post only" onClick={() => onRemove(id)}><X /></button>}
           <div className="sequence-card-footer">
-            {index === 0 ? <span className="sequence-cover-note">Cover stays first</span> : <>
+            {index === 0 ? onReplaceCover ? <button type="button" className="sequence-change-cover" onClick={onReplaceCover}>Change cover</button> : <span className="sequence-cover-note">Cover stays first</span> : <>
               <button type="button" aria-label={`Move slide ${index + 1} left`} disabled={index === 1} onClick={() => nudge(id, -1)}><ChevronLeft /></button>
               <button className="sequence-drag-handle" type="button" aria-label={`Drag slide ${index + 1} to reorder. Arrow keys also move it.`} title="Drag to reorder" onPointerDown={event => begin(event, id, true)} onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); nudge(id, event.key === 'ArrowLeft' ? -1 : 1); } }}><GripHorizontal /></button>
               <button type="button" aria-label={`Move slide ${index + 1} right`} disabled={index === order.length - 1} onClick={() => nudge(id, 1)}><ChevronRight /></button>

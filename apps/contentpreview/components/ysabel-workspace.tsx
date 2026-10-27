@@ -39,6 +39,8 @@ import UploadStatus, { UploadBadge, UploadRetry } from '@/components/upload-stat
 import MediaFileDrop from '@/components/media-file-drop';
 import VirtualMediaGrid from '@/components/virtual-media-grid';
 import SlideSequence from '@/components/slide-sequence';
+import CoverPicker from '@/components/cover-picker';
+import { saveCoverChange } from '@/lib/carousel-cover';
 import { coverSize, dragCropPosition } from '@/lib/grid-framing';
 import { mediaRequestError, validatePublishMedia, type UploadTask } from '@/lib/media-transfer';
 import { LOGIN_SCENE } from '@/lib/login-scene-config';
@@ -1056,9 +1058,9 @@ function GridPreview(props: FeedGridProps) {
   return <div className="grid-only"><div className="grid-only-title"><span>September direction</span><small>3 columns · {FEED_SIZE} positions</small></div><FeedGrid {...props} scale="large" /></div>;
 }
 
-function CarouselEditor({ asset, assets, onChange, onAddSlides, selectedId, onSelect }: {
+function CarouselEditor({ asset, assets, onChange, onAddSlides, onReplaceCover, selectedId, onSelect }: {
   asset: Asset; assets: Asset[]; onChange: (asset: Asset) => void; onAddSlides: () => void;
-  selectedId: string; onSelect: (id: string) => void;
+  selectedId: string; onSelect: (id: string) => void; onReplaceCover: () => void;
 }) {
   const slideIds = asset.slides || [];
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -1086,6 +1088,7 @@ function CarouselEditor({ asset, assets, onChange, onAddSlides, selectedId, onSe
     <SlideSequence
       items={[{ id: asset.id, name: asset.name }, ...slideIds.map(id => ({ id, name: byId.get(id)?.name || 'Media unavailable' }))]}
       selectedId={selectedId} onSelect={onSelect}
+      onReplaceCover={onReplaceCover}
       onReorder={ids => onChange({ ...asset, format: 'Carousel', slides: ids.slice(1) })}
       onRemove={id => onChange({ ...asset, slides: slideIds.filter(slideId => slideId !== id) })}
       renderMedia={id => { const slide = id === asset.id ? asset : byId.get(id); return slide ? <AssetVisual asset={slide} defer /> : <span>Media unavailable</span>; }}
@@ -1107,12 +1110,13 @@ function CarouselEditor({ asset, assets, onChange, onAddSlides, selectedId, onSe
   </div>;
 }
 
-export function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplicate, onReplace, onAddSlides }: {
+export function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplicate, onReplace, onChooseCover, onAddSlides, initialCoverPicker = false }: {
   asset: Asset | null; assets: Asset[]; onChange: (asset: Asset) => void; onClose: () => void; onRemove: () => void;
-  onDuplicate: () => void; onReplace: () => void; onAddSlides: () => void;
+  onDuplicate: () => void; onReplace: () => void; onChooseCover?: (id: string) => Promise<void>; onAddSlides: () => void; initialCoverPicker?: boolean;
 }) {
   const [selectedSlideId, setSelectedSlideId] = useState<string | null>(null);
-  useEffect(() => { setSelectedSlideId(null); }, [asset?.id]);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+  useEffect(() => { setSelectedSlideId(null); setCoverPickerOpen(Boolean(asset) && initialCoverPicker); }, [asset?.id, initialCoverPicker]);
   if (!asset) return null;
   const sequence = [asset, ...(asset.slides || []).map(id => assets.find(item => item.id === id)).filter(Boolean) as Asset[]];
   const selectedSlide = sequence.find(item => item.id === selectedSlideId) || asset;
@@ -1127,7 +1131,7 @@ export function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplic
           <SheetDescription>Arrange your story. Select a slide to see it larger. Changes save automatically.</SheetDescription>
         </SheetHeader>
         <div className="inspector-scroll">
-          <CarouselEditor key={asset.id} asset={asset} assets={assets} onChange={onChange} onAddSlides={onAddSlides} selectedId={selectedSlide.id} onSelect={setSelectedSlideId} />
+          <CarouselEditor key={asset.id} asset={asset} assets={assets} onChange={onChange} onAddSlides={onAddSlides} onReplaceCover={() => setCoverPickerOpen(true)} selectedId={selectedSlide.id} onSelect={setSelectedSlideId} />
           <div className="inspector-layout">
             <section className="inspector-stage" aria-label="Selected slide preview">
               <div className="inspector-preview-meta"><span>Slide {String(selectedIndex + 1).padStart(2, '0')} <small>/ {sequence.length}</small></span><div><Button variant="ghost" size="icon-sm" aria-label="Preview previous slide" disabled={selectedIndex === 0} onClick={() => setSelectedSlideId(sequence[selectedIndex - 1].id)}><ChevronLeft /></Button><Button variant="ghost" size="icon-sm" aria-label="Preview next slide" disabled={selectedIndex === sequence.length - 1} onClick={() => setSelectedSlideId(sequence[selectedIndex + 1].id)}><ChevronRight /></Button></div></div>
@@ -1161,10 +1165,11 @@ export function Inspector({ asset, assets, onChange, onClose, onRemove, onDuplic
                   <label>Internal notes<Textarea value={asset.notes} onChange={e => update('notes', e.target.value)} placeholder="Art direction notes…" /></label>
                 </div>
               </details>
-              <div className="inspector-actions"><Button variant="outline" onClick={onReplace}><Upload />Replace cover</Button><Button variant="outline" onClick={onDuplicate}><Copy />Duplicate post</Button><Button variant="ghost" onClick={onRemove}><Trash2 />Remove from feed</Button></div>
+              <div className="inspector-actions"><Button variant="outline" onClick={() => setCoverPickerOpen(true)}><Images />Change cover</Button><Button variant="outline" onClick={onDuplicate}><Copy />Duplicate post</Button><Button variant="ghost" onClick={onRemove}><Trash2 />Remove from feed</Button></div>
             </section>
           </div>
         </div>
+        {coverPickerOpen && <CoverPicker items={assets.filter(item => item.id !== asset.id)} slideIds={asset.slides || []} onClose={() => setCoverPickerOpen(false)} onUpload={onReplace} onChoose={onChooseCover || (async () => { throw new Error('Choose Upload new cover.'); })} renderMedia={id => { const item = assets.find(media => media.id === id); return item ? <AssetVisual asset={item} defer /> : null; }} />}
       </SheetContent>
     </Sheet>
   );
@@ -1211,6 +1216,7 @@ export default function YsabelWorkspace() {
   const [exchangeFirst, setExchangeFirst] = useState<number | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [activeBoardId, setActiveBoardId] = useState('board-september-2026');
+  const latestActiveBoardId = useRef(activeBoardId); latestActiveBoardId.current = activeBoardId;
   const [defaultBoardId, setDefaultBoardId] = useState<string | null>(null);
   const [monthsOpen, setMonthsOpen] = useState(false);
   const [monthYear, setMonthYear] = useState(new Date().getFullYear());
@@ -1227,12 +1233,13 @@ export default function YsabelWorkspace() {
   const [captionBulkText, setCaptionBulkText] = useState('');
   const [selectedNoteDate, setSelectedNoteDate] = useState('month');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [openCoverForId, setOpenCoverForId] = useState<string | null>(null);
   const [galleryPreviewId, setGalleryPreviewId] = useState<string | null>(null);
   const [postId, setPostId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<'Saved' | 'Saving…' | 'Not saved — check connection'>('Saved');
   const [mediaProcessing, setMediaProcessing] = useState('');
   const [uploadTasks, setUploadTasks] = useState<UploadTask[]>([]);
-  const uploadRecords = useRef(new Map<string, { file: File; boardId: string; replacementId: string | null; carouselId: string | null }>());
+  const uploadRecords = useRef(new Map<string, { file: File; boardId: string; replacementId: string | null; replacementSourceId?: string; carouselId: string | null }>());
   const activeUploads = useRef(new Set<string>());
   const latestAssets = useRef(assets); latestAssets.current = assets;
   const latestFeeds = useRef(feeds); latestFeeds.current = feeds;
@@ -1261,7 +1268,8 @@ export default function YsabelWorkspace() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const carouselInput = useRef<HTMLInputElement>(null);
-  const replaceTarget = useRef<string | null>(null);
+  const coverInput = useRef<HTMLInputElement>(null);
+  const coverUploadTarget = useRef<{ id: string; boardId: string } | null>(null);
   const noteSaveTimer = useRef<number | null>(null);
   const assetSaveTimers = useRef(new Map<string, number>());
   const persistenceQueue = useRef<Promise<void>>(Promise.resolve());
@@ -1885,6 +1893,33 @@ export default function YsabelWorkspace() {
       if (!uploadRecords.current.has(id)) { URL.revokeObjectURL(preview); return; }
       if (!saved.id || saved.id.startsWith('local-')) throw new Error('The server did not confirm this upload. Please retry.');
       const normalized = { ...saved, url: mediaUrl({ ...saved, url: '/contentpreview/api/media/' + saved.id }, authToken) };
+      if (record.replacementId) {
+        const previous = latestAssets.current.find(item => item.id === record.replacementId);
+        if (!previous) throw new Error('The original post is no longer available. Your uploaded cover is safe on the server.');
+        validatePublishMedia([previous.id], latestAssets.current);
+        const source = latestAssets.current.find(item => item.id === record.replacementSourceId);
+        const coverMedia = source ? { ...normalized, cropX: source.cropX, cropY: source.cropY, cropZoom: source.cropZoom } : normalized;
+        // Save the complete carousel before changing any grid reference. Failed
+        // uploads/saves never remove the current post or its published snapshot.
+        const { replacement, previousFeed, nextFeed } = await saveCoverChange({
+          post: previous, media: coverMedia, sourceId: record.replacementSourceId,
+          readFeed: () => latestFeeds.current[record.boardId] || emptyFeed(),
+          saveAsset: asset => persist({ action: 'save', boardId: record.boardId, asset }),
+          savePositions: positions => persist({ action: 'save', boardId: record.boardId, positions }),
+        });
+        const nextAssets = [replacement, ...latestAssets.current.filter(item => item.id !== id && item.id !== replacement.id)];
+        latestAssets.current = nextAssets; setAssets(nextAssets);
+        const nextFeeds = { ...latestFeeds.current, [record.boardId]: nextFeed };
+        latestFeeds.current = nextFeeds; setFeeds(nextFeeds);
+        if (latestActiveBoardId.current === record.boardId) {
+          if (previousFeed.includes(previous.id)) { setHistory(current => [...current.slice(-29), previousFeed]); setFuture([]); }
+          setOpenCoverForId(null);
+          setSelectedId(current => current === previous.id || current === id ? replacement.id : current);
+        }
+        phase('uploaded', undefined, replacement.id);
+        uploadRecords.current.delete(id); URL.revokeObjectURL(preview);
+        return;
+      }
       const remap = (positions: (string | null)[]) => positions.map(value => value === id ? saved.id : value);
       const changedParents = new Set(latestAssets.current.filter(item => item.slides?.includes(id)).map(item => item.id));
       const nextAssets = latestAssets.current.map(item => item.id === id ? normalized : {
@@ -1897,9 +1932,6 @@ export default function YsabelWorkspace() {
       const nextFeeds = { ...latestFeeds.current };
       for (const [boardId, feed] of Object.entries(nextFeeds)) {
         const next = remap(feed);
-        if (boardId === record.boardId && record.replacementId) {
-          for (let index = 0; index < next.length; index++) if (next[index] === record.replacementId) next[index] = saved.id;
-        }
         if (next.some((value, index) => value !== feed[index])) {
           nextFeeds[boardId] = next;
           void persist({ action: 'save', boardId, positions: next });
@@ -1924,13 +1956,12 @@ export default function YsabelWorkspace() {
     uploadQueue.current = uploadQueue.current.catch(() => undefined).then(() => runUpload(id));
     return uploadQueue.current;
   };
-  const addUploads = async (files: FileList | File[] | null, carouselId: string | null = null) => {
+  const addUploads = async (files: FileList | File[] | null, carouselId: string | null = null, replacement?: { id: string; boardId: string; sourceId?: string }) => {
     if (!files?.length) return;
-    const replacementId = replaceTarget.current; replaceTarget.current = null;
-    const chosen = Array.from(files).slice(0, carouselId ? Math.max(0, 39 - (latestAssets.current.find(a => a.id === carouselId)?.slides || []).length) : undefined);
+    const chosen = Array.from(files).slice(0, replacement ? 1 : carouselId ? Math.max(0, 39 - (latestAssets.current.find(a => a.id === carouselId)?.slides || []).length) : undefined);
     for (const [index, file] of chosen.entries()) {
       const id = 'local-' + crypto.randomUUID();
-      uploadRecords.current.set(id, { file, boardId: activeBoardId, replacementId: index === 0 ? replacementId : null, carouselId });
+      uploadRecords.current.set(id, { file, boardId: replacement?.boardId || activeBoardId, replacementId: index === 0 ? replacement?.id || null : null, replacementSourceId: replacement?.sourceId, carouselId });
       setUploadTasks(current => [...current, { id, name: file.name, phase: 'preparing' }]);
       void queueUpload(id);
     }
@@ -1940,12 +1971,27 @@ export default function YsabelWorkspace() {
   };
   const uploadFiles = (files: FileList | File[] | null) => addUploads(files);
   const uploadDroppedFiles = (files: File[]) => {
-    // A cancelled Replace picker must never make a library drop replace a post.
-    replaceTarget.current = null;
+    // Replacement is explicit and confined to its own single-file input.
     setLibraryFilter('all');
     void uploadFiles(files);
   };
   const uploadCarouselFiles = (files: FileList | null, targetId: string | null) => addUploads(files, targetId);
+  const uploadCoverFile = (files: FileList | null) => {
+    const target = coverUploadTarget.current; coverUploadTarget.current = null;
+    if (target && files?.length) void addUploads(Array.from(files), null, target);
+    if (coverInput.current) coverInput.current.value = '';
+  };
+  const chooseLibraryCover = async (sourceId: string) => {
+    if (!selectedAsset) throw new Error('Open a post first.');
+    const target = { id: selectedAsset.id, boardId: activeBoardId, sourceId };
+    const source = latestAssets.current.find(item => item.id === sourceId);
+    if (!source || source.id.startsWith('local-')) throw new Error('Wait until this media is uploaded, then retry.');
+    // A separate media record prevents changing a source used by another post.
+    const response = await authFetch(source.url);
+    if (!response.ok) throw await mediaRequestError(response, 'Load cover');
+    const blob = await response.blob();
+    await addUploads([new File([blob], source.fileName, { type: source.mimeType || blob.type })], null, target);
+  };
 
   const toggleMediaSelection = (id: string) => {
     setMediaSelection((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -2107,6 +2153,9 @@ export default function YsabelWorkspace() {
     if (!activeBoard || publishing) return;
     setPublishing(true); setPublishError('');
     try {
+      if ([...uploadRecords.current.values()].some(record => record.boardId === activeBoardId && record.replacementId)) {
+        throw new Error('Your new cover is not ready yet. Wait for Uploaded, or retry the failed cover upload, before publishing.');
+      }
       const referenced = validatePublishMedia(positions, assets);
       await persistenceQueue.current.catch(() => undefined);
       const check = await authFetch('/contentpreview/api/workspace', { cache: 'no-store' });
@@ -2243,6 +2292,7 @@ export default function YsabelWorkspace() {
       </Dialog>
       <input ref={fileInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadFiles(event.target.files)} />
       <input ref={carouselInput} className="sr-file" type="file" multiple accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={(event) => uploadCarouselFiles(event.target.files, selectedId)} />
+      <input ref={coverInput} className="sr-file" type="file" aria-label="Upload a replacement cover" accept="image/jpeg,image/png,image/webp,video/*,.mkv,.avi,.wmv,.flv,.mts,.m2ts,.3gp,.3g2,.ogv" onChange={event => uploadCoverFile(event.target.files)} />
       <WorkspaceNavigation section={section} onNavigate={setSection} />
 
       <section className="workspace">
@@ -2422,7 +2472,7 @@ export default function YsabelWorkspace() {
       </section>
 
       <UploadStatus tasks={uploadTasks} onRetry={id => { void queueUpload(id); }} onDismiss={() => setUploadTasks(current => current.filter(task => task.phase !== 'uploaded'))} />
-      <Inspector asset={selectedAsset} assets={assets} onClose={() => setSelectedId(null)} onChange={updateAsset} onReplace={() => { replaceTarget.current = selectedAsset?.id || null; fileInput.current?.click(); }} onAddSlides={() => carouselInput.current?.click()} onDuplicate={() => { if (!selectedAsset) return; void authFetch(selectedAsset.url).then(async response => { if (!response.ok) throw await mediaRequestError(response, 'Duplicate'); const blob = await response.blob(); await uploadFiles([new File([blob], selectedAsset.fileName, { type: selectedAsset.mimeType })]); }).catch(error => setPublishError(error.message)); }} onRemove={() => { if (!selectedId) return; commitFeed(positions.map((id) => id === selectedId ? null : id)); setSelectedId(null); }} />
+      <Inspector asset={selectedAsset} assets={assets} initialCoverPicker={openCoverForId === selectedId && selectedId !== null} onClose={() => { setSelectedId(null); setOpenCoverForId(null); }} onChange={updateAsset} onChooseCover={chooseLibraryCover} onReplace={() => { if (!selectedAsset) return; coverUploadTarget.current = { id: selectedAsset.id, boardId: activeBoardId }; coverInput.current?.click(); }} onAddSlides={() => carouselInput.current?.click()} onDuplicate={() => { if (!selectedAsset) return; void authFetch(selectedAsset.url).then(async response => { if (!response.ok) throw await mediaRequestError(response, 'Duplicate'); const blob = await response.blob(); await uploadFiles([new File([blob], selectedAsset.fileName, { type: selectedAsset.mimeType })]); }).catch(error => setPublishError(error.message)); }} onRemove={() => { if (!selectedId) return; commitFeed(positions.map((id) => id === selectedId ? null : id)); setSelectedId(null); }} />
 
       {(() => {
         const asset = assets.find(item => item.id === galleryPreviewId);
@@ -2434,7 +2484,7 @@ export default function YsabelWorkspace() {
           onClose={() => setGalleryPreviewId(null)} onPrevious={() => next(-1)} onNext={() => next(1)}
           onDetails={() => { setGalleryPreviewId(null); setSelectedId(asset.id); setEdit(true); }} />;
       })()}
-      <Dialog open={Boolean(postAsset)} onOpenChange={(open) => !open && setPostId(null)}><DialogContent className="post-dialog" showCloseButton><DialogHeader className="sr-only"><DialogTitle>Instagram post preview</DialogTitle><DialogDescription>Preview of the selected planned Instagram post.</DialogDescription></DialogHeader>{postAsset && <div className="post-layout"><div className="post-media"><CarouselVisual key={postAsset.id} asset={postAsset} assets={displayAssets} contain /></div><div className="post-copy-panel"><header><BrandAvatar size="sm" /><span><strong>{instagramProfile.username}</strong><small>{instagramProfile.location}</small></span><MoreHorizontal /></header><div className="post-caption"><BrandAvatar size="sm" /><p><strong>{instagramProfile.username}</strong> {postAsset.caption || 'A study in taste, art and rhythm.'}</p></div><div className="post-actions"><span><Heart /><MessageCircle /><Send /></span><Download /></div><strong className="likes">Liked by the Ysabel Society team</strong><small className="post-date">{postAsset.plannedDate ? new Date(postAsset.plannedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 'Date not assigned'}</small></div></div>}</DialogContent></Dialog>
+      <Dialog open={Boolean(postAsset)} onOpenChange={(open) => !open && setPostId(null)}><DialogContent className="post-dialog" showCloseButton><DialogHeader className="sr-only"><DialogTitle>Instagram post preview</DialogTitle><DialogDescription>Preview of the selected planned Instagram post.</DialogDescription></DialogHeader>{postAsset && <div className="post-layout"><div className="post-media"><CarouselVisual key={postAsset.id} asset={postAsset} assets={displayAssets} contain /></div><div className="post-copy-panel"><header><BrandAvatar size="sm" /><span><strong>{instagramProfile.username}</strong><small>{instagramProfile.location}</small></span><MoreHorizontal /></header><div className="post-caption"><BrandAvatar size="sm" /><p><strong>{instagramProfile.username}</strong> {postAsset.caption || 'A study in taste, art and rhythm.'}</p></div><div className="post-actions"><span><Heart /><MessageCircle /><Send /></span><Download /></div><strong className="likes">Liked by the Ysabel Society team</strong><small className="post-date">{postAsset.plannedDate ? new Date(postAsset.plannedDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' }) : 'Date not assigned'}</small></div></div>}{postAsset && !presentation && <div className="post-edit-cover"><span>Change only the cover. Keep the rest of your carousel.</span><Button variant="outline" onClick={() => { const id = postAsset.id; setPostId(null); setEdit(true); setSection('feed'); if (positions.includes(id) && byId.has(id)) { setSelectedId(id); setOpenCoverForId(id); } }}>{positions.includes(postAsset.id) ? 'Change cover' : 'Edit current draft'}</Button></div>}</DialogContent></Dialog>
 
       <Dialog open={autoPreview} onOpenChange={setAutoPreview}><DialogContent className="auto-dialog" showCloseButton={false}><DialogHeader className="auto-head"><DialogTitle>Auto Preview</DialogTitle><DialogDescription>Cinematic sequence review · {activeBoard?.name}</DialogDescription></DialogHeader><div className="auto-stage">{(() => { const planned = displayPositions.filter(Boolean) as string[]; const asset = displayById.get(planned[autoIndex % Math.max(1, planned.length)]); return asset ? <CarouselVisual key={asset.id} asset={asset} assets={displayAssets} contain /> : <span>No planned media</span>; })()}</div><div className="auto-controls"><Button variant="ghost" size="icon" onClick={() => { const count = Math.max(1, displayPositions.filter(Boolean).length); setAutoIndex((autoIndex - 1 + count) % count); }}><ChevronLeft /></Button><Button className="auto-play" size="icon-lg" onClick={() => setAutoPlaying(!autoPlaying)}>{autoPlaying ? <Pause /> : <Play fill="currentColor" />}</Button><Button variant="ghost" size="icon" onClick={() => setAutoIndex((autoIndex + 1) % Math.max(1, displayPositions.filter(Boolean).length))}><ChevronRight /></Button><Select value={String(autoTiming)} onValueChange={(value) => setAutoTiming(Number(value))}><SelectTrigger size="sm"><SelectValue /></SelectTrigger><SelectContent>{[2,4,6].map((n) => <SelectItem key={n} value={String(n)}>{n} sec</SelectItem>)}</SelectContent></Select><Button variant="ghost" onClick={() => setAutoPreview(false)}>Close</Button></div></DialogContent></Dialog>
 

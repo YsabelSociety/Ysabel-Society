@@ -49,6 +49,7 @@ import { bindSlideVideoPlayback, currentGridVideo, pauseOtherPreviewVideos, play
 import { usePreviewView } from '@/lib/use-preview-view';
 import { bindFeedPointerDrag } from '@/lib/feed-pointer-drag';
 import { createWorkspaceLoader } from '@/lib/workspace-loader';
+import { FEED_SIZE, emptyFeed, readStoredFeed, readStoredFeedRows, workspacePayload, writeStoredFeed } from '@/lib/feed-layout';
 
 const loadOccasions = () => import('@/components/occasions-calendar');
 const loadEmail = () => import('@/components/email-marketing');
@@ -91,9 +92,7 @@ type WorkspaceData = {
   publications: Publication[];
 };
 
-const FEED_SIZE = 12;
 const PREVIEW_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const emptyFeed = () => Array<string | null>(FEED_SIZE).fill(null);
 const COMMUNITY_CAPTION_STORAGE_KEY = 'ysabel_community_captions_v1';
 const SESSION_TOKEN_KEY = 'ysabel_session_token';
 const SESSION_TOKEN_PERSISTENT_KEY = 'ysabel_session_token_persistent';
@@ -559,8 +558,7 @@ function readPublishedSnapshot(publication?: Publication, token = '') {
   if (!publication) return null;
   try {
     const parsed = JSON.parse(publication.snapshot) as { positions?: (string | null)[]; assets?: (Asset & { publicPath?: string })[] };
-    const positions = emptyFeed();
-    (parsed.positions || []).slice(0, FEED_SIZE).forEach((id, index) => { positions[index] = id || null; });
+    const positions = readStoredFeed(parsed.positions || []);
     const assets = (parsed.assets || []).map((asset) => ({
       ...asset,
       slides: Array.isArray(asset.slides) ? asset.slides : [],
@@ -1352,8 +1350,12 @@ export default function YsabelWorkspace() {
       if (savedDefault) setActiveBoardId(savedDefault);
       if (Array.isArray(data.positions)) {
         const next: Record<string, (string | null)[]> = {};
-        for (const board of nextBoards) next[board.id] = emptyFeed();
-        for (const item of data.positions) { if (!next[item.boardId]) next[item.boardId] = emptyFeed(); if (item.position < FEED_SIZE) next[item.boardId][item.position] = item.mediaId; }
+        const rowsByBoard = new Map<string, WorkspaceData['positions']>();
+        for (const item of data.positions) {
+          const rows = rowsByBoard.get(item.boardId) || [];
+          rows.push(item); rowsByBoard.set(item.boardId, rows);
+        }
+        for (const board of nextBoards) next[board.id] = readStoredFeedRows(rowsByBoard.get(board.id) || []);
         setFeeds(next);
       } else setFeeds({});
       setNotes(Array.isArray(data.notes) ? data.notes : []);
@@ -1466,7 +1468,7 @@ export default function YsabelWorkspace() {
     setSaveState('Saving…');
     // Preserve gesture order even if the connection completes requests out of order.
     const saved = persistenceQueue.current.catch(() => undefined).then(async () => {
-      const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+      const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(workspacePayload(payload)) });
       if (response.status === 401) {
         setWorkspaceReady(false);
         setAuthToken('');
@@ -1745,7 +1747,7 @@ export default function YsabelWorkspace() {
         execute(input) { const value = (input as { view?: string }).view; if (!['mobile','desktop','grid'].includes(String(value))) throw new Error('Invalid view'); setView(value as ViewMode); setSection('feed'); return { view: value }; },
       }, { signal: lifecycle.signal }),
       context.registerTool({
-        name: 'rearrange_feed', title: 'Rearrange feed', description: 'Move or swap one 1-based position with another in the active 12-position feed.',
+        name: 'rearrange_feed', title: 'Rearrange feed', description: `Move or swap one 1-based position with another in the active ${FEED_SIZE}-position feed.`,
         inputSchema: { type: 'object', properties: { fromPosition: { type: 'integer', minimum: 1, maximum: FEED_SIZE }, toPosition: { type: 'integer', minimum: 1, maximum: FEED_SIZE }, behavior: { type: 'string', enum: ['swap', 'insert'] } }, required: ['fromPosition','toPosition'], additionalProperties: false },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute(input) { const value = input as { fromPosition: number; toPosition: number; behavior?: RearrangeMode }; if (!Number.isInteger(value.fromPosition) || !Number.isInteger(value.toPosition)) throw new Error('Positions must be integers'); moveFeed(value.fromPosition - 1, value.toPosition - 1, value.behavior || 'swap'); return { moved: true, fromPosition: value.fromPosition, toPosition: value.toPosition, behavior: value.behavior || 'swap' }; },
@@ -2083,8 +2085,7 @@ export default function YsabelWorkspace() {
       const response = await authFetch('/contentpreview/api/workspace', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ action: 'ensure-month', year: monthYear, month }) });
       if (!response.ok) throw await mediaRequestError(response, 'Open month');
       const data = await response.json() as { board: Board; publication: Publication; positions: WorkspaceData['positions'] };
-      const nextPositions = emptyFeed();
-      data.positions.forEach(item => { if (item.position >= 0 && item.position < FEED_SIZE) nextPositions[item.position] = item.mediaId; });
+      const nextPositions = readStoredFeedRows(data.positions);
       setBoards(current => [data.board, ...current.filter(board => board.id !== data.board.id)]);
       setFeeds(current => ({ ...current, [data.board.id]: nextPositions }));
       setPublications(current => [data.publication, ...current.filter(item => item.boardId !== data.board.id)]);
@@ -2122,7 +2123,7 @@ export default function YsabelWorkspace() {
       const id = crypto.randomUUID();
       const fallbackPositions = duplicate ? [...positions] : emptyFeed();
       setBoards((current) => [{ id, name, archived: false }, ...current]); setFeeds((current) => ({ ...current, [id]: fallbackPositions })); setActiveBoardId(id);
-      setPublications((current) => [{ boardId: id, snapshot: JSON.stringify({ positions: fallbackPositions, assets }), publishedAt: Date.now() }, ...current]);
+      setPublications((current) => [{ boardId: id, snapshot: JSON.stringify({ positions: writeStoredFeed(fallbackPositions), assets }), publishedAt: Date.now() }, ...current]);
       setCaptionStore((current) => ({ ...current, [id]: cloneCaptionPool(newCaptionPool) }));
     }
     setNewBoardOpen(false);
@@ -2168,7 +2169,7 @@ export default function YsabelWorkspace() {
       }
       const response = await authFetch('/contentpreview/api/workspace', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'publish-board', boardId: activeBoardId, positions, assets: assets.filter((asset) => referenced.has(asset.id)) }),
+        body: JSON.stringify(workspacePayload({ action: 'publish-board', boardId: activeBoardId, positions, assets: assets.filter((asset) => referenced.has(asset.id)) })),
       });
       if (!response.ok) throw await mediaRequestError(response, 'Publish');
       const publication = await response.json() as Publication;

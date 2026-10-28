@@ -17,7 +17,7 @@ function TestPage() {
   const [edit, setEdit] = useState(true);
   const [opens, setOpens] = useState(0);
   const [drags, setDrags] = useState(0);
-  const [positions, setPositions] = useState<(string | null)[]>(['grid-fixture-0', 'grid-fixture-3', ...Array(10).fill(null)]);
+  const [positions, setPositions] = useState<(string | null)[]>(['grid-fixture-0', 'grid-fixture-3', ...Array(13).fill(null)]);
   const [mode, setMode] = useState<'swap' | 'insert'>('swap');
   const pointerDrag = useRef<FeedPointerDrag | null>(null);
   const suppressDragClickUntil = useRef(0);

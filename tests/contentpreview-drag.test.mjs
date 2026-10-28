@@ -11,14 +11,14 @@ const pointerSource = readFileSync('apps/contentpreview/lib/feed-pointer-drag.ts
 test('every grid position can swap or insert into every other position without losing posts', () => {
   const start = source.indexOf('  const moveFeed =');
   const code = compile(source.slice(start, source.indexOf('\n  useEffect', start)) + '\nmoveFeed');
-  for (const mode of ['swap', 'insert']) for (let from = 0; from < 12; from++) for (let to = 0; to < 12; to++) {
-    const positions = Array.from({ length: 12 }, (_, i) => `photo-${i}`);
+  for (const mode of ['swap', 'insert']) for (let from = 0; from < 15; from++) for (let to = 0; to < 15; to++) {
+    const positions = Array.from({ length: 15 }, (_, i) => `photo-${i}`);
     let result = positions;
-    const move = vm.runInNewContext(code, { positions, FEED_SIZE: 12, rearrangeMode: mode, commitFeed: (next) => { result = next; } });
+    const move = vm.runInNewContext(code, { positions, FEED_SIZE: 15, rearrangeMode: mode, commitFeed: (next) => { result = next; } });
     move(from, to);
     assert.equal(result[to], positions[from]);
-    assert.equal(result.length, 12);
-    assert.equal(new Set(result).size, 12);
+    assert.equal(result.length, 15);
+    assert.equal(new Set(result).size, 15);
     if (mode === 'swap') assert.equal(result[from], positions[to]);
   }
 });

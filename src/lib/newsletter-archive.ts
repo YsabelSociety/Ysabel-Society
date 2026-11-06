@@ -1,6 +1,19 @@
 // Public, published editions only. Keep the newest edition first.
 export const newsletterArchive = [
   {
+    id: "garden-of-eden-anniversary",
+    title: "The Garden of Eden",
+    venue: "Ysabel Society",
+    published: "2026-11-06",
+    dateLabel: "6 November 2026",
+    description:
+      "An invitation to celebrate one year of Ysabel Society on 14 November, with live performances across Italian, Asian, and Garden.",
+    href: "/library/newsletters/gardenofeden/index.html",
+    image: "/library/newsletters/gardenofeden/assets/eden-archive-card.jpg",
+    imageAlt: "Horses and wildlife in a painted Garden of Eden scene",
+    imagePosition: "50% 50%",
+  },
+  {
     id: "forbidden-garden",
     title: "The Forbidden Garden",
     venue: "Ysabel Garden",

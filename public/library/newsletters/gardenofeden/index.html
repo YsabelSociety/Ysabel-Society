@@ -58,10 +58,9 @@ img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
 (() => {
   const film = document.querySelector('.closing-video');
   const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  let inView = false;
   let attempt = 0;
 
-  const shouldPlay = () => inView && !document.hidden && !reducedMotion.matches;
+  const shouldPlay = () => !document.hidden && !reducedMotion.matches;
 
   async function sync() {
     const current = ++attempt;
@@ -91,18 +90,7 @@ img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
 
   document.addEventListener('visibilitychange', sync);
   reducedMotion.addEventListener?.('change', sync);
-  if ('IntersectionObserver' in window) {
-    new IntersectionObserver(([entry]) => {
-      const next = entry.isIntersecting && entry.intersectionRatio >= .45;
-      if (inView !== next) {
-        inView = next;
-        sync();
-      }
-    }, { threshold: [.45] }).observe(film);
-  } else {
-    inView = true;
-    sync();
-  }
+  sync();
 })();
 </script>
 </body></html>

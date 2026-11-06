@@ -80,6 +80,15 @@ img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}
     }
   }
 
+  function retryAudiblePlayback(event) {
+    if (!event.isTrusted || !shouldPlay() || (!film.muted && !film.paused)) return;
+    if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+    sync();
+  }
+
+  document.addEventListener('click', retryAudiblePlayback, { capture: true });
+  document.addEventListener('keydown', retryAudiblePlayback);
+
   document.addEventListener('visibilitychange', sync);
   reducedMotion.addEventListener?.('change', sync);
   if ('IntersectionObserver' in window) {

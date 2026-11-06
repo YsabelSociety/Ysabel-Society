@@ -199,7 +199,8 @@ export function HistoryImport({ source }: { source?: string }) {
                 )}
                 {job?.checks && (
                   <details>
-                    <summary>Latest report checks</summary>
+                    <summary>Saved history scan checks</summary>
+                    <p>These results describe the last history scan. Current refresh results appear in Sync details.</p>
                     {job.checks.map((c, i) => (
                       <p key={c.key + i}>
                         {c.label}: {c.status} · {c.detail}

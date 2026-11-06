@@ -71,7 +71,9 @@ export function AllPlatformViews({
   const combined = sources.filter(source => source.available).reduce((sum, source) => sum + source.value, 0);
   const priorValues = sources.map(source => source.previous).filter((value): value is number => value !== null);
   const prior = priorValues.reduce((sum, value) => sum + value, 0);
-  const delta = prior > 0 && sources.some(source => source.available) ? change(combined, prior) : null;
+  // The comparison rows already omit metrics with incomplete daily coverage.
+  const comparable = sources.every(source => source.hasDaily && source.previous !== null);
+  const delta = comparable && prior > 0 ? change(combined, prior) : null;
   const dates = [...new Set([
     ...rows.map(row => row.date),
     ...tiktokPosts.map(post => post.date.slice(0, 10)),
@@ -79,7 +81,7 @@ export function AllPlatformViews({
   const trend = dates.map(date => sources.reduce((sum, source) => {
     const dated = rows.filter(row => row.channel === source.channel && row.date === date);
     if (reported(dated, source.metric)) return sum + total(dated, source.metric);
-    if (source.channel === 'TikTok' && source.metric === 'views')
+    if (source.channel === 'TikTok' && !source.hasDaily)
       return sum + tiktokPosts.filter(post => post.date.slice(0, 10) === date).reduce((value, post) => value + Number(post.views || 0), 0);
     return sum;
   }, 0));
